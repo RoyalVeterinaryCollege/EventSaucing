@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
+[assembly: AssemblyCompany("Royal Veterinary College")]
 [assembly: AssemblyProduct("EventSaucing")]
 [assembly: AssemblyTrademark("")]
 
@@ -17,3 +17,4 @@ using System.Runtime.InteropServices;
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
 [assembly: Guid("5a2797d0-4185-41e0-87ac-e174ca7cd916")]
+[assembly: AssemblyCopyright("© The Royal Veterinary College. All Rights Reserved 2017")]
