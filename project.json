@@ -1,7 +1,7 @@
 {
-  "copyright": "© The Royal Veterinary College. All Rights Reserved 2017",
+  "copyright": "ï¿½ The Royal Veterinary College. All Rights Reserved 2017",
   "title": "Event Saucing",
-  "version": "0.1.0.0",
+    "version": "1.0.1",
 
   "dependencies": {
     "Microsoft.Extensions.Logging": "1.0.0",
