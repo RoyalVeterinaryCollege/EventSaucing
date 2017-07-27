@@ -10,7 +10,7 @@ This library brings together different stacks to create an Event Sourcing soluti
 > - [Event Sourcing design](https://martinfowler.com/eaaDev/EventSourcing.html)
 
 ### Installing
-The latest release of EventSaucing is available on NuGet or can be downloaded from GitHub.
+The latest release of EventSaucing is available on [NuGet](https://www.nuget.org/).
 
 ### Usage
 Once referenced in your project you need to configure it in your Startup inside ``ConfigureServices``.
@@ -92,9 +92,9 @@ public class FooProjector: ProjectorBase {
 ```
 
 ### Dependencies
-[Dapper](https://github.com/StackExchange/Dapper) - Used to interact with the sql persistence store.
-[NEventStore](https://github.com/NEventStore/NEventStore) - Used for storage of the event stream.
-[Serilog](https://github.com/serilog/serilog) - Used for logging.
-[Akka.NET](https://github.com/akkadotnet/akka.net/) - Used to deliver deliver events to aggregates & projectors. 
-[Autofac](https://github.com/autofac/Autofac) - Used for dependency injection.
-[Scalesque](https://github.com/NoelKennedy/scalesque) - Used to add functional programming in c#.
+- [Dapper](https://github.com/StackExchange/Dapper) - Used to interact with the sql persistence store.
+- [NEventStore](https://github.com/NEventStore/NEventStore) - Used for storage of the event stream.
+- [Serilog](https://github.com/serilog/serilog) - Used for logging.
+- [Akka.NET](https://github.com/akkadotnet/akka.net/) - Used to deliver deliver events to aggregates & projectors. 
+- [Autofac](https://github.com/autofac/Autofac) - Used for dependency injection.
+- [Scalesque](https://github.com/NoelKennedy/scalesque) - Used to add functional programming in c#.
