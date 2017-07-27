@@ -9,10 +9,10 @@ This library brings together different stacks to create an Event Sourcing soluti
 > - [Dapper](http://dapper-tutorial.net/dapper)
 > - [Event Sourcing design](https://martinfowler.com/eaaDev/EventSourcing.html)
 
-###Installing
+### Installing
 The latest release of EventSaucing is available on NuGet or can be downloaded from GitHub.
 
-###Usage
+### Usage
 Once referenced in your project you need to configure it in your Startup inside ``ConfigureServices``.
 ```
 var builder = new ContainerBuilder();
@@ -48,7 +48,7 @@ public class FooAggregate : Aggregate {
 // A POCO for the event state
 public class FooCreated {
   public FooCreated(int bar) {
-  Bar = bar;
+    Bar = bar;
   }
   public int Bar { get; }
 }
@@ -63,8 +63,8 @@ public class FooProjector: ProjectorBase {
 
   public FooProjector(IDbService dbService, IPersistStreams persistStreams):base(persistStreams, dbService) {
     var conventionalDispatcher = new ConventionBasedEventDispatcher(c => Checkpoint = c.ToSome())
-	  .FirstProject<FooCreated>(OnFooCreated)
-	  .ThenProject<SomeEvent>(OnSomeEventHandler);
+      .FirstProject<FooCreated>(OnFooCreated)
+      .ThenProject<SomeEvent>(OnSomeEventHandler);
 
     _conventionProjector = new ConventionBasedCommitProjecter(this, dbService, conventionalDispatcher);
   }
@@ -91,7 +91,7 @@ public class FooProjector: ProjectorBase {
   }
 ```
 
-###Dependencies
+### Dependencies
 [Dapper](https://github.com/StackExchange/Dapper) - Used to interact with the sql persistence store.
 [NEventStore](https://github.com/NEventStore/NEventStore) - Used for storage of the event stream.
 [Serilog](https://github.com/serilog/serilog) - Used for logging.
