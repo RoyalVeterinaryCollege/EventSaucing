@@ -75,7 +75,7 @@ namespace EventSaucing.Projector {
         /// <param name="commit"></param>
         /// <returns>bool</returns>
         public bool CanProject(ICommit commit) =>
-            _canProjectPredicate.Map(f=>f(commit)).GetOrElse(true) && commit.Events.Any(eventMessage =>
+            _canProjectPredicate.Map(f=>f(commit)).GetOrElse(true) && commit.Events.Any(eventMessage => eventMessage != null &&
                 _orderedPartialFunctions.Any(pf => pf.IsDefined(eventMessage.Body)));
 
         /// <summary>
@@ -84,7 +84,7 @@ namespace EventSaucing.Projector {
         /// <param name="tx"></param>
         /// <param name="commit"></param>
         public void Project(IDbTransaction tx, ICommit commit) {
-            foreach (var eventMessage in commit.Events) {
+            foreach (var eventMessage in commit.Events.Where(eventMessage => eventMessage != null)) {
                 foreach (var partialFunction in _orderedPartialFunctions) {
                     if (partialFunction.IsDefined(eventMessage.Body))
                         partialFunction.Function(tx, commit, eventMessage.Body);
