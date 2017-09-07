@@ -12,11 +12,12 @@ namespace EventSaucing.Projector {
     /// </summary>
     public class ConventionBasedEventDispatcher {
         private readonly Action<long> _setProjectorCheckpoint;
+		private readonly Action<ICommit> _nullEventMessageHandler;
 
-        /// <summary>
-        /// This is a c sharp implementation of partial functions which are functions which can only operate on some subset of the input parameters  
-        /// </summary>
-        private class PartialFunction {
+		/// <summary>
+		/// This is a c sharp implementation of partial functions which are functions which can only operate on some subset of the input parameters  
+		/// </summary>
+		private class PartialFunction {
             /// <summary>
             /// Test if the Function can apply to the parameter object.  Returns true iif the Function can apply to the parameter
             /// </summary>
@@ -38,9 +39,10 @@ namespace EventSaucing.Projector {
         /// Instantiates the convent-based event projector
         /// </summary>
         /// <param name="setProjectorCheckpoint">An action to update the projector's checkpoint</param>
-        public ConventionBasedEventDispatcher(Action<long> setProjectorCheckpoint) {
+        public ConventionBasedEventDispatcher(Action<long> setProjectorCheckpoint, Action<ICommit> nullEventMessageHandler = null) {
             _setProjectorCheckpoint = setProjectorCheckpoint;
-        }
+			_nullEventMessageHandler = nullEventMessageHandler;
+		}
 
         public ConventionBasedEventDispatcher FirstProject<T>(Action<IDbTransaction, ICommit, T> a) {
             return AddPartialFunction(a);
@@ -84,11 +86,16 @@ namespace EventSaucing.Projector {
         /// <param name="tx"></param>
         /// <param name="commit"></param>
         public void Project(IDbTransaction tx, ICommit commit) {
-            foreach (var eventMessage in commit.Events.Where(eventMessage => eventMessage != null)) {
-                foreach (var partialFunction in _orderedPartialFunctions) {
-                    if (partialFunction.IsDefined(eventMessage.Body))
-                        partialFunction.Function(tx, commit, eventMessage.Body);
-                }
+            foreach (var eventMessage in commit.Events) {
+				if (eventMessage == null && _nullEventMessageHandler != null) {
+					_nullEventMessageHandler(commit);
+				}
+				else {
+					foreach (var partialFunction in _orderedPartialFunctions) {
+						if (partialFunction.IsDefined(eventMessage.Body))
+							partialFunction.Function(tx, commit, eventMessage.Body);
+					}
+				}
             }
             AdvanceProjectorCheckpoint(commit);
         }
