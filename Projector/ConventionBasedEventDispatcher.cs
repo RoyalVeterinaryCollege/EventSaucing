@@ -39,10 +39,13 @@ namespace EventSaucing.Projector {
         /// Instantiates the convent-based event projector
         /// </summary>
         /// <param name="setProjectorCheckpoint">An action to update the projector's checkpoint</param>
+        /// <param name="nullEventMessageHandler">Action called when a null event is found in a commit</param>
         public ConventionBasedEventDispatcher(Action<long> setProjectorCheckpoint, Action<ICommit> nullEventMessageHandler = null) {
             _setProjectorCheckpoint = setProjectorCheckpoint;
-			_nullEventMessageHandler = nullEventMessageHandler;
+			_nullEventMessageHandler = nullEventMessageHandler ?? NullEventMessageHandlerNoop;
 		}
+
+        private static void NullEventMessageHandlerNoop(ICommit commit) { }
 
         public ConventionBasedEventDispatcher FirstProject<T>(Action<IDbTransaction, ICommit, T> a) {
             return AddPartialFunction(a);
@@ -87,14 +90,15 @@ namespace EventSaucing.Projector {
         /// <param name="commit"></param>
         public void Project(IDbTransaction tx, ICommit commit) {
             foreach (var eventMessage in commit.Events) {
-				if (eventMessage == null && _nullEventMessageHandler != null) {
+                //  guard null events in the commit.  Not sure at this point how null events get into a commit, bug in neventstore??
+                if (eventMessage == null) {
 					_nullEventMessageHandler(commit);
+                    continue;
 				}
-				else {
-					foreach (var partialFunction in _orderedPartialFunctions) {
-						if (partialFunction.IsDefined(eventMessage.Body))
-							partialFunction.Function(tx, commit, eventMessage.Body);
-					}
+				
+				foreach (var partialFunction in _orderedPartialFunctions) {
+					if (partialFunction.IsDefined(eventMessage.Body))
+						partialFunction.Function(tx, commit, eventMessage.Body);
 				}
             }
             AdvanceProjectorCheckpoint(commit);
