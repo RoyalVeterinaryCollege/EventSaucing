@@ -8,7 +8,6 @@ using EventSaucing.NEventStore;
 using NEventStore;
 using NEventStore.Persistence.Sql;
 using NEventStore.Persistence.Sql.SqlDialects;
-using System.Collections.Generic;
 
 namespace EventSaucing.DependencyInjection.Autofac { 
 
