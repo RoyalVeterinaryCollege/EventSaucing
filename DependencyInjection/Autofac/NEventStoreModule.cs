@@ -8,6 +8,7 @@ using EventSaucing.NEventStore;
 using NEventStore;
 using NEventStore.Persistence.Sql;
 using NEventStore.Persistence.Sql.SqlDialects;
+using System.Collections.Generic;
 
 namespace EventSaucing.DependencyInjection.Autofac { 
 
@@ -24,8 +25,9 @@ namespace EventSaucing.DependencyInjection.Autofac {
             builder.RegisterType<AkkaCommitPipeline>().SingleInstance();
             builder.Register(c => {
                 var eventStoreLogger = c.Resolve<global::NEventStore.Logging.ILog>();
+
                 var eventStore = Wireup.Init()
-                                       .HookIntoPipelineUsing(c.Resolve<AkkaCommitPipeline>())
+                                       .HookIntoPipelineUsing(c.Resolve<AkkaCommitPipeline>(), c.ResolveOptional<ICommitHeaderPipelineHook>())
                                        .LogTo(type => eventStoreLogger)
                                        .UsingSqlPersistence(c.Resolve<IConnectionFactory>())
                                        .WithDialect(new MsSqlDialect())
