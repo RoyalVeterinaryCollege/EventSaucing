@@ -26,7 +26,7 @@ namespace EventSaucing.DependencyInjection.Autofac {
                 var eventStoreLogger = c.Resolve<global::NEventStore.Logging.ILog>();
 
                 var eventStore = Wireup.Init()
-                                       .HookIntoPipelineUsing(c.Resolve<AkkaCommitPipeline>(), c.ResolveOptional<ICommitHeaderPipelineHook>())
+                                       .HookIntoPipelineUsing(c.Resolve<AkkaCommitPipeline>(), c.ResolveOptional<ICustomPipelineHook>())
                                        .LogTo(type => eventStoreLogger)
                                        .UsingSqlPersistence(c.Resolve<IConnectionFactory>())
                                        .WithDialect(new MsSqlDialect())
