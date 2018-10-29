@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
     <metadata>
         <id>EventSaucing</id>
-        <version>1.0.4</version>
+        <version>1.0.5</version>
         <title>Event Saucing</title>
         <authors>Noel Kennedy &amp; Jeff Bullock &amp; Mark Laurence</authors>
         <projectUrl>https://github.com/RoyalVeterinaryCollege/EventSaucing</projectUrl>
