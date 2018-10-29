@@ -2,7 +2,6 @@
 using CommonDomain;
 using CommonDomain.Core;
 using CommonDomain.Persistence;
-using CommonDomain.Persistence.EventStore;
 using EventSaucing.Aggregates;
 using EventSaucing.NEventStore;
 using NEventStore;
