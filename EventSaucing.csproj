@@ -11,8 +11,12 @@
     <GenerateAssemblyCompanyAttribute>false</GenerateAssemblyCompanyAttribute>
     <GenerateAssemblyProductAttribute>false</GenerateAssemblyProductAttribute>
     <GenerateAssemblyCopyrightAttribute>false</GenerateAssemblyCopyrightAttribute>
-    <Version>1.0.5</Version>
-    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <Version>1.0.6</Version>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageProjectUrl>https://github.com/RoyalVeterinaryCollege/EventSaucing</PackageProjectUrl>
+    <PackageLicenseUrl>https://github.com/RoyalVeterinaryCollege/EventSaucing/blob/master/LICENSE.txt</PackageLicenseUrl>
+    <RepositoryUrl>https://github.com/RoyalVeterinaryCollege/EventSaucing</RepositoryUrl>
+    <PackageReleaseNotes>Projectors catchup on startup</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
