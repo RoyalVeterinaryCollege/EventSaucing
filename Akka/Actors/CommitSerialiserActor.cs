@@ -140,6 +140,9 @@ namespace EventSaucing.Akka.Actors {
 
             //put the projectors in a broadcast router
             _projectorsBroadCastRouter = Context.ActorOf(Props.Empty.WithRouter(new BroadcastGroup(projectorsMetaData.Map(_ => _.ActorRef))), "ProjectionBroadcastRouter").Path;
+
+            //tell them to catchup, else they will sit and wait for the first user activity (from the first commit)
+            Context.ActorSelection(_projectorsBroadCastRouter).Tell(new CatchUpMessage()); 
         }
         
         /// <summary>
