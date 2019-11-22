@@ -1,10 +1,10 @@
 ﻿using Autofac;
-using CommonDomain;
-using CommonDomain.Core;
-using CommonDomain.Persistence;
 using EventSaucing.Aggregates;
 using EventSaucing.NEventStore;
 using NEventStore;
+using NEventStore.Domain;
+using NEventStore.Domain.Core;
+using NEventStore.Domain.Persistence;
 using NEventStore.Persistence.Sql;
 using NEventStore.Persistence.Sql.SqlDialects;
 

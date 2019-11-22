@@ -2,8 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using CommonDomain;
-using CommonDomain.Core;
+using NEventStore.Domain;
+using NEventStore.Domain.Core;
 using Scalesque;
 
 namespace EventSaucing.NEventStore {

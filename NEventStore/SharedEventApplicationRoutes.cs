@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using CommonDomain;
+using NEventStore.Domain;
 using Scalesque;
 
 namespace EventSaucing.NEventStore {

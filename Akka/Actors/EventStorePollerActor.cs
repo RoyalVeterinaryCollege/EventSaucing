@@ -34,7 +34,7 @@ namespace EventSaucing.Akka.Actors {
         }
 
         private IEnumerable<ICommit> GetCommitsFromPersistentStore(SendCommitAfterCurrentHeadCheckpointMessage msg) {
-            IEnumerable<ICommit> commits =_persistStreams.GetFrom(msg.CurrentHeadCheckpoint.Map(_ => _.ToString()).GetOrElse(() => null)); //load all commits after checkpoint from db
+            IEnumerable<ICommit> commits =_persistStreams.GetFrom(msg.CurrentHeadCheckpoint.GetOrElse(() => 0)); //load all commits after checkpoint from db
             if (!msg.NumberOfCommitsToSend.HasValue)
                 return commits;
 
