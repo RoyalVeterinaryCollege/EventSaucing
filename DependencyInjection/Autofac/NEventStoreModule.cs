@@ -47,7 +47,8 @@ namespace EventSaucing.DependencyInjection.Autofac {
                    .As<IDetectConflicts>()
                    .SingleInstance();
             builder.RegisterType<EventStoreRepository>()
-                .As<IRepository>();
+                .As<IRepository>()
+                .InstancePerDependency();
             builder.RegisterType<InMemoryCommitSerialiserCache>()
                    .As<IInMemoryCommitSerialiserCache>();
 

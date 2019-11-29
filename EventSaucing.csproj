@@ -11,14 +11,14 @@
     <GenerateAssemblyCompanyAttribute>false</GenerateAssemblyCompanyAttribute>
     <GenerateAssemblyProductAttribute>false</GenerateAssemblyProductAttribute>
     <GenerateAssemblyCopyrightAttribute>false</GenerateAssemblyCopyrightAttribute>
-    <Version>1.0.10</Version>
+    <Version>1.0.12</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageProjectUrl>https://github.com/RoyalVeterinaryCollege/EventSaucing</PackageProjectUrl>
     <PackageLicenseUrl>https://github.com/RoyalVeterinaryCollege/EventSaucing/blob/master/LICENSE.txt</PackageLicenseUrl>
     <RepositoryUrl>https://github.com/RoyalVeterinaryCollege/EventSaucing</RepositoryUrl>
-    <PackageReleaseNotes>Upgraded to NEventStore 7.0</PackageReleaseNotes>
-    <AssemblyVersion>1.0.10.0</AssemblyVersion>
-    <FileVersion>1.0.10.0</FileVersion>
+    <PackageReleaseNotes>Fixed memory leak</PackageReleaseNotes>
+    <AssemblyVersion>1.0.12.0</AssemblyVersion>
+    <FileVersion>1.0.12.0</FileVersion>
     <Description>An event source stack based on NEventStore and Akka</Description>
   </PropertyGroup>
 
