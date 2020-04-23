@@ -9,6 +9,20 @@ namespace EventSaucing.NEventStore {
     public class LoggerAdapter : ILog {
         private readonly ILogger<LoggerAdapter> _logger;
 
+        public bool IsVerboseEnabled => true;
+
+        public bool IsDebugEnabled => true;
+
+        public bool IsInfoEnabled => true;
+
+        public bool IsWarnEnabled => true;
+
+        public bool IsErrorEnabled => true;
+
+        public bool IsFatalEnabled => true;
+
+        public global::NEventStore.Logging.LogLevel LogLevel => global::NEventStore.Logging.LogLevel.Verbose;
+
         public LoggerAdapter(ILogger<LoggerAdapter> logger) {
             _logger = logger;
         }

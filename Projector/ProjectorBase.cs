@@ -75,7 +75,7 @@ namespace EventSaucing.Projector {
         /// </summary>
         protected virtual void Catchup() {
             var comparer = new CheckpointComparer();
-            IEnumerable<ICommit> commits = _persistStreams.GetFrom(Checkpoint.Map(_ => _.ToString()).GetOrElse(() => null)); //load all commits after our current checkpoint from db
+            IEnumerable<ICommit> commits = _persistStreams.GetFrom(Checkpoint.GetOrElse(() => 0)); //load all commits after our current checkpoint from db
             foreach (var commit in commits) {
                 Project(commit);
                 if (comparer.Compare(Checkpoint, commit.CheckpointTokenLong().ToSome()) != 0) {

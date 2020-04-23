@@ -1,5 +1,6 @@
-﻿using System.Collections.Generic;
-using CommonDomain.Core;
+﻿using NEventStore.Domain.Core;
+using System.Collections.Generic;
+
 
 namespace EventSaucing.Aggregates
 {

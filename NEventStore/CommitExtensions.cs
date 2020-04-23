@@ -9,7 +9,8 @@ namespace EventSaucing.NEventStore {
         /// </summary>
         /// <param name="commit"></param>
         /// <returns></returns>
-        public static long CheckpointTokenLong(this ICommit commit) => commit.CheckpointToken.ToLong().Get();
+        [Obsolete("Just use CheckpointToken property")]
+        public static long CheckpointTokenLong(this ICommit commit) => commit.CheckpointToken;
 
         /// <summary>
         ///     Gets the aggregateId as a guid

@@ -24,15 +24,9 @@ namespace EventSaucing.Projector {
                 using (var conn = _dbService.GetConnection()) {
                     conn.Open();
                     using (var tx = conn.BeginTransaction()) {
-                        try {
-                            _dispatcher.Project(tx, commit);
-                            _projector.PersistProjectorCheckpoint(tx);
-                            tx.Commit();
-                        }
-                        catch (Exception) {
-                            tx.Rollback();
-                            throw;
-                        }
+                        _dispatcher.Project(tx, commit);
+                        _projector.PersistProjectorCheckpoint(tx);
+                        tx.Commit();
                     }
                     conn.Close();
                 }

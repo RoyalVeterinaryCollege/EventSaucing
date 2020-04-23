@@ -1,5 +1,5 @@
-﻿using System;
-using CommonDomain;
+﻿using NEventStore.Domain;
+using System;
 
 namespace EventSaucing.NEventStore {
     /// <summary>
