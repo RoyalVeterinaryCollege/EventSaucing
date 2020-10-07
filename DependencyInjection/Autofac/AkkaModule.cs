@@ -28,15 +28,17 @@ namespace EventSaucing.DependencyInjection.Autofac {
 			builder.RegisterAssemblyTypes(executingAssemby).AssignableTo<ReceiveActor>();
 			builder.Register(x => new ActorPaths()).SingleInstance();
 
+            builder.RegisterType<AutoFacDependencyResolver>()
+                .As<IDependencyResolver>()
+                .SingleInstance();
+
             //see http://getakka.net/docs/Serilog for logging info
             builder.Register(x => ActorSystem.Create(
 				"EventSaucing",
                 "akka { loglevel=INFO,  loggers=[\"Akka.Logger.Serilog.SerilogLogger, Akka.Logger.Serilog\"]}")
                 ).SingleInstance(); // Akka starts at this point
 
-            builder.RegisterType<AutoFacDependencyResolver>()
-                   .As<IDependencyResolver>()
-                   .SingleInstance();
+         
         }
     }
 }
