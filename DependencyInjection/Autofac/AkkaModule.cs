@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Reflection;
 using Akka.Actor;
+using Akka.Configuration;
 using Akka.DI.AutoFac;
 using Akka.DI.Core;
 using Autofac;
@@ -19,6 +20,17 @@ namespace EventSaucing.DependencyInjection.Autofac {
 
 
     public class AkkaModule : Module {
+        private readonly string actorsystemname;
+        private readonly Config config;
+
+        public AkkaModule() : this("EventSaucing","akka { loglevel=INFO,  loggers=[\"Akka.Logger.Serilog.SerilogLogger, Akka.Logger.Serilog\"]}") {
+
+        }
+        public AkkaModule(string actorsystemname, Config config) {
+            this.actorsystemname = actorsystemname;
+            this.config = config;
+        }
+       
         protected override void Load(ContainerBuilder builder) {
 
 			var entryAssemby = Assembly.GetEntryAssembly(); // Get the assembly that kicks the show off, this should have the projectors in it.
@@ -34,11 +46,9 @@ namespace EventSaucing.DependencyInjection.Autofac {
 
             //see http://getakka.net/docs/Serilog for logging info
             builder.Register(x => ActorSystem.Create(
-				"EventSaucing",
-                "akka { loglevel=INFO,  loggers=[\"Akka.Logger.Serilog.SerilogLogger, Akka.Logger.Serilog\"]}")
+                actorsystemname,
+                config)
                 ).SingleInstance(); // Akka starts at this point
-
-         
         }
     }
 }
