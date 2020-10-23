@@ -105,7 +105,7 @@ namespace EventSaucing.Projector {
         }
 
         public void AdvanceProjectorCheckpoint(ICommit commit) {
-            _setProjectorCheckpoint(commit.CheckpointTokenLong());
+            _setProjectorCheckpoint(commit.CheckpointToken);
         }
     }
 }

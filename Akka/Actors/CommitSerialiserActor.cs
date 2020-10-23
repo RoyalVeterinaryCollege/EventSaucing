@@ -111,7 +111,7 @@ namespace EventSaucing.Akka.Actors {
         /// <param name="msg"></param>
         private void HandleFirstCommitAfterStartup(CommitNotification msg) {
             //NEventStore doesn't allow the getting of a commit prior to a checkpoint. so we cant' create the ordered commit notification, instead we just treat this commit as the head
-            _currentCheckpoint = msg.Commit.CheckpointTokenLong().ToSome(); //this commit is now considered the head
+            _currentCheckpoint = msg.Commit.CheckpointToken.ToSome(); //this commit is now considered the head
 
             //but tell the projectors to catchup, otherwise 1st commit is not projected
             Context.ActorSelection(_projectorsBroadCastRouter).Tell(new CatchUpMessage()); //tell projectors to catch up
@@ -139,7 +139,7 @@ namespace EventSaucing.Akka.Actors {
                ).ToList();
 
             //put the projectors in a broadcast router
-            _projectorsBroadCastRouter = Context.ActorOf(Props.Empty.WithRouter(new BroadcastGroup(projectorsMetaData.Map(_ => _.ActorRef))), "ProjectionBroadcastRouter").Path;
+            _projectorsBroadCastRouter = Context.ActorOf(Props.Empty.WithRouter(new BroadcastGroup(projectorsMetaData.Map(_ => _.ActorRef.Path.ToString()))), "ProjectionBroadcastRouter").Path;
 
             //tell them to catchup, else they will sit and wait for the first user activity (from the first commit)
             Context.ActorSelection(_projectorsBroadCastRouter).Tell(new CatchUpMessage()); 
@@ -151,7 +151,7 @@ namespace EventSaucing.Akka.Actors {
         /// <param name="msg"></param>
         private void SendCommitToProjectors(OrderedCommitNotification msg) {
             _backlogCommitCount = 0; //reset the backlog counter
-            _currentCheckpoint = msg.Commit.CheckpointTokenLong().ToSome(); //update head pointer
+            _currentCheckpoint = msg.Commit.CheckpointToken.ToSome(); //update head pointer
             Context.ActorSelection(_projectorsBroadCastRouter).Tell(msg); //pass message on for projection
         }      
     }

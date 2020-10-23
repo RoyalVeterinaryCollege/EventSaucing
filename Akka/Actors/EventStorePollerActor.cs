@@ -27,7 +27,7 @@ namespace EventSaucing.Akka.Actors {
             foreach (var commit in commits)
             {
                 Context.Sender.Tell(new OrderedCommitNotification(commit, previousCheckpoint));
-                previousCheckpoint = commit.CheckpointTokenLong().ToSome();
+                previousCheckpoint = commit.CheckpointToken.ToSome();
             }
 
             Context.Stop(Self);

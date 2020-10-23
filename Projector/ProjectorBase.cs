@@ -64,9 +64,9 @@ namespace EventSaucing.Projector {
             else {
                 //we are behind the head, should catch up
                 var fromPoint = Checkpoint.Map(x => x.ToString()).GetOrElse("beginning of time");
-                Context.GetLogger().Info("Catchup started from checkpoint {0} after receiving out-of-sequence commit with checkpoint {1} and previous checkpoint {2}", fromPoint, msg.Commit.CheckpointTokenLong(), msg.PreviousCheckpoint);
+                Context.GetLogger().Info("Catchup started from checkpoint {0} after receiving out-of-sequence commit with checkpoint {1} and previous checkpoint {2}", fromPoint, msg.Commit.CheckpointToken, msg.PreviousCheckpoint);
                 Catchup();
-                Context.GetLogger().Info("Catchup finished from {0} to checkpoint {1} after receiving commit with checkpoint {2}", fromPoint, Checkpoint.Map(x => x.ToString()).GetOrElse("beginning of time"), msg.Commit.CheckpointTokenLong());
+                Context.GetLogger().Info("Catchup finished from {0} to checkpoint {1} after receiving commit with checkpoint {2}", fromPoint, Checkpoint.Map(x => x.ToString()).GetOrElse("beginning of time"), msg.Commit.CheckpointToken);
             }
         }
 
@@ -78,7 +78,7 @@ namespace EventSaucing.Projector {
             IEnumerable<ICommit> commits = _persistStreams.GetFrom(Checkpoint.GetOrElse(() => 0)); //load all commits after our current checkpoint from db
             foreach (var commit in commits) {
                 Project(commit);
-                if (comparer.Compare(Checkpoint, commit.CheckpointTokenLong().ToSome()) != 0) {
+                if (comparer.Compare(Checkpoint, commit.CheckpointToken.ToSome()) != 0) {
                     //something went wrong, we couldn't project
                     Context.GetLogger().Warning("Stopped catchup! was unable to project the commit at checkpoint {0}", commit.CheckpointToken);
                     break;

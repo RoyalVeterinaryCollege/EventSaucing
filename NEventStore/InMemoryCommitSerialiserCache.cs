@@ -34,7 +34,7 @@ namespace EventSaucing.NEventStore {
         /// </summary>
         /// <param name="commit"></param>
         public void Cache(ICommit commit) {
-            _commits[commit.CheckpointTokenLong()] = commit; 
+            _commits[commit.CheckpointToken] = commit; 
             TrimCache();
         }
 
@@ -85,7 +85,7 @@ namespace EventSaucing.NEventStore {
             //else get the commit and any others that exist
             var orderedCommitNotification = mbNextCommit.Get();
             results.Add(orderedCommitNotification);
-            return GetNextOrderedCommitsRecursively(orderedCommitNotification.Commit.CheckpointTokenLong(), results);
+            return GetNextOrderedCommitsRecursively(orderedCommitNotification.Commit.CheckpointToken, results);
         }
     }
 }
