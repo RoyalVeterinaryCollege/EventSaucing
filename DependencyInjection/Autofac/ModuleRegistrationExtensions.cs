@@ -27,7 +27,7 @@ namespace EventSaucing.DependencyInjection.Autofac {
 			return builder
 				.RegisterModule(new DatabaseConnectivity())
 				.RegisterModule(new NEventStoreModule())
-				.RegisterModule(new AkkaModule());
+				.RegisterModule(new AkkaModule(configuration));
 		}
 	}
 }

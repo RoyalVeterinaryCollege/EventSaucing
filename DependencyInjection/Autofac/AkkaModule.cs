@@ -22,15 +22,20 @@ namespace EventSaucing.DependencyInjection.Autofac {
     public class AkkaModule : Module {
         private readonly string actorsystemname;
         private readonly Config config;
-
+        /*
         public AkkaModule() : this("EventSaucing","akka { loglevel=INFO,  loggers=[\"Akka.Logger.Serilog.SerilogLogger, Akka.Logger.Serilog\"]}") {
 
         }
         public AkkaModule(string actorsystemname, Config config) {
             this.actorsystemname = actorsystemname;
             this.config = config;
+        }*/
+
+        public AkkaModule(EventSaucingConfiguration config) {
+            this.actorsystemname = config.ActorSystemName;
+            this.config = config.AkkaConfiguration;
         }
-       
+    
         protected override void Load(ContainerBuilder builder) {
 
 			var entryAssemby = Assembly.GetEntryAssembly(); // Get the assembly that kicks the show off, this should have the projectors in it.
