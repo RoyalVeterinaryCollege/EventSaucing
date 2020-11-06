@@ -22,14 +22,6 @@ namespace EventSaucing.DependencyInjection.Autofac {
     public class AkkaModule : Module {
         private readonly string actorsystemname;
         private readonly Config config;
-        /*
-        public AkkaModule() : this("EventSaucing","akka { loglevel=INFO,  loggers=[\"Akka.Logger.Serilog.SerilogLogger, Akka.Logger.Serilog\"]}") {
-
-        }
-        public AkkaModule(string actorsystemname, Config config) {
-            this.actorsystemname = actorsystemname;
-            this.config = config;
-        }*/
 
         public AkkaModule(EventSaucingConfiguration config) {
             this.actorsystemname = config.ActorSystemName;
@@ -50,10 +42,9 @@ namespace EventSaucing.DependencyInjection.Autofac {
                 .SingleInstance();
 
             //see http://getakka.net/docs/Serilog for logging info
-            builder.Register(x => ActorSystem.Create(
-                actorsystemname,
-                config)
-                ).SingleInstance(); // Akka starts at this point
+            builder
+                .Register(x => ActorSystem.Create(actorsystemname, config))
+                .SingleInstance(); // Akka starts at this point
         }
     }
 }

@@ -12,11 +12,11 @@ namespace EventSaucing.Storage.Sql {
             _connectionString = configuration.ConnectionString;
         }
 
-        public IDbConnection GetConnection(string connectionString) {
+        public DbConnection GetConnection(string connectionString) {
             return new SqlConnection(connectionString);
         }
 
-        public IDbConnection GetConnection() {
+        public DbConnection GetConnection() {
             return GetConnection(_connectionString);
         }
 
@@ -31,7 +31,7 @@ namespace EventSaucing.Storage.Sql {
 
 	    public Type GetDbProviderFactoryType() {
 			var connection = GetConnection();
-			return DbProviderFactories.GetFactory((DbConnection)connection).GetType();
+			return DbProviderFactories.GetFactory(connection).GetType();
 		}
     }
 }

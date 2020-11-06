@@ -1,4 +1,5 @@
 using System.Data;
+using System.Data.Common;
 using System.Data.SqlClient;
 
 namespace EventSaucing.Storage {
@@ -7,6 +8,6 @@ namespace EventSaucing.Storage {
 		/// Gets a connection to the db storage.
 		/// </summary>
 		/// <returns></returns>
-		IDbConnection GetConnection();
+		DbConnection GetConnection();
     }
 }
