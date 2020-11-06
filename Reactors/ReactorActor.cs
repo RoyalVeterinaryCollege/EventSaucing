@@ -16,9 +16,9 @@ namespace EventSaucing.Reactors {
             /// Message sent when a reactor should notiied that an article it subscribes to has been published.
             /// </summary>
             public class ArticlePublished : IConsistentHashable {
-                public ArticlePublished(string reactorBucket) {
+               /* public ArticlePublished(string reactorBucket) {
                     ReactorBucket = reactorBucket;
-                }
+                }*/
                 public string ReactorBucket { get; set; }
                 public long SubscribingReactorId { get; set; }
                 public long PublishingReactorId { get; set; }
@@ -34,9 +34,10 @@ namespace EventSaucing.Reactors {
             /// Message sent when an reactor should be notified that an aggregate subscription has an unprocessed event
             /// </summary>
             public class SubscribedAggregateChanged : IConsistentHashable {
+               /*
                 public SubscribedAggregateChanged(string reactorBucket) {
                     ReactorBucket = reactorBucket;
-                }
+                }*/
                 public string ReactorBucket { get; set; }
                 public long ReactorId { get; set; }
                 public Guid AggregateId { get; set; }
