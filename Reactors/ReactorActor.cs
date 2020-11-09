@@ -3,11 +3,14 @@ using System.Linq;
 using System.Threading.Tasks;
 
 namespace EventSaucing.Reactors {
+    /// <summary>
+    /// The actor that interacts directly with a reactor to allow it to process its messages
+    /// </summary>
     public class ReactorActor : ReceiveActor {
         private readonly IReactorRepository reactorRepo;
-        private readonly IReactorBucketRouter reactorBucketRouter;
+        private readonly IReactorBucketFacade reactorBucketRouter;
 
-        public ReactorActor(IReactorRepository reactorRepo, IReactorBucketRouter reactorBucketRouter) {
+        public ReactorActor(IReactorRepository reactorRepo, IReactorBucketFacade reactorBucketRouter) {
             this.reactorRepo = reactorRepo;
             this.reactorBucketRouter = reactorBucketRouter;
             ReceiveAsync<Messages.ArticlePublished>(OnArticlePublishedAsync);

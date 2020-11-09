@@ -11,7 +11,7 @@ namespace EventSaucing.Reactors {
     /// <summary>
     /// The supervisor for a Reactor bucket.  This is the actor which is responsible for handling messages about about reactor articles & subscriptions.
     /// </summary>
-    public class ReactorBucket : ReceiveActor {
+    public class ReactorBucketSupervisor : ReceiveActor {
         /// <summary>
         /// Gets the internal Akka PubSub topic for a Reactor bucket.  Akka cluster PubSub is used to route reactor messages to the correct bucket.
         /// </summary>
@@ -43,7 +43,7 @@ namespace EventSaucing.Reactors {
         /// </summary>
         const string ReactorActorsRelativeAddress = "reactor-actors";
 
-        public ReactorBucket() {
+        public ReactorBucketSupervisor() {
             ReceiveAsync<LocalMessages.SubscribeToBucket>(OnSubscribeToBucketAsync);
             ReceiveAsync<ArticlePublished>(OnArticlePublishedAsync);
             ReceiveAsync<SubscribedAggregateChanged>(OnSubscribedAggregateChangedAsync);

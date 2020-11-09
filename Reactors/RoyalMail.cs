@@ -13,9 +13,9 @@ namespace EventSaucing.Reactors {
     /// </summary>
     public class RoyalMail : ReceiveActor {
         private readonly IDbService dbservice;
-        private readonly IReactorBucketRouter reactorBucketRouter;
+        private readonly IReactorBucketFacade reactorBucketRouter;
 
-        public RoyalMail(IDbService dbservice, IReactorBucketRouter reactorBucketRouter) {
+        public RoyalMail(IDbService dbservice, IReactorBucketFacade reactorBucketRouter) {
             this.dbservice = dbservice;
             this.reactorBucketRouter = reactorBucketRouter;
             ReceiveAsync<LocalMessages.PollForOutstandingArticles>(OnPollAsync);

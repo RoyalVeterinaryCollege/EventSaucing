@@ -21,14 +21,14 @@ namespace EventSaucing.Reactors {
             //start the supervisor & tell it that it is the cris3 bucket
             system.ActorOf(system.DI().Props<ReactorSupervisor>(), name: "reactor-supervisor");
             ActorSelection bucket = system.ActorSelection("reactor-supervisor/reactor-bucket"); 
-            bucket.Tell(new ReactorBucket.LocalMessages.SubscribeToBucket("CRIS3"));
+            bucket.Tell(new ReactorBucketSupervisor.LocalMessages.SubscribeToBucket("CRIS3"));
         }
     }
 
     public class ReactorSupervisor : ReceiveActor {
 
         protected override void PreStart() {
-            Context.ActorOf(Context.System.DI().Props<ReactorBucket>(), name: "reactor-bucket");
+            Context.ActorOf(Context.System.DI().Props<ReactorBucketSupervisor>(), name: "reactor-bucket");
             Context.ActorOf(Context.System.DI().Props<RoyalMail>(), "royal-mail");
         }
 
