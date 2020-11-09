@@ -4,11 +4,12 @@ using Akka.Routing;
 using System;
 using System.Threading.Tasks;
 using Akka.Cluster.Tools.PublishSubscribe;
+using EventSaucing.Reactors.Messages;
 
 namespace EventSaucing.Reactors {
 
     /// <summary>
-    /// The supervisor for a bucket of reactors.  By default, it will simply restart any actor that throws an exception during message processing.
+    /// The supervisor for a Reactor bucket.  This is the actor which is responsible for handling messages about about reactor articles & subscriptions.
     /// </summary>
     public class ReactorBucket : ReceiveActor {
         public class LocalMessages {
@@ -29,17 +30,41 @@ namespace EventSaucing.Reactors {
         }
 
         string bucket;
+        const string ReactorActorsRelativeAddress = "reactor-actors";
         public ReactorBucket() {
             ReceiveAsync<LocalMessages.SubscribeToBucket>(OnSubscribeToBucketAsync);
+            ReceiveAsync<Messages.ArticlePublished>(OnArticlePublishedAsync);
+            ReceiveAsync<Messages.SubscribedAggregateChanged>(OnSubscribedAggregateChangedAsync);
+        }
+
+        /// <summary>
+        /// Route the message to a child ReactorActor who will actually update the reactor
+        /// </summary>
+        /// <param name="msg"></param>
+        /// <returns></returns>
+        private Task OnSubscribedAggregateChangedAsync(SubscribedAggregateChanged msg) {
+            Context.ActorSelection(ReactorActorsRelativeAddress).Tell(msg);
+            return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Route the message to a child ReactorActor who will actually update the reactor 
+        /// </summary>
+        /// <param name="msg"></param>
+        /// <returns></returns>
+        private Task OnArticlePublishedAsync(ArticlePublished msg) {
+            Context.ActorSelection(ReactorActorsRelativeAddress).Tell(msg);
+            return Task.CompletedTask;
         }
 
         protected override void PreStart() {
             //todo number of reactor actors from config
-            Context.ActorOf(Context.System.DI().Props<ReactorActor>().WithRouter(new ConsistentHashingPool(5)), "reactor-actors");
+            //These child actors will process any messages on our behalf
+            Context.ActorOf(Context.System.DI().Props<ReactorActor>().WithRouter(new ConsistentHashingPool(5)), ReactorActorsRelativeAddress);
         }
 
         /// <summary>
-        /// Tells the actor which bucket it is.  Actor subscribes to messags published for that bucket.
+        /// Tells the actor which Reactor bucket it is.  Actor subscribes to messags published for that bucket.
         /// </summary>
         /// <param name="msg"></param>
         /// <returns></returns>
@@ -51,7 +76,7 @@ namespace EventSaucing.Reactors {
         }
 
         /// <summary>
-        /// Overriding postRestart to disable the call to preStart() after restarts.  This means children are restarted, and we dont create extra instances each o
+        /// Overriding postRestart to disable the call to preStart() after restarts.  This means children are restarted, and we dont create extra instances each time
         /// </summary>
         /// <param name="reason"></param>
         protected override void PostRestart(Exception reason) {
