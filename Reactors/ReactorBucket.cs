@@ -13,7 +13,7 @@ namespace EventSaucing.Reactors {
     /// </summary>
     public class ReactorBucket : ReceiveActor {
         /// <summary>
-        /// Gets the Akka topic for a Reactor bucket
+        /// Gets the internal Akka PubSub topic for a Reactor bucket.  Akka cluster PubSub is used to route reactor messages to the correct bucket.
         /// </summary>
         /// <param name="bucket"></param>
         /// <returns></returns>
@@ -34,13 +34,19 @@ namespace EventSaucing.Reactors {
                 public string Bucket { get; }
             }
         }
-
+        /// <summary>
+        /// This is 'our' bucket.  We process reactors that are contained in this bucket.
+        /// </summary>
         string bucket;
+        /// <summary>
+        /// The name of the router for reactor actors (child actors)
+        /// </summary>
         const string ReactorActorsRelativeAddress = "reactor-actors";
+
         public ReactorBucket() {
             ReceiveAsync<LocalMessages.SubscribeToBucket>(OnSubscribeToBucketAsync);
-            ReceiveAsync<Messages.ArticlePublished>(OnArticlePublishedAsync);
-            ReceiveAsync<Messages.SubscribedAggregateChanged>(OnSubscribedAggregateChangedAsync);
+            ReceiveAsync<ArticlePublished>(OnArticlePublishedAsync);
+            ReceiveAsync<SubscribedAggregateChanged>(OnSubscribedAggregateChangedAsync);
         }
 
         /// <summary>

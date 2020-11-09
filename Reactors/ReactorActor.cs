@@ -1,7 +1,4 @@
 ﻿using Akka.Actor;
-using Akka.Cluster.Tools.PublishSubscribe;
-using Akka.Routing;
-using System;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -54,7 +51,6 @@ namespace EventSaucing.Reactors {
             System.Collections.Generic.IEnumerable<Messages.ArticlePublished> articleMsgs = await uow.CompleteAsync();
 
             // send any publications to the relevant bucket
-            var mediator = DistributedPubSub.Get(Context.System).Mediator;
             foreach (Messages.ArticlePublished articleMsg in articleMsgs) {
                 reactorBucketRouter.Tell(articleMsg);
             }
