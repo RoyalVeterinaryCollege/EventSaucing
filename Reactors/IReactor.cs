@@ -10,8 +10,8 @@ namespace EventSaucing.Reactors
         Option<long> Id { get; set; }
         int VersionNumber { get; set; }
         object State { get; set; }
-        Task ReactAsync(ReactorActor.LocalMessages.SubscribedAggregateChanged msg, IUnitOfWork uow);
-        Task ReactAsync(ReactorActor.LocalMessages.ArticlePublished msg, IUnitOfWork uow);
+        Task ReactAsync(Messages.SubscribedAggregateChanged msg, IUnitOfWork uow);
+        Task ReactAsync(Messages.ArticlePublished msg, IUnitOfWork uow);
     }
 
     /// <summary>

@@ -67,12 +67,12 @@ namespace EventSaucing.Reactors {
         /// Completes the UOW by persisting to db
         /// </summary>
         /// <returns>Messages about any articles that need to be published</returns>
-        Task<IEnumerable<ReactorActor.LocalMessages.ArticlePublished>> CompleteAsync();
+        Task<IEnumerable<Messages.ArticlePublished>> CompleteAsync();
     }
 
     public class UnitOfWork : IUnitOfWork {
         private readonly IStreamIdHasher streamHasher;
-        private readonly Func<UnitOfWork, Task<IEnumerable<ReactorActor.LocalMessages.ArticlePublished>>> persist;
+        private readonly Func<UnitOfWork, Task<IEnumerable<Messages.ArticlePublished>>> persist;
         private object hiddenState;
         public bool ShouldPersistHiddenState { get => hiddenState != null; }
         public IReactor Reactor { get; private set; }
@@ -80,14 +80,14 @@ namespace EventSaucing.Reactors {
 
         // public object HiddenState { get => hiddenState; set { hiddenState = value; ShouldPersistHiddenState = true; } }
 
-        public UnitOfWork(IStreamIdHasher streamHasher, IReactor reactor, Option<PreviouslyPersistedPubSubData> previous, Func<UnitOfWork, Task<IEnumerable<ReactorActor.LocalMessages.ArticlePublished>>> persist) {
+        public UnitOfWork(IStreamIdHasher streamHasher, IReactor reactor, Option<PreviouslyPersistedPubSubData> previous, Func<UnitOfWork, Task<IEnumerable<Messages.ArticlePublished>>> persist) {
             this.streamHasher = streamHasher;
             Reactor = reactor;
             Previous = previous;
             this.persist = persist;
         }
 
-        public Task<IEnumerable<ReactorActor.LocalMessages.ArticlePublished>> CompleteAsync() => persist(this);
+        public Task<IEnumerable<Messages.ArticlePublished>> CompleteAsync() => persist(this);
         public void PersistHiddenState(object hiddenState) {
             this.hiddenState = hiddenState ?? throw new ArgumentNullException(nameof(hiddenState));
         }

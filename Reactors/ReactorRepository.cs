@@ -30,15 +30,16 @@ namespace EventSaucing.Reactors {
             return new UnitOfWork(streamHasher, reactor, previous.ToSome(), PersistAsync);
         }
         private class PreArticlePublishedMsg {
+            public string Bucket { get; set; }
             public long SubscribingReactorId { get; set; }
             public long PublishingReactorId { get; set; }
             public int VersionNumber { get; set; }
             public string ArticleSerialisationType { get; set; }
             public string ArticleSerialisation { get; set; }
-            public long SubscriptionId { get; set; } //todo set subscriptionid
-            public long PublicationId { get; set; } //todo set PublicationId
+            public long SubscriptionId { get; set; } 
+            public long PublicationId { get; set; } 
         }
-        private async Task<IEnumerable<ReactorActor.LocalMessages.ArticlePublished>> PersistAsync(UnitOfWork uow) {
+        private async Task<IEnumerable<Messages.ArticlePublished>> PersistAsync(UnitOfWork uow) {
             try {
                 using (var con = dbService.GetConnection()) {
                     await con.OpenAsync();
@@ -49,14 +50,15 @@ namespace EventSaucing.Reactors {
                     return preArticlePublishMessages.Select(pre => {
                         var type = Type.GetType(pre.ArticleSerialisationType, throwOnError: true);
 
-                        return new ReactorActor.LocalMessages.ArticlePublished {
-                            Article = JsonConvert.DeserializeObject(pre.ArticleSerialisation, type),
-                            PublicationId = pre.PublicationId,
-                            PublishingReactorId = pre.PublishingReactorId,
-                            SubscribingReactorId = pre.SubscribingReactorId,
-                            SubscriptionId = pre.SubscriptionId,
-                            VersionNumber = pre.VersionNumber
-                        };
+                        return new Messages.ArticlePublished(
+                            pre.Bucket,
+                            pre.SubscribingReactorId,
+                            pre.PublishingReactorId,
+                            pre.VersionNumber,
+                            pre.SubscriptionId,
+                            pre.PublicationId,
+                            JsonConvert.DeserializeObject(pre.ArticleSerialisation, type)
+                        );
                     });
                 }
             } catch (Exception e) {

@@ -1,4 +1,5 @@
 ﻿using Akka.Actor;
+using Akka.Cluster.Tools.PublishSubscribe;
 using Akka.Routing;
 using System;
 using System.Linq;
@@ -7,6 +8,7 @@ using System.Threading.Tasks;
 namespace EventSaucing.Reactors {
     public class ReactorActor : ReceiveActor {
         private readonly IReactorRepository reactorRepo;
+        private readonly IReactorBucketRouter reactorBucketRouter;
 
         /// <summary>
         /// These should all be hashed by the reactorid.  This means that a given reactor will always be processed on the same actor which means that we shouldn't get optimistic concurency clashes when saving actors.
@@ -15,6 +17,7 @@ namespace EventSaucing.Reactors {
             /// <summary>
             /// Message sent when a reactor should notiied that an article it subscribes to has been published.
             /// </summary>
+            [Obsolete]
             public class ArticlePublished : IConsistentHashable {
                /* public ArticlePublished(string reactorBucket) {
                     ReactorBucket = reactorBucket;
@@ -33,6 +36,8 @@ namespace EventSaucing.Reactors {
             /// <summary>
             /// Message sent when an reactor should be notified that an aggregate subscription has an unprocessed event
             /// </summary>
+            [Obsolete]
+
             public class SubscribedAggregateChanged : IConsistentHashable {
                /*
                 public SubscribedAggregateChanged(string reactorBucket) {
@@ -46,13 +51,14 @@ namespace EventSaucing.Reactors {
             }
         }
 
-        public ReactorActor(IReactorRepository reactorRepo) {
+        public ReactorActor(IReactorRepository reactorRepo, IReactorBucketRouter reactorBucketRouter) {
             this.reactorRepo = reactorRepo;
-            ReceiveAsync<LocalMessages.ArticlePublished>(OnArticlePublishedAsync);
-            ReceiveAsync<LocalMessages.SubscribedAggregateChanged>(OnSubscribedAggregateChangedAsync);
+            this.reactorBucketRouter = reactorBucketRouter;
+            ReceiveAsync<Messages.ArticlePublished>(OnArticlePublishedAsync);
+            ReceiveAsync<Messages.SubscribedAggregateChanged>(OnSubscribedAggregateChangedAsync);
         }
 
-        private async Task OnSubscribedAggregateChangedAsync(LocalMessages.SubscribedAggregateChanged msg) {
+        private async Task OnSubscribedAggregateChangedAsync(Messages.SubscribedAggregateChanged msg) {
             IUnitOfWork uow = await reactorRepo.LoadAsync(msg.ReactorId);
 
             // guard race condition where a reactor has already caught up, or unsubscribed
@@ -64,11 +70,11 @@ namespace EventSaucing.Reactors {
             await uow.Reactor.ReactAsync(msg, uow);
 
             //persist and get publication messages
-            var articleMsgs =await uow.CompleteAsync();
+            var articleMsgs = await uow.CompleteAsync();
 
             //send any publications
-            foreach (LocalMessages.ArticlePublished articleMsg in articleMsgs) {
-                Context.ActorSelection("..").Tell(articleMsg); //parent is the reactor-actor router
+            foreach (Messages.ArticlePublished articleMsg in articleMsgs) {
+                reactorBucketRouter.Tell(articleMsg);
             }
         }
 
@@ -77,7 +83,7 @@ namespace EventSaucing.Reactors {
         /// </summary>
         /// <param name="msg"></param>
         /// <returns></returns>
-        private async Task OnArticlePublishedAsync(LocalMessages.ArticlePublished msg) {
+        private async Task OnArticlePublishedAsync(Messages.ArticlePublished msg) {
             IUnitOfWork uow = await reactorRepo.LoadAsync(msg.SubscribingReactorId);
 
             // todo guard race condition where a reactor has already caught up, or unsubscribed
@@ -86,11 +92,12 @@ namespace EventSaucing.Reactors {
             uow.RecordDelivery(new ReactorPublicationDelivery { PublicationId = msg.PublicationId, SubscriptionId = msg.SubscriptionId, VersionNumber = msg.VersionNumber });
 
             //persist and get publication messages
-            System.Collections.Generic.IEnumerable<LocalMessages.ArticlePublished> articleMsgs = await uow.CompleteAsync();
+            System.Collections.Generic.IEnumerable<Messages.ArticlePublished> articleMsgs = await uow.CompleteAsync();
 
-            //send any publications
-            foreach (LocalMessages.ArticlePublished articleMsg in articleMsgs) {
-                Context.ActorSelection("..").Tell(articleMsg); //todo actor address in confg
+            // send any publications to the relevant bucket
+            var mediator = DistributedPubSub.Get(Context.System).Mediator;
+            foreach (Messages.ArticlePublished articleMsg in articleMsgs) {
+                reactorBucketRouter.Tell(articleMsg);
             }
         }
 

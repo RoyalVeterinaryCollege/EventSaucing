@@ -12,6 +12,12 @@ namespace EventSaucing.Reactors {
     /// The supervisor for a Reactor bucket.  This is the actor which is responsible for handling messages about about reactor articles & subscriptions.
     /// </summary>
     public class ReactorBucket : ReceiveActor {
+        /// <summary>
+        /// Gets the Akka topic for a Reactor bucket
+        /// </summary>
+        /// <param name="bucket"></param>
+        /// <returns></returns>
+        public static string GetInternalPublicationTopic(string bucket) => $"/reactors/bucket/{bucket}/";
         public class LocalMessages {
             /// <summary>
             /// Tells the reactor bucket actor to subscribe to reactor messages for a particular bucket
@@ -71,7 +77,7 @@ namespace EventSaucing.Reactors {
         private Task OnSubscribeToBucketAsync(LocalMessages.SubscribeToBucket msg) {
             bucket = msg.Bucket;
             var mediator = DistributedPubSub.Get(Context.System).Mediator;
-            mediator.Tell(new Subscribe($"/reactors/bucket/{bucket}/", Self));
+            mediator.Tell(new Subscribe(GetInternalPublicationTopic(bucket), Self));
             return Task.CompletedTask;
         }
 
