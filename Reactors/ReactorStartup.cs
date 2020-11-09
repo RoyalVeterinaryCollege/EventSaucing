@@ -1,6 +1,5 @@
 ﻿using Akka.Actor;
 using Akka.DI.Core;
-using System;
 
 namespace EventSaucing.Reactors {
     /// <summary>
@@ -18,24 +17,10 @@ namespace EventSaucing.Reactors {
             this.system = system;
         }
         public void Start() {
-            //start the supervisor & tell it that it is the cris3 bucket
+            //todo: this doesn't belong in event saucing start the supervisor & tell it that it is the cris3 bucket
             system.ActorOf(system.DI().Props<ReactorSupervisor>(), name: "reactor-supervisor");
             ActorSelection bucket = system.ActorSelection("reactor-supervisor/reactor-bucket"); 
             bucket.Tell(new ReactorBucketSupervisor.LocalMessages.SubscribeToBucket("CRIS3"));
         }
-    }
-
-    public class ReactorSupervisor : ReceiveActor {
-
-        protected override void PreStart() {
-            Context.ActorOf(Context.System.DI().Props<ReactorBucketSupervisor>(), name: "reactor-bucket");
-            Context.ActorOf(Context.System.DI().Props<RoyalMail>(), "royal-mail");
-        }
-
-        /// <summary>
-        /// Overriding postRestart to disable the call to preStart() after restarts.  This means children are restarted, and we dont create extra instances
-        /// </summary>
-        /// <param name="reason"></param>
-        protected override void PostRestart(Exception reason) { }
     }
 }
