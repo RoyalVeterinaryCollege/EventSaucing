@@ -23,6 +23,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Akka.Cluster.Tools" Version="1.4.11" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="2.2.0" />
     <PackageReference Include="Dapper" Version="2.0.35" />
     <PackageReference Include="NEventStore" Version="7.0.0" />
@@ -33,7 +34,7 @@
     <PackageReference Include="Akka" Version="1.4.11" />
     <PackageReference Include="Akka.DI.AutoFac" Version="1.4.1" />
     <PackageReference Include="Akka.DI.Core" Version="1.4.11" />
-    <PackageReference Include="Akka.Logger.Serilog" Version="1.4.10" />
+    <PackageReference Include="Akka.Logger.Serilog" Version="1.4.11" />
     <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="7.1.0" />
     <PackageReference Include="Scalesque" Version="0.8.0" />
   </ItemGroup>
