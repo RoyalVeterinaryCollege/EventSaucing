@@ -10,47 +10,6 @@ namespace EventSaucing.Reactors {
         private readonly IReactorRepository reactorRepo;
         private readonly IReactorBucketRouter reactorBucketRouter;
 
-        /// <summary>
-        /// These should all be hashed by the reactorid.  This means that a given reactor will always be processed on the same actor which means that we shouldn't get optimistic concurency clashes when saving actors.
-        /// </summary>
-        public class LocalMessages {
-            /// <summary>
-            /// Message sent when a reactor should notiied that an article it subscribes to has been published.
-            /// </summary>
-            [Obsolete]
-            public class ArticlePublished : IConsistentHashable {
-               /* public ArticlePublished(string reactorBucket) {
-                    ReactorBucket = reactorBucket;
-                }*/
-                public string ReactorBucket { get; set; }
-                public long SubscribingReactorId { get; set; }
-                public long PublishingReactorId { get; set; }
-                public int VersionNumber { get; set; }
-                public object Article { get; set; }
-                public long SubscriptionId { get; set; } 
-                public long PublicationId { get;  set; } 
-
-                object IConsistentHashable.ConsistentHashKey => SubscribingReactorId;
-            }
-
-            /// <summary>
-            /// Message sent when an reactor should be notified that an aggregate subscription has an unprocessed event
-            /// </summary>
-            [Obsolete]
-
-            public class SubscribedAggregateChanged : IConsistentHashable {
-               /*
-                public SubscribedAggregateChanged(string reactorBucket) {
-                    ReactorBucket = reactorBucket;
-                }*/
-                public string ReactorBucket { get; set; }
-                public long ReactorId { get; set; }
-                public Guid AggregateId { get; set; }
-                public int StreamRevision { get; set; }
-                object IConsistentHashable.ConsistentHashKey => ReactorId;
-            }
-        }
-
         public ReactorActor(IReactorRepository reactorRepo, IReactorBucketRouter reactorBucketRouter) {
             this.reactorRepo = reactorRepo;
             this.reactorBucketRouter = reactorBucketRouter;

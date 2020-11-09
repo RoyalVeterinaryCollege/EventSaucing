@@ -17,6 +17,6 @@ namespace EventSaucing.Reactors.Messages {
         public long ReactorId { get; }
         public Guid AggregateId { get; }
         public int StreamRevision { get; }
-        object IConsistentHashable.ConsistentHashKey => ReactorId;
+        object IConsistentHashable.ConsistentHashKey => ReactorId; //ensures messages are processed by same reactor actor instance to avoid optimistic concurrency issues
     }
 }

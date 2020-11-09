@@ -1,6 +1,5 @@
 ﻿using Scalesque;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -21,9 +20,9 @@ namespace EventSaucing.Reactors {
         /// </summary>
         public abstract object State { get; set; }
 
-        public virtual Task ReactAsync(ReactorActor.LocalMessages.SubscribedAggregateChanged msg, IUnitOfWork uow) => Task.CompletedTask;
+        public virtual Task ReactAsync(Messages.SubscribedAggregateChanged msg, IUnitOfWork uow) => Task.CompletedTask;
 
-        public virtual Task ReactAsync(ReactorActor.LocalMessages.ArticlePublished msg, IUnitOfWork uow) => Task.CompletedTask;
+        public virtual Task ReactAsync(Messages.ArticlePublished msg, IUnitOfWork uow) => Task.CompletedTask;
         /// <summary>
         /// Gets the last aggregate stream revision that was applied to the reactor.  If event stream was never applied, returns 0
         /// </summary>

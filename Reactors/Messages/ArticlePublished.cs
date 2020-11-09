@@ -25,6 +25,6 @@ namespace EventSaucing.Reactors.Messages {
         public long SubscriptionId { get; }
         public long PublicationId { get; }
         public object Article { get; }
-        object IConsistentHashable.ConsistentHashKey => SubscribingReactorId;
+        object IConsistentHashable.ConsistentHashKey => SubscribingReactorId; //ensures messages are processed by same reactor actor instance to avoid optimistic concurrency issues
     }
 }
