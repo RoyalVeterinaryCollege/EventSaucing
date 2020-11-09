@@ -13,39 +13,47 @@ namespace EventSaucing.Reactors {
     /// </summary>
     public class RoyalMail : ReceiveActor {
         private readonly IDbService dbservice;
+        private readonly IReactorBucketRouter reactorBucketRouter;
 
-        public RoyalMail(IDbService dbservice) {
+        public RoyalMail(IDbService dbservice, IReactorBucketRouter reactorBucketRouter) {
             this.dbservice = dbservice;
-
+            this.reactorBucketRouter = reactorBucketRouter;
             ReceiveAsync<LocalMessages.PollForOutstandingArticles>(OnPollAsync);
         }
-
+        private class PreSubscribedAggregateChanged {
+            public string ReactorBucket { get; set; }
+            public long ReactorId { get; set; }
+            public Guid AggregateId { get; set; }
+            public int StreamRevision { get; set; }
+            public Messages.SubscribedAggregateChanged ToMessage() => new Messages.SubscribedAggregateChanged(ReactorBucket, ReactorId, AggregateId, StreamRevision);
+        }
         private async Task OnPollAsync(LocalMessages.PollForOutstandingArticles arg) {
             using (var con = dbservice.GetConnection()) {
                 await con.OpenAsync();
 
-                // todo restrict the number of subscriptions to get in one go?
                 const string sqlAggregateSubscriptions = @"
-SELECT RS.ReactorId, RS.AggregateId, MAX(C.StreamRevision) StreamRevision
+SELECT R.Bucket AS ReactorBucket, RS.ReactorId, RS.AggregateId, MAX(C.StreamRevision) StreamRevision
 FROM 
     [dbo].[ReactorAggregateSubscriptions] RS 
     INNER JOIN dbo.Commits C
         ON RS.StreamId = C.StreamId
         AND C.StreamRevision > RS.StreamRevision
         AND C.BucketId='default'
+    INNER JOIN dbo.Reactors R
+        ON RS.ReactorId = R.Id
 GROUP BY
     RS.ReactorId, RS.AggregateId;";
-                //dapper produces the message directly from the db
-                var aggregateSubscriptionMessages = await con.QueryAsync<ReactorActor.LocalMessages.SubscribedAggregateChanged>(sqlAggregateSubscriptions);
-                ActorSelection reactorActor = Context.ActorSelection("../reactor-actors"); //parent is reactor-supervisor
+                
+                //Look for aggregate subscriptions that need to be updated
+                var aggregateSubscriptionMessages = await con.QueryAsync<PreSubscribedAggregateChanged>(sqlAggregateSubscriptions);
 
-                foreach (var msg in aggregateSubscriptionMessages) {
-                    reactorActor.Tell(msg);
+                foreach (var preMsg in aggregateSubscriptionMessages) {
+                    reactorBucketRouter.Tell(preMsg.ToMessage());
                 }
 
-                //todo royalmail to check for outstanding reactor subsciptions as well
+                //Look for article subscriptions that need to be updated
                 const string sqlReactorSubscriptions = @"
-SELECT RP.Id AS [PublicationId], RS.SubscribingReactorId, RS.Id as SubscriptionId, RP.PublishingReactorId, RP.VersionNumber, RP.ArticleSerialisationType, RP.ArticleSerialisation
+SELECT Bucket AS ReactorBucket, RP.Id AS [PublicationId], RS.SubscribingReactorId, RS.Id as SubscriptionId, RP.PublishingReactorId, RP.VersionNumber, RP.ArticleSerialisationType, RP.ArticleSerialisation
 
 FROM dbo.ReactorSubscriptions RS
 
@@ -63,17 +71,13 @@ WHERE
 
                 var preMessages = await con.QueryAsync<PreArticlePublished>(sqlReactorSubscriptions);
                 foreach (var preMsg in preMessages) {
-                    try {
-                        var msg = preMsg.ToMessage();
-                        reactorActor.Tell(msg);
-                    } catch (Exception e) {
-                        throw;
-                    }
+                    reactorBucketRouter.Tell(preMsg.ToMessage());
                 }
             }
         }
 
         private class PreArticlePublished {
+            public string ReactorBucket { get; set; }
             public string ArticleSerialisationType { get; set; }
             public string ArticleSerialisation { get; set; }
             public long SubscribingReactorId { get; set; }
@@ -82,15 +86,16 @@ WHERE
             public long SubscriptionId { get; set; } 
             public long PublicationId { get; set; } 
 
-            public ReactorActor.LocalMessages.ArticlePublished ToMessage() {
-                return new ReactorActor.LocalMessages.ArticlePublished {
-                    SubscribingReactorId = SubscribingReactorId,
-                    PublishingReactorId = PublishingReactorId,
-                    VersionNumber = VersionNumber,
-                    SubscriptionId = SubscriptionId,
-                    PublicationId = PublicationId,
-                    Article = JsonConvert.DeserializeObject(ArticleSerialisation, Type.GetType(ArticleSerialisationType, throwOnError: true))
-                };
+            public Messages.ArticlePublished ToMessage() {
+                return new Messages.ArticlePublished(
+                    ReactorBucket,
+                    SubscribingReactorId,
+                    PublishingReactorId,
+                    VersionNumber,
+                    SubscriptionId,
+                    PublicationId,
+                    JsonConvert.DeserializeObject(ArticleSerialisation, Type.GetType(ArticleSerialisationType, throwOnError: true))
+                );
             }
         }
 
