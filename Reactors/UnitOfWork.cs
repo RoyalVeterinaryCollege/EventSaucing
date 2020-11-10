@@ -130,8 +130,8 @@ namespace EventSaucing.Reactors {
             /// Used for reactors that have a db identity. leave unset for unpersisted reactors
             /// </summary>
             public long ReactorId { get; set; }
-            public string ReactorType { get => uow.Reactor.GetType().FullName; }
-            public string StateType { get => uow.ShouldPersistHiddenState ? uow.hiddenState.GetType().FullName : ""; }
+            public string ReactorType { get => uow.Reactor.GetType().AssemblyQualifiedName; }
+            public string StateType { get => uow.ShouldPersistHiddenState ? uow.hiddenState.GetType().AssemblyQualifiedName : ""; }
             public string StateSerialisation { get => uow.ShouldPersistHiddenState ? JsonConvert.SerializeObject(uow.hiddenState) : ""; }
             public int ReactorVersionNumber { get => uow.Reactor.VersionNumber + 1; }
         }
@@ -257,7 +257,7 @@ DECLARE @NewPublications TABLE (
 
             // updates first
             foreach (var publication in ReactorPublications.Where(pub => pub.Id.HasValue)) {
-                string articleType = publication.Article.GetType().FullName;
+                string articleType = publication.Article.GetType().AssemblyQualifiedName;
                 string articleSerialisation = JsonConvert.SerializeObject(publication.Article);
 
                 //update first
@@ -290,7 +290,7 @@ VALUES");
 
             List<string> values = new List<string>();
             foreach (var publication in ReactorPublications.Where(pub => !pub.Id.HasValue)) {
-                string articleType = publication.Article.GetType().FullName;
+                string articleType = publication.Article.GetType().AssemblyQualifiedName;
                 string articleSerialisation = JsonConvert.SerializeObject(publication.Article);
                 values.Add($@"
    ('{publication.Name}'
