@@ -42,7 +42,7 @@ FROM
     INNER JOIN dbo.Reactors R
         ON RS.ReactorId = R.Id
 GROUP BY
-    RS.ReactorId, RS.AggregateId;";
+    R.Bucket, RS.ReactorId, RS.AggregateId;";
                 
                 //Look for aggregate subscriptions that need to be updated
                 var aggregateSubscriptionMessages = await con.QueryAsync<PreSubscribedAggregateChanged>(sqlAggregateSubscriptions);
@@ -53,7 +53,7 @@ GROUP BY
 
                 //Look for article subscriptions that need to be updated
                 const string sqlReactorSubscriptions = @"
-SELECT Bucket AS ReactorBucket, RP.Id AS [PublicationId], RS.SubscribingReactorId, RS.Id as SubscriptionId, RP.PublishingReactorId, RP.VersionNumber, RP.ArticleSerialisationType, RP.ArticleSerialisation
+SELECT R.Bucket AS SubscribingReactorBucket, RP.Id AS [PublicationId], RS.SubscribingReactorId, RS.Id as SubscriptionId, RP.PublishingReactorId, RP.VersionNumber, RP.ArticleSerialisationType, RP.ArticleSerialisation
 
 FROM dbo.ReactorSubscriptions RS
 
@@ -64,6 +64,9 @@ INNER JOIN dbo.ReactorPublications RP
 LEFT JOIN dbo.ReactorPublicationDeliveries RPD
 	ON RS.Id = RPD.SubscriptionId
 	AND RP.Id = RPD.PublicationId
+
+INNER JOIN dbo.Reactors R
+    ON RS.SubscribingReactorId = R.Id
 
 WHERE 
 	RPD.SubscriptionId IS NULL --never delivered
@@ -77,7 +80,7 @@ WHERE
         }
 
         private class PreArticlePublished {
-            public string ReactorBucket { get; set; }
+            public string SubscribingReactorBucket { get; set; }
             public string ArticleSerialisationType { get; set; }
             public string ArticleSerialisation { get; set; }
             public long SubscribingReactorId { get; set; }
@@ -88,7 +91,7 @@ WHERE
 
             public Messages.ArticlePublished ToMessage() {
                 return new Messages.ArticlePublished(
-                    ReactorBucket,
+                    SubscribingReactorBucket,
                     SubscribingReactorId,
                     PublishingReactorId,
                     VersionNumber,
