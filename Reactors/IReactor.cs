@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 namespace EventSaucing.Reactors
 {
     public interface IReactor {
+        string Bucket { get; }
         Option<long> Id { get; set; }
         int VersionNumber { get; set; }
         object State { get; set; }

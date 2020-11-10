@@ -84,7 +84,8 @@ namespace EventSaucing.Reactors {
             //todo:get bucket from config rather than a message.  The reason is that an exception will remove the state and this actor may then stop processing the bucket.
             bucket = msg.Bucket;
             var mediator = DistributedPubSub.Get(Context.System).Mediator;
-            mediator.Tell(new Subscribe(GetInternalPublicationTopic(bucket), Self));
+            string topic = GetInternalPublicationTopic(bucket);
+            mediator.Tell(new Subscribe(topic, Self));
             return Task.CompletedTask;
         }
 

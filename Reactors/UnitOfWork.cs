@@ -126,6 +126,7 @@ namespace EventSaucing.Reactors {
             public SQLArgs(UnitOfWork uow) {
                 this.uow = uow;
             }
+            public string ReactorBucket { get => uow.Reactor.Bucket; }
             /// <summary>
             /// Used for reactors that have a db identity. leave unset for unpersisted reactors
             /// </summary>
@@ -191,7 +192,7 @@ INSERT INTO [dbo].[Reactors]
     ,[StateSerialisation]
     ,[VersionNumber])
 VALUES
-    ('CRIS 3.0'
+    (@ReactorBucket
     ,1
     ,@ReactorType
     ,@StateType

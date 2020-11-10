@@ -6,6 +6,10 @@ using System.Threading.Tasks;
 namespace EventSaucing.Reactors {
     public abstract class Reactor : IReactor {
         /// <summary>
+        /// Sets which bucket the reactor is a part of which in turn determines which Akka actor will process the reactor's messages
+        /// </summary>
+        public abstract string Bucket { get; }
+        /// <summary>
         /// The version of the reactor
         /// </summary>
         public int VersionNumber { get; set; } = 1;
