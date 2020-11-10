@@ -305,13 +305,15 @@ VALUES");
             sb.Append(string.Join(",", values));
             sb.Append(@";
 --get the subscribers to the newly updated or inserted publications
-SELECT NP.PublishingReactorId, RS.SubscribingReactorId, NP.VersionNumber, NP.ArticleSerialisation, NP.ArticleSerialisationType, RS.Id AS SubscriptionId, NP.Id AS [PublicationId]
+SELECT R.Bucket AS [SubscribingReactorBucket], NP.PublishingReactorId, RS.SubscribingReactorId, NP.VersionNumber, NP.ArticleSerialisation, NP.ArticleSerialisationType, RS.Id AS SubscriptionId, NP.Id AS [PublicationId]
 FROM  
 	@NewPublications NP
 
 	INNER JOIN dbo.ReactorSubscriptions RS
 		ON NP.NameHash = RS.NameHash
-		AND NP.Name = RS.Name;
+		AND NP.Name = RS.Name
+    INNER JOIN dbo.Reactors R
+        ON RS.SubscribingReactorId  = R.Id
 ");
         }
 

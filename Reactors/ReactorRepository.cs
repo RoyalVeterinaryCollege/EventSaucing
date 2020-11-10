@@ -30,7 +30,7 @@ namespace EventSaucing.Reactors {
             return new UnitOfWork(streamHasher, reactor, previous.ToSome(), PersistAsync);
         }
         private class PreArticlePublishedMsg {
-            public string Bucket { get; set; }
+            public string SubscribingReactorBucket { get; set; }
             public long SubscribingReactorId { get; set; }
             public long PublishingReactorId { get; set; }
             public int VersionNumber { get; set; }
@@ -51,7 +51,7 @@ namespace EventSaucing.Reactors {
                         var type = Type.GetType(pre.ArticleSerialisationType, throwOnError: true);
 
                         return new Messages.ArticlePublished(
-                            pre.Bucket,
+                            pre.SubscribingReactorBucket,
                             pre.SubscribingReactorId,
                             pre.PublishingReactorId,
                             pre.VersionNumber,
