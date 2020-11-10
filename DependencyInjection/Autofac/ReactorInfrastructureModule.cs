@@ -4,8 +4,22 @@ using EventSaucing.Reactors;
 using Scalesque;
 
 namespace EventSaucing.DependencyInjection.Autofac {
-    public class ReactorModule : Module {
+
+    /// <summary>
+    /// A self contained module for using EventSaucing reactors
+    /// </summary>
+    public class ReactorInfrastructureModule : Module {
+        private readonly EventSaucingConfiguration configuration;
+
+        public ReactorInfrastructureModule(EventSaucingConfiguration configuration) {
+            this.configuration = configuration;
+        }
         protected override void Load(ContainerBuilder builder) {
+            builder.RegisterInstance(configuration);
+
+            //register this as we depend on it
+            builder.RegisterModule(new DatabaseConnectivity());
+
             //tell dapper how to handle Option<long> which is used frequently in reactor persistance
             SqlMapper.AddTypeHandler(typeof(Option<long>), new Storage.OptionHandler());
 

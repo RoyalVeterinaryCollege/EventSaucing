@@ -6,7 +6,7 @@ using Autofac.Core.Registration;
 namespace EventSaucing.DependencyInjection.Autofac {
 	public static class ModuleRegistrationExtensions {
 		/// <summary>
-		/// Registers modules required for EventSaucing.
+		/// Registers modules required for EventSaucing.  nb, if you want to use reactors there is an additional module to register <see cref="TEventSaucing.DependencyInjection.Autofac.ReactorInfrastructureModule"/>
 		/// 
 		/// </summary>
 		/// <param name="builder">The builder to register the modules with.</param>
