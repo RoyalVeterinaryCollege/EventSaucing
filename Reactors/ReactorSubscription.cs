@@ -6,8 +6,10 @@ namespace EventSaucing.Reactors {
     /// Declares a subscription to a publication
     /// </summary>
     public class ReactorSubscription {
-
-        public Option<long> Id { get; set; } = Option.None();
+        /// <summary>
+        /// The Id of the subscribing reactor.  
+        /// </summary>
+        public long Id { get; set; }
 
         private string name;
 

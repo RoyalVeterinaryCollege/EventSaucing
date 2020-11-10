@@ -35,10 +35,10 @@ namespace EventSaucing.Reactors {
         void RecordDelivery(Guid aggregateId, IEventStream stream);
 
         /// <summary>
-        /// Subscribe this reactor to the publishing reactor as part of the UOW
+        /// Subscribe this reactor to the named topic
         /// </summary>
-        /// <param name="subscription"></param>
-        void Subscribe(ReactorSubscription subscription);
+        /// <param name="topic">The topic which the reactor subsctibes to</param>
+        void Subscribe(string topic);
         /// <summary>
         /// Subscribes to the event stream
         /// </summary>
@@ -91,10 +91,17 @@ namespace EventSaucing.Reactors {
         public void PersistHiddenState(object hiddenState) {
             this.hiddenState = hiddenState ?? throw new ArgumentNullException(nameof(hiddenState));
         }
-        public List<ReactorSubscription> ReactorSubscriptions { get; private set; } = new List<ReactorSubscription>();
-        public List<ReactorPublication> ReactorPublications { get; private set; } = new List<ReactorPublication>();
-        public List<AggregateSubscription> AggregateSubscriptions { get; private set; } = new List<AggregateSubscription>();
-        public Option<ReactorPublicationDelivery> Delivery { get; set; } = Option.None();
+        private class UnpersistedReactorSubscription {
+            public string Name { get; set; }
+            /// <summary>
+            /// A hash for the name to speed up db searches
+            /// </summary>
+            public int NameHash { get => Name.GetHashCode(); }
+        }
+        List<UnpersistedReactorSubscription> UnpersistedReactorSubscriptions { get; set; } = new List<UnpersistedReactorSubscription>();
+        List<ReactorPublication> ReactorPublications { get; set; } = new List<ReactorPublication>();
+        List<AggregateSubscription> AggregateSubscriptions { get; set; } = new List<AggregateSubscription>();
+        Option<ReactorPublicationDelivery> Delivery { get; set; } = Option.None();
 
         public void Publish(string name, object article) {
             ReactorPublication publication = 
@@ -113,9 +120,17 @@ namespace EventSaucing.Reactors {
         public void Subscribe(Guid aggregateId, IEventStream stream) {
             Subscribe(new AggregateSubscription { AggregateId = aggregateId, StreamRevision = stream.CommittedEvents.Count });
         }
+        public void Subscribe(string topic) {
+            if (string.IsNullOrWhiteSpace(topic)) {
+                throw new ArgumentException($"'{nameof(topic)}' cannot be null or whitespace", nameof(topic));
+            }
+
+            UnpersistedReactorSubscriptions.Add(new UnpersistedReactorSubscription { Name = topic });
+        }
+
         public void RecordDelivery(AggregateSubscription subscription) => AggregateSubscriptions.Add(subscription);
         public void RecordDelivery(Guid aggregateId, IEventStream stream) => RecordDelivery(new AggregateSubscription { AggregateId = aggregateId, StreamRevision = stream.CommittedEvents.Count });
-        public void Subscribe(ReactorSubscription subscription) => ReactorSubscriptions.Add(subscription);
+      
 
         /// <summary>
         /// Parameterised SQL Args used when persisting a reactor
@@ -319,7 +334,7 @@ FROM
         }
 
         private void SerialiseReactorSubscriptionRecords(StringBuilder sb, SQLArgs args) {
-            foreach (var subscription in ReactorSubscriptions) {
+            foreach (var subscription in UnpersistedReactorSubscriptions) {
                 sb.Append($@"
 INSERT INTO [dbo].[ReactorSubscriptions]
     ([SubscribingReactorId]
@@ -332,7 +347,5 @@ VALUES(
 );");
             }
         }
-
-      
     }
 }
