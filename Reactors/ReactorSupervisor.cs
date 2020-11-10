@@ -1,13 +1,28 @@
 ﻿using Akka.Actor;
 using Akka.DI.Core;
 using System;
+using System.Threading.Tasks;
 
 namespace EventSaucing.Reactors {
+    /// <summary>
+    /// The overall supervisor for the reactor infrastructure.  Only one of these needed per cluster. Nodes in the cluster should just start their own ReactorBucketSupervisor actor.
+    /// </summary>
     public class ReactorSupervisor : ReceiveActor {
+        public ReactorSupervisor() {
+            ReceiveAsync<ReactorBucketSupervisor.LocalMessages.SubscribeToBucket>(OnSubscribeToBucketAsync);
+        }
+
+        IActorRef bucketactor;
 
         protected override void PreStart() {
-            Context.ActorOf(Context.System.DI().Props<ReactorBucketSupervisor>(), name: "reactor-bucket");
+            bucketactor = Context.ActorOf(Context.System.DI().Props<ReactorBucketSupervisor>(), name: "reactor-bucket");
             Context.ActorOf(Context.System.DI().Props<RoyalMail>(), "royal-mail");
+        }
+
+        private Task OnSubscribeToBucketAsync(ReactorBucketSupervisor.LocalMessages.SubscribeToBucket msg) {
+            //just send it on to the bucket actor
+            bucketactor.Forward(msg);
+            return Task.CompletedTask;
         }
 
         /// <summary>

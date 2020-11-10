@@ -81,6 +81,7 @@ namespace EventSaucing.Reactors {
         /// <param name="msg"></param>
         /// <returns></returns>
         private Task OnSubscribeToBucketAsync(LocalMessages.SubscribeToBucket msg) {
+            //todo:get bucket from config rather than a message.  The reason is that an exception will remove the state and this actor may then stop processing the bucket.
             bucket = msg.Bucket;
             var mediator = DistributedPubSub.Get(Context.System).Mediator;
             mediator.Tell(new Subscribe(GetInternalPublicationTopic(bucket), Self));
