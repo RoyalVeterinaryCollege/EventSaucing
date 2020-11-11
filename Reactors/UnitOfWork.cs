@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Collections;
 
 namespace EventSaucing.Reactors {
     /// <summary>
@@ -16,15 +17,14 @@ namespace EventSaucing.Reactors {
         /// <summary>
         /// Records delivery of an aggregate subscription
         /// </summary>
-        /// <param name="subscription"></param>
-        void RecordDelivery(ReactorAggregateSubscription subscription);
+        void RecordDelivery(Messages.SubscribedAggregateChanged msg);
 
         /// <summary>
         /// Records delivery of a publication
         /// </summary>
-        /// <param name="delivery"></param>
-        void RecordDelivery(ReactorPublicationDelivery delivery);
+        void RecordDelivery(Messages.ArticlePublished msg);
     }
+
     /// <summary>
     /// Represents a unit of work on a reactor.  All requested work is persisted in a transaction so all parts of the UOW either suceceed or fail
     /// </summary>
@@ -73,8 +73,8 @@ namespace EventSaucing.Reactors {
         public Option<PreviouslyPersistedPubSubData> Previous { get; }
         List<UnpersistedReactorSubscription> UnpersistedReactorSubscriptions { get; set; } = new List<UnpersistedReactorSubscription>();
         List<ReactorPublication> ReactorPublications { get; set; } = new List<ReactorPublication>();
-        List<ReactorAggregateSubscription> AggregateSubscriptions { get; set; } = new List<ReactorAggregateSubscription>();
-        Option<ReactorPublicationDelivery> Delivery { get; set; } = Option.None();
+        HashSet<ReactorAggregateSubscription> AggregateSubscriptions { get; set; } = new HashSet<ReactorAggregateSubscription>();
+        Option<UnpersistedReactorPublicationDelivery> Delivery { get; set; } = Option.None();
 
         #endregion
 
@@ -88,6 +88,15 @@ namespace EventSaucing.Reactors {
             /// A hash for the name to speed up db searches
             /// </summary>
             public int NameHash { get => Name.GetHashCode(); }
+        }
+
+        /// <summary>
+        /// Represents a delivery of an article to a subscriber
+        /// </summary>
+        public class UnpersistedReactorPublicationDelivery {
+            public long SubscriptionId { get; set; }
+            public long PublicationId { get; set; }
+            public int VersionNumber { get; set; }
         }
 
         /// <summary>
@@ -148,7 +157,6 @@ namespace EventSaucing.Reactors {
                 .GetOrElse(() => new ReactorPublication { Id = Option.None(), Name = name, Article = article, VersionNumber = 1 });
             ReactorPublications.Add(publication);
         }
-        public void RecordDelivery(ReactorPublicationDelivery delivery) => Delivery = delivery.ToSome();
         public void Subscribe(ReactorAggregateSubscription subscription) => AggregateSubscriptions.Add(subscription);
         public void Subscribe(Guid aggregateId, IEventStream stream) {
             Subscribe(new ReactorAggregateSubscription { AggregateId = aggregateId, StreamRevision = stream.CommittedEvents.Count });
@@ -158,9 +166,12 @@ namespace EventSaucing.Reactors {
             UnpersistedReactorSubscriptions.Add(new UnpersistedReactorSubscription { Name = publicationName });
         }
 
-        public void RecordDelivery(ReactorAggregateSubscription subscription) => AggregateSubscriptions.Add(subscription);
+        public void RecordDelivery(Messages.SubscribedAggregateChanged msg) => 
+            AggregateSubscriptions.Add(new ReactorAggregateSubscription { AggregateId = msg.AggregateId, StreamRevision = msg.StreamRevision });
+        public void RecordDelivery(Messages.ArticlePublished msg) => 
+            Delivery = new UnpersistedReactorPublicationDelivery { PublicationId = msg.PublicationId, SubscriptionId = msg.SubscriptionId, VersionNumber = msg.VersionNumber }.ToSome();
 
-#endregion 
+        #endregion
 
         #region SQL persistance
 
@@ -195,7 +206,7 @@ COMMIT");
 
         private void SerialiseDeliveryRecord(StringBuilder sb, SQLArgs args) {
             if (!Delivery.HasValue) return;
-            ReactorPublicationDelivery delivery = Delivery.Get();
+            UnpersistedReactorPublicationDelivery delivery = Delivery.Get();
 
             sb.Append($@"
 MERGE [dbo].[ReactorPublicationDeliveries] AS TARGET

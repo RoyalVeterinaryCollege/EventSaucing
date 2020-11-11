@@ -29,12 +29,5 @@ namespace EventSaucing.Reactors {
         /// </summary>
         public int NameHash { get => name.GetHashCode(); }
     }
-    /// <summary>
-    /// Represents a delivery of an article to a subscriber
-    /// </summary>
-    public class ReactorPublicationDelivery {
-        public long SubscriptionId { get; set; }
-        public long PublicationId { get; set; }
-        public int VersionNumber { get; set; }
-    }
+   
 }

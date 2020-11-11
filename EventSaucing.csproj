@@ -37,6 +37,7 @@
     <PackageReference Include="Akka.Logger.Serilog" Version="1.4.11" />
     <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="7.1.0" />
     <PackageReference Include="Scalesque" Version="0.8.0" />
+    <PackageReference Include="System.Collections" Version="4.3.0" />
   </ItemGroup>
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'net452' ">

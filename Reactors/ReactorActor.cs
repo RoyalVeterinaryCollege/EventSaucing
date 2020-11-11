@@ -28,7 +28,7 @@ namespace EventSaucing.Reactors {
 
             //react to msg
             int newStreamRevision = await uow.Reactor.ReactAsync(msg, uow);
-            uow.RecordDelivery(new ReactorAggregateSubscription { AggregateId = msg.AggregateId, StreamRevision = newStreamRevision });
+            uow.RecordDelivery(msg);
 
             //persist 
             await uow.CompleteAndPublishAsync();
@@ -43,11 +43,11 @@ namespace EventSaucing.Reactors {
             IUnitOfWorkInternal uow = (IUnitOfWorkInternal)await reactorRepo.LoadAsync(msg.SubscribingReactorId);
 
             // todo guard race condition where a reactor has already caught up, or unsubscribed
-            uow.Previous.Get().ReactorSubscriptions.Any(x=>x.)
+            //uow.Previous.Get().ReactorSubscriptions.Any(x=>x.)
 
             //react to msg
             await uow.Reactor.ReactAsync(msg, uow);
-            uow.RecordDelivery(new ReactorPublicationDelivery { PublicationId = msg.PublicationId, SubscriptionId = msg.SubscriptionId, VersionNumber = msg.VersionNumber });
+            uow.RecordDelivery(msg);
 
             //persist
             await uow.CompleteAndPublishAsync();
