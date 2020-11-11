@@ -22,7 +22,6 @@ namespace EventSaucing.Reactors {
         }
      
         public IUnitOfWork Attach(IReactor reactor) {
-            if (reactor.State is null) throw new ArgumentNullException($"Can't attach a reactor if its State property is null");
             var uow = new UnitOfWork(streamHasher, reactor, Option.None(), PersistAsync);
             uow.PersistState(reactor.State);
             return uow;
@@ -43,6 +42,8 @@ namespace EventSaucing.Reactors {
             public long PublicationId { get; set; } 
         }
         private async Task<IEnumerable<Messages.ArticlePublished>> PersistAsync(UnitOfWork uow) {
+            if (uow.Reactor.State is null) throw new ReactorValidationException($"Can't persist a reactor {uow.Reactor.GetType().FullName} if its State property is null");
+
             try {
                 using (var con = dbService.GetConnection()) {
                     await con.OpenAsync();

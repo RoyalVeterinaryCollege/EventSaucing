@@ -28,7 +28,7 @@ namespace EventSaucing.Aggregates {
             var aggregate = constructor.Invoke(new object[] { id }) as IAggregate;
             var setEventRouter = type.GetProperty("RegisteredRoutes", BindingFlags.Instance | BindingFlags.NonPublic);
             if(setEventRouter == null)
-                throw new ArgumentNullException("can't find the RegisteredRoutes property on a type called {0}".format(type.Name));
+                throw new ReactorValidationException("can't find the RegisteredRoutes property on a type called {0}".format(type.Name));
             var eventRouter = _router.GetRoutesFor(aggregate);
             setEventRouter.SetMethod.Invoke(aggregate,new object[] { eventRouter });
             return aggregate;

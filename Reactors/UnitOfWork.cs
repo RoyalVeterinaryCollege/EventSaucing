@@ -77,6 +77,7 @@ namespace EventSaucing.Reactors {
     public class UnitOfWork : IUnitOfWorkInternal {
         private readonly IStreamIdHasher streamHasher;
         private readonly Func<UnitOfWork, Task<IEnumerable<Messages.ArticlePublished>>> persist;
+        [Obsolete]
         private object state;
         public IReactor Reactor { get; private set; }
         public Option<PreviouslyPersistedPubSubData> Previous { get; }
@@ -90,11 +91,11 @@ namespace EventSaucing.Reactors {
         }
 
         public Task<IEnumerable<Messages.ArticlePublished>> CompleteAsync() {
-            if (state == null) throw new ArgumentNullException($"Can't persist Reactor {Reactor.GetType().FullName} if its State property is null");
+            if (state == null) throw new ReactorValidationException($"Can't persist Reactor {Reactor.GetType().FullName} if its State property is null");
             return persist(this);
         }
         public void PersistState(object state) {
-            this.state = state ?? throw new ArgumentNullException(nameof(state));
+            this.state = state ?? throw new ReactorValidationException(nameof(state));
         }
         private class UnpersistedReactorSubscription {
             public string Name { get; set; }
@@ -127,7 +128,7 @@ namespace EventSaucing.Reactors {
         }
         public void Subscribe(string topic) {
             if (string.IsNullOrWhiteSpace(topic)) {
-                throw new ArgumentException($"'{nameof(topic)}' cannot be null or whitespace", nameof(topic));
+                throw new ReactorValidationException($"Topic name cannot be null or whitespace");
             }
 
             UnpersistedReactorSubscriptions.Add(new UnpersistedReactorSubscription { Name = topic });
