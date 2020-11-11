@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace EventSaucing.Reactors {
     /// <summary>
-    /// Methods for tracking delivery of subscriptions to Reactors
+    /// Internal methods for tracking delivery of subscriptions to Reactors as part of the Unit Of Work
     /// </summary>
     internal interface IUnitOfWorkInternal : IUnitOfWork {
         /// <summary>
@@ -24,13 +24,14 @@ namespace EventSaucing.Reactors {
         /// </summary>
         /// <param name="delivery"></param>
         void RecordDelivery(ReactorPublicationDelivery delivery);
-
-
     }
     /// <summary>
-    /// Represents a unit of work on a reactor.  All requested work is done in a transaction so all parts of the UOW either suceceed or fail
+    /// Represents a unit of work on a reactor.  All requested work is persisted in a transaction so all parts of the UOW either suceceed or fail
     /// </summary>
-    public interface IUnitOfWork {
+    public interface IUnitOfWork { 
+        /// <summary>
+        /// The Reactor which is the subject of the Unit of Work pattern
+        /// </summary>
         IReactor Reactor { get; }
         /// <summary>
         /// The previously persisted publication and subscription records for the reactor.  If None, the reactor has never been persisted.
@@ -51,40 +52,36 @@ namespace EventSaucing.Reactors {
         /// </summary>
         /// <param name="stream"></param>
         void Subscribe(Guid aggregateId, IEventStream stream);
-   
-
         /// <summary>
         /// Publish an article for a publication
         /// </summary>
         /// <param name="name"></param>
         /// <param name="article"></param>
         void Publish(string name, object article);
-
         /// <summary>
-        /// Completes the UOW by persisting to db
+        /// Attempt to complete the UOW by persisting to db.  Also publishes any new articles (NB only article persistance is guaranteed as part of the UOW, publication delivery is not guaranteed)
         /// </summary>
-        /// <returns>Messages about any articles that need to be published</returns>
-        Task<IEnumerable<Messages.ArticlePublished>> CompleteAsync();
+        Task CompleteAndPublishAsync();
     }
 
     public class UnitOfWork : IUnitOfWorkInternal {
+        #region Properties and fields
         private readonly IStreamIdHasher streamHasher;
+        private readonly IReactorBucketFacade reactorBucketFacade;
         private readonly Func<UnitOfWork, Task<IEnumerable<Messages.ArticlePublished>>> persist;
         public IReactor Reactor { get; private set; }
         public Option<PreviouslyPersistedPubSubData> Previous { get; }
+        List<UnpersistedReactorSubscription> UnpersistedReactorSubscriptions { get; set; } = new List<UnpersistedReactorSubscription>();
+        List<ReactorPublication> ReactorPublications { get; set; } = new List<ReactorPublication>();
+        List<AggregateSubscription> AggregateSubscriptions { get; set; } = new List<AggregateSubscription>();
+        Option<ReactorPublicationDelivery> Delivery { get; set; } = Option.None();
 
-        public UnitOfWork(IStreamIdHasher streamHasher, IReactor reactor, Option<PreviouslyPersistedPubSubData> previous, Func<UnitOfWork, Task<IEnumerable<Messages.ArticlePublished>>> persist) {
-            this.streamHasher = streamHasher;
-            Reactor = reactor ;
-            Previous = previous;
-            this.persist = persist;
-        }
+        #endregion
 
-        public Task<IEnumerable<Messages.ArticlePublished>> CompleteAsync() {
-            if (Reactor.State == null) throw new ReactorValidationException($"Can't persist Reactor {Reactor.GetType().FullName} if its State property is null");
-            return persist(this);
-        }
-       
+        #region Private types
+        /// <summary>
+        /// Represents a reactor subscription which should be persisted as part of the uow
+        /// </summary>
         private class UnpersistedReactorSubscription {
             public string Name { get; set; }
             /// <summary>
@@ -92,10 +89,50 @@ namespace EventSaucing.Reactors {
             /// </summary>
             public int NameHash { get => Name.GetHashCode(); }
         }
-        List<UnpersistedReactorSubscription> UnpersistedReactorSubscriptions { get; set; } = new List<UnpersistedReactorSubscription>();
-        List<ReactorPublication> ReactorPublications { get; set; } = new List<ReactorPublication>();
-        List<AggregateSubscription> AggregateSubscriptions { get; set; } = new List<AggregateSubscription>();
-        Option<ReactorPublicationDelivery> Delivery { get; set; } = Option.None();
+
+        /// <summary>
+        /// Parameterised SQL Args used when persisting a reactor
+        /// </summary>
+        private class SQLArgs {
+            UnitOfWork uow;
+
+            public SQLArgs(UnitOfWork uow) {
+                this.uow = uow;
+            }
+            public string ReactorBucket { get => uow.Reactor.Bucket; }
+            /// <summary>
+            /// Used for reactors that have a db identity. leave unset for unpersisted reactors
+            /// </summary>
+            public long ReactorId { get; set; }
+            public string ReactorType { get => uow.Reactor.GetType().AssemblyQualifiedName; }
+            public string StateType { get => uow.Reactor.State.GetType().AssemblyQualifiedName; }
+            public string StateSerialisation { get => JsonConvert.SerializeObject(uow.Reactor.State); }
+            public int ReactorVersionNumber { get => uow.Reactor.VersionNumber + 1; }
+        }
+
+        #endregion
+
+        #region Instantiation and interface implementation
+
+        public UnitOfWork(IStreamIdHasher streamHasher, IReactorBucketFacade reactorBucketFacade, IReactor reactor, Option<PreviouslyPersistedPubSubData> previous, Func<UnitOfWork, Task<IEnumerable<Messages.ArticlePublished>>> persist) {
+            this.streamHasher = streamHasher;
+            this.reactorBucketFacade = reactorBucketFacade;
+            Reactor = reactor ;
+            Previous = previous;
+            this.persist = persist;
+        }
+
+        public async Task CompleteAndPublishAsync() {
+            IEnumerable<Messages.ArticlePublished> publications = await PersistWithPublicationsAysnc();
+            foreach (var articlePublished in publications) {
+                reactorBucketFacade.Tell(articlePublished);
+            }
+        }
+
+        public Task<IEnumerable<Messages.ArticlePublished>> PersistWithPublicationsAysnc() {
+            if (Reactor.State == null) throw new ReactorValidationException($"Can't persist Reactor {Reactor.GetType().FullName} if its State property is null");
+            return persist(this);
+        }
 
         public void Publish(string name, object article) {
             ReactorPublication publication = 
@@ -124,25 +161,10 @@ namespace EventSaucing.Reactors {
 
         public void RecordDelivery(AggregateSubscription subscription) => AggregateSubscriptions.Add(subscription);
 
-        /// <summary>
-        /// Parameterised SQL Args used when persisting a reactor
-        /// </summary>
-        private class SQLArgs {
-            UnitOfWork uow;
+#endregion 
 
-            public SQLArgs(UnitOfWork uow) {
-                this.uow = uow;
-            }
-            public string ReactorBucket { get => uow.Reactor.Bucket; }
-            /// <summary>
-            /// Used for reactors that have a db identity. leave unset for unpersisted reactors
-            /// </summary>
-            public long ReactorId { get; set; }
-            public string ReactorType { get => uow.Reactor.GetType().AssemblyQualifiedName; }
-            public string StateType { get => uow.Reactor.State.GetType().AssemblyQualifiedName; }
-            public string StateSerialisation { get => JsonConvert.SerializeObject(uow.Reactor.State); }
-            public int ReactorVersionNumber { get => uow.Reactor.VersionNumber + 1; }
-        }
+        #region SQL persistance
+
         /// <summary>
         /// Creates a single T SQL statement wrapped in a transaction to persist all parts of the UOW
         /// </summary>
@@ -330,5 +352,7 @@ VALUES(
 );");
             }
         }
+
+        #endregion
     }
 }

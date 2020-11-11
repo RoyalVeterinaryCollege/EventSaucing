@@ -30,13 +30,8 @@ namespace EventSaucing.Reactors {
             int newStreamRevision = await uow.Reactor.ReactAsync(msg, uow);
             uow.RecordDelivery(new AggregateSubscription { AggregateId = msg.AggregateId, StreamRevision = newStreamRevision });
 
-            //persist and get publication messages
-            var articleMsgs = await uow.CompleteAsync();
-
-            //send any new publications
-            foreach (Messages.ArticlePublished articleMsg in articleMsgs) {
-                reactorBucketRouter.Tell(articleMsg);
-            }
+            //persist 
+            await uow.CompleteAndPublishAsync();
         }
 
         /// <summary>
@@ -52,13 +47,8 @@ namespace EventSaucing.Reactors {
             await uow.Reactor.ReactAsync(msg, uow);
             uow.RecordDelivery(new ReactorPublicationDelivery { PublicationId = msg.PublicationId, SubscriptionId = msg.SubscriptionId, VersionNumber = msg.VersionNumber });
 
-            //persist and get publication messages
-            System.Collections.Generic.IEnumerable<Messages.ArticlePublished> articleMsgs = await uow.CompleteAsync();
-
-            // send any publications to the relevant bucket
-            foreach (Messages.ArticlePublished articleMsg in articleMsgs) {
-                reactorBucketRouter.Tell(articleMsg);
-            }
+            //persist
+            await uow.CompleteAndPublishAsync();
         }
 
         private class ReactorSubscribersToUpdate {

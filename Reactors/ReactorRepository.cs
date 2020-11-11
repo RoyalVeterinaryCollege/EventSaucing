@@ -13,22 +13,24 @@ namespace EventSaucing.Reactors {
     public class ReactorRepository : IReactorRepository {
         private readonly IDbService dbService;
         private readonly IComponentContext container;
+        private readonly IReactorBucketFacade reactorBucketFacade;
         private readonly IStreamIdHasher streamHasher;
 
-        public ReactorRepository(IDbService dbService, IComponentContext container) {
+        public ReactorRepository(IDbService dbService, IComponentContext container, IReactorBucketFacade reactorBucketFacade) {
             this.dbService = dbService;
             this.container = container;
+            this.reactorBucketFacade = reactorBucketFacade;
             this.streamHasher=new Sha1StreamIdHasher();
         }
      
         public IUnitOfWork Attach(IReactor reactor) {
-            var uow = new UnitOfWork(streamHasher, reactor, Option.None(), PersistAsync);
+            var uow = new UnitOfWork(streamHasher, reactorBucketFacade, reactor, Option.None(), PersistAsync);
             return uow;
         }
 
         public async Task<IUnitOfWork> LoadAsync(long reactorId) {
             var (reactor, previous) = await LoadFromDbAsync(reactorId);
-            return new UnitOfWork(streamHasher, reactor, previous.ToSome(), PersistAsync);
+            return new UnitOfWork(streamHasher, reactorBucketFacade, reactor, previous.ToSome(), PersistAsync);
         }
         private class PreArticlePublishedMsg {
             public string SubscribingReactorBucket { get; set; }
