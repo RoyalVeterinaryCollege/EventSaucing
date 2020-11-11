@@ -29,7 +29,6 @@ namespace EventSaucing.Reactors {
             //react to msg
             int newStreamRevision = await uow.Reactor.ReactAsync(msg, uow);
             uow.RecordDelivery(new AggregateSubscription { AggregateId = msg.AggregateId, StreamRevision = newStreamRevision });
-            uow.PersistState(uow.Reactor.State);
 
             //persist and get publication messages
             var articleMsgs = await uow.CompleteAsync();
@@ -51,7 +50,6 @@ namespace EventSaucing.Reactors {
             // todo guard race condition where a reactor has already caught up, or unsubscribed
             //react to msg
             await uow.Reactor.ReactAsync(msg, uow);
-            uow.PersistState(uow.Reactor.State);
             uow.RecordDelivery(new ReactorPublicationDelivery { PublicationId = msg.PublicationId, SubscriptionId = msg.SubscriptionId, VersionNumber = msg.VersionNumber });
 
             //persist and get publication messages

@@ -9,7 +9,9 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace EventSaucing.Reactors {
-
+    /// <summary>
+    /// Methods for tracking delivery of subscriptions to Reactors
+    /// </summary>
     internal interface IUnitOfWorkInternal : IUnitOfWork {
         /// <summary>
         /// Records delivery of an aggregate subscription
@@ -18,14 +20,12 @@ namespace EventSaucing.Reactors {
         void RecordDelivery(AggregateSubscription subscription);
 
         /// <summary>
-        /// Records delivery of an aggregate subscription
+        /// Records delivery of a publication
         /// </summary>
-        void RecordDelivery(Guid aggregateId, IEventStream stream);
-        /// <summary>
-        /// Persist the hiddenstate of the reactor as part of the UOW
-        /// </summary>
-        /// <param name="hiddenState"></param>
-        void PersistState(object hiddenState);
+        /// <param name="delivery"></param>
+        void RecordDelivery(ReactorPublicationDelivery delivery);
+
+
     }
     /// <summary>
     /// Represents a unit of work on a reactor.  All requested work is done in a transaction so all parts of the UOW either suceceed or fail
@@ -41,8 +41,6 @@ namespace EventSaucing.Reactors {
         /// </summary>
         /// <param name="subscription"></param>
         void Subscribe(AggregateSubscription subscription);
-        
-
         /// <summary>
         /// Subscribe this reactor to the named topic
         /// </summary>
@@ -53,12 +51,7 @@ namespace EventSaucing.Reactors {
         /// </summary>
         /// <param name="stream"></param>
         void Subscribe(Guid aggregateId, IEventStream stream);
-
-        /// <summary>
-        /// Record the delivery of a publication as part of the UOW.  Reactors don't call this themselves.
-        /// </summary>
-        /// <param name="delivery"></param>
-        void RecordDelivery(ReactorPublicationDelivery delivery);
+   
 
         /// <summary>
         /// Publish an article for a publication
@@ -77,8 +70,6 @@ namespace EventSaucing.Reactors {
     public class UnitOfWork : IUnitOfWorkInternal {
         private readonly IStreamIdHasher streamHasher;
         private readonly Func<UnitOfWork, Task<IEnumerable<Messages.ArticlePublished>>> persist;
-        [Obsolete]
-        private object state;
         public IReactor Reactor { get; private set; }
         public Option<PreviouslyPersistedPubSubData> Previous { get; }
 
@@ -87,16 +78,13 @@ namespace EventSaucing.Reactors {
             Reactor = reactor ;
             Previous = previous;
             this.persist = persist;
-            this.state = reactor.State;
         }
 
         public Task<IEnumerable<Messages.ArticlePublished>> CompleteAsync() {
-            if (state == null) throw new ReactorValidationException($"Can't persist Reactor {Reactor.GetType().FullName} if its State property is null");
+            if (Reactor.State == null) throw new ReactorValidationException($"Can't persist Reactor {Reactor.GetType().FullName} if its State property is null");
             return persist(this);
         }
-        public void PersistState(object state) {
-            this.state = state ?? throw new ReactorValidationException(nameof(state));
-        }
+       
         private class UnpersistedReactorSubscription {
             public string Name { get; set; }
             /// <summary>
@@ -135,8 +123,6 @@ namespace EventSaucing.Reactors {
         }
 
         public void RecordDelivery(AggregateSubscription subscription) => AggregateSubscriptions.Add(subscription);
-        public void RecordDelivery(Guid aggregateId, IEventStream stream) => RecordDelivery(new AggregateSubscription { AggregateId = aggregateId, StreamRevision = stream.CommittedEvents.Count });
-      
 
         /// <summary>
         /// Parameterised SQL Args used when persisting a reactor
@@ -153,8 +139,8 @@ namespace EventSaucing.Reactors {
             /// </summary>
             public long ReactorId { get; set; }
             public string ReactorType { get => uow.Reactor.GetType().AssemblyQualifiedName; }
-            public string StateType { get => uow.state.GetType().AssemblyQualifiedName; }
-            public string StateSerialisation { get => JsonConvert.SerializeObject(uow.state); }
+            public string StateType { get => uow.Reactor.State.GetType().AssemblyQualifiedName; }
+            public string StateSerialisation { get => JsonConvert.SerializeObject(uow.Reactor.State); }
             public int ReactorVersionNumber { get => uow.Reactor.VersionNumber + 1; }
         }
         /// <summary>

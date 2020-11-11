@@ -23,7 +23,6 @@ namespace EventSaucing.Reactors {
      
         public IUnitOfWork Attach(IReactor reactor) {
             var uow = new UnitOfWork(streamHasher, reactor, Option.None(), PersistAsync);
-            uow.PersistState(reactor.State);
             return uow;
         }
 
