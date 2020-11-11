@@ -8,11 +8,9 @@ namespace EventSaucing.Reactors {
     /// </summary>
     public class ReactorActor : ReceiveActor {
         private readonly IReactorRepository reactorRepo;
-        private readonly IReactorBucketFacade reactorBucketRouter;
 
-        public ReactorActor(IReactorRepository reactorRepo, IReactorBucketFacade reactorBucketRouter) {
+        public ReactorActor(IReactorRepository reactorRepo) {
             this.reactorRepo = reactorRepo;
-            this.reactorBucketRouter = reactorBucketRouter;
             ReceiveAsync<Messages.ArticlePublished>(OnArticlePublishedAsync);
             ReceiveAsync<Messages.SubscribedAggregateChanged>(OnSubscribedAggregateChangedAsync);
         }
@@ -20,30 +18,30 @@ namespace EventSaucing.Reactors {
         private async Task OnSubscribedAggregateChangedAsync(Messages.SubscribedAggregateChanged msg) {
             IUnitOfWorkInternal uow = (IUnitOfWorkInternal)await reactorRepo.LoadAsync(msg.ReactorId);
 
-            // guard race condition where a reactor has already caught up, or unsubscribed
-            bool subscriptionOutstanding = uow.Previous
-                .Map(previous => previous.AggregateSubscriptions.Any(sub => sub.AggregateId == msg.AggregateId && sub.StreamRevision < msg.StreamRevision))
+            // guard race condition where a reactor has already caught up
+            bool alreadyReacted = uow.Previous
+                // have we already delivered this aggregate version?
+                .Map(previous => previous.AggregateSubscriptions.Any(sub => sub.AggregateId == msg.AggregateId && sub.StreamRevision >= msg.StreamRevision))
                 .GetOrElse(false);
-            if (!subscriptionOutstanding) return;
+            if (alreadyReacted) return;
 
             //react to msg
             int newStreamRevision = await uow.Reactor.ReactAsync(msg, uow);
-            uow.RecordDelivery(msg);
+            uow.RecordDelivery(msg.AggregateId, newStreamRevision);
 
             //persist 
             await uow.CompleteAndPublishAsync();
         }
 
-        /// <summary>
-        /// called when an an article is published that the reactor subscribes to
-        /// </summary>
-        /// <param name="msg"></param>
-        /// <returns></returns>
         private async Task OnArticlePublishedAsync(Messages.ArticlePublished msg) {
             IUnitOfWorkInternal uow = (IUnitOfWorkInternal)await reactorRepo.LoadAsync(msg.SubscribingReactorId);
 
-            // todo guard race condition where a reactor has already caught up, or unsubscribed
-            //uow.Previous.Get().ReactorSubscriptions.Any(x=>x.)
+            // guard race condition where a reactor has already caught up
+            bool alreadyReacted = uow.Previous
+                // have we already delivered this publication version?
+                .Map(previous => previous.PublicationDeliveries.Any(sub => sub.SubscriptionId == msg.SubscriptionId && sub.VersionNumber >= msg.VersionNumber))
+                .GetOrElse(false);
+            if (alreadyReacted) return;
 
             //react to msg
             await uow.Reactor.ReactAsync(msg, uow);
@@ -51,11 +49,6 @@ namespace EventSaucing.Reactors {
 
             //persist
             await uow.CompleteAndPublishAsync();
-        }
-
-        private class ReactorSubscribersToUpdate {
-            public long PublicationId { get; set; }
-            public long SubscribingReactorId { get; set; }
         }
     }
 }

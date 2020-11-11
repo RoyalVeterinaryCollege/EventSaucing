@@ -17,7 +17,7 @@ namespace EventSaucing.Reactors {
         /// <summary>
         /// Records delivery of an aggregate subscription
         /// </summary>
-        void RecordDelivery(Messages.SubscribedAggregateChanged msg);
+        void RecordDelivery(Guid aggregateId, int streamRevision);
 
         /// <summary>
         /// Records delivery of a publication
@@ -166,8 +166,8 @@ namespace EventSaucing.Reactors {
             UnpersistedReactorSubscriptions.Add(new UnpersistedReactorSubscription { Name = publicationName });
         }
 
-        public void RecordDelivery(Messages.SubscribedAggregateChanged msg) => 
-            AggregateSubscriptions.Add(new ReactorAggregateSubscription { AggregateId = msg.AggregateId, StreamRevision = msg.StreamRevision });
+        public void RecordDelivery(Guid aggregateId, int streamRevision) => 
+            AggregateSubscriptions.Add(new ReactorAggregateSubscription { AggregateId = aggregateId, StreamRevision = streamRevision });
         public void RecordDelivery(Messages.ArticlePublished msg) => 
             Delivery = new UnpersistedReactorPublicationDelivery { PublicationId = msg.PublicationId, SubscriptionId = msg.SubscriptionId, VersionNumber = msg.VersionNumber }.ToSome();
 

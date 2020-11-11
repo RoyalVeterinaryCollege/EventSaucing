@@ -114,7 +114,16 @@ namespace EventSaucing.Reactors {
 SELECT VersionNumber, StateSerialisation, ReactorType, StateType FROM dbo.Reactors WHERE Id = @ReactorId;
 SELECT AggregateId, StreamRevision FROM dbo.ReactorAggregateSubscriptions WHERE ReactorId = @ReactorId;
 SELECT Id, Name FROM dbo.ReactorSubscriptions WHERE SubscribingReactorId = @ReactorId;
-SELECT * FROM dbo.ReactorPublications WHERE PublishingReactorId = @ReactorId;";
+SELECT * FROM dbo.ReactorPublications WHERE PublishingReactorId = @ReactorId;
+SELECT 
+    RPD.* 
+FROM 
+    dbo.ReactorPublicationDeliveries RPD 
+
+    INNER JOIN dbo.ReactorSubscriptions RS 
+        ON RPD.SubscriptionId = RS.Id
+WHERE
+    RS.SubscribingReactorId=@ReactorId;";
                 var results = await con.QueryMultipleAsync(sql, new { reactorId });
 
                 //load reactor
@@ -126,11 +135,12 @@ SELECT * FROM dbo.ReactorPublications WHERE PublishingReactorId = @ReactorId;";
                 reactor.Id = reactorId.ToSome();
                 reactor.VersionNumber = intermediary.VersionNumber;
 
-                //load pubsub
+                //load history of pub/sub
                 var previous = new PreviouslyPersistedPubSubData(
                    await results.ReadAsync<ReactorAggregateSubscription>(),
                    await results.ReadAsync<ReactorSubscription>(),
-                   (await results.ReadAsync<PreReactorPublication>()).Select(x=>x.ToReactorPublication())
+                   (await results.ReadAsync<PreReactorPublication>()).Select(x=>x.ToReactorPublication()),
+                   await results.ReadAsync<ReactorPublicationDeliveries>()
                 );
 
                 return (reactor, previous);
