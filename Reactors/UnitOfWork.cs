@@ -17,7 +17,7 @@ namespace EventSaucing.Reactors {
         /// Records delivery of an aggregate subscription
         /// </summary>
         /// <param name="subscription"></param>
-        void RecordDelivery(AggregateSubscription subscription);
+        void RecordDelivery(ReactorAggregateSubscription subscription);
 
         /// <summary>
         /// Records delivery of a publication
@@ -41,7 +41,7 @@ namespace EventSaucing.Reactors {
         /// Subscribe this reactor to the aggregate as part of the UOW
         /// </summary>
         /// <param name="subscription"></param>
-        void Subscribe(AggregateSubscription subscription);
+        void Subscribe(ReactorAggregateSubscription subscription);
         /// <summary>
         /// Subscribe this reactor to the named topic
         /// </summary>
@@ -73,7 +73,7 @@ namespace EventSaucing.Reactors {
         public Option<PreviouslyPersistedPubSubData> Previous { get; }
         List<UnpersistedReactorSubscription> UnpersistedReactorSubscriptions { get; set; } = new List<UnpersistedReactorSubscription>();
         List<ReactorPublication> ReactorPublications { get; set; } = new List<ReactorPublication>();
-        List<AggregateSubscription> AggregateSubscriptions { get; set; } = new List<AggregateSubscription>();
+        List<ReactorAggregateSubscription> AggregateSubscriptions { get; set; } = new List<ReactorAggregateSubscription>();
         Option<ReactorPublicationDelivery> Delivery { get; set; } = Option.None();
 
         #endregion
@@ -135,6 +135,8 @@ namespace EventSaucing.Reactors {
         }
 
         public void Publish(string name, object article) {
+            ReactorPublication.GuardPublicationName(name);
+
             ReactorPublication publication = 
                 // re publish new version by name ..
                 Previous.FlatMap(previous =>
@@ -147,19 +149,16 @@ namespace EventSaucing.Reactors {
             ReactorPublications.Add(publication);
         }
         public void RecordDelivery(ReactorPublicationDelivery delivery) => Delivery = delivery.ToSome();
-        public void Subscribe(AggregateSubscription subscription) => AggregateSubscriptions.Add(subscription);
+        public void Subscribe(ReactorAggregateSubscription subscription) => AggregateSubscriptions.Add(subscription);
         public void Subscribe(Guid aggregateId, IEventStream stream) {
-            Subscribe(new AggregateSubscription { AggregateId = aggregateId, StreamRevision = stream.CommittedEvents.Count });
+            Subscribe(new ReactorAggregateSubscription { AggregateId = aggregateId, StreamRevision = stream.CommittedEvents.Count });
         }
-        public void Subscribe(string topic) {
-            if (string.IsNullOrWhiteSpace(topic)) {
-                throw new ReactorValidationException($"Topic name cannot be null or whitespace");
-            }
-
-            UnpersistedReactorSubscriptions.Add(new UnpersistedReactorSubscription { Name = topic });
+        public void Subscribe(string publicationName) {
+            ReactorPublication.GuardPublicationName(publicationName);
+            UnpersistedReactorSubscriptions.Add(new UnpersistedReactorSubscription { Name = publicationName });
         }
 
-        public void RecordDelivery(AggregateSubscription subscription) => AggregateSubscriptions.Add(subscription);
+        public void RecordDelivery(ReactorAggregateSubscription subscription) => AggregateSubscriptions.Add(subscription);
 
 #endregion 
 
@@ -263,7 +262,7 @@ WHEN NOT MATCHED THEN
 
         private void SerialiseReactorPublicationRecords(StringBuilder sb, SQLArgs args) {
             sb.Append(@"
---holds all the publicaitons which are persisted in the UOW
+--holds all the publications which are persisted in the UOW
 DECLARE @NewPublications TABLE (  
     Id BIGINT NOT NULL,  
 	[PublishingReactorId] BIGINT NOT NULL,
@@ -326,7 +325,7 @@ VALUES");
             sb.Append(string.Join(",", values));
             sb.Append(@";
 --get the subscribers to the newly updated or inserted publications
-SELECT R.Bucket AS [SubscribingReactorBucket], NP.PublishingReactorId, RS.SubscribingReactorId, NP.VersionNumber, NP.ArticleSerialisation, NP.ArticleSerialisationType, RS.Id AS SubscriptionId, NP.Id AS [PublicationId]
+SELECT R.Bucket AS [SubscribingReactorBucket], NP.Name, NP.PublishingReactorId, RS.SubscribingReactorId, NP.VersionNumber, NP.ArticleSerialisation, NP.ArticleSerialisationType, RS.Id AS SubscriptionId, NP.Id AS [PublicationId]
 FROM  
 	@NewPublications NP
 

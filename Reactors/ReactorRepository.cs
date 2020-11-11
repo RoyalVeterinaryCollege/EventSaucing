@@ -1,5 +1,6 @@
 ﻿using Autofac;
 using Dapper;
+using EventSaucing.Reactors.Messages;
 using EventSaucing.Storage;
 using NEventStore.Persistence.Sql;
 using Newtonsoft.Json;
@@ -34,13 +35,29 @@ namespace EventSaucing.Reactors {
         }
         private class PreArticlePublishedMsg {
             public string SubscribingReactorBucket { get; set; }
+            public string Name { get; set; }
             public long SubscribingReactorId { get; set; }
             public long PublishingReactorId { get; set; }
             public int VersionNumber { get; set; }
             public string ArticleSerialisationType { get; set; }
             public string ArticleSerialisation { get; set; }
             public long SubscriptionId { get; set; } 
-            public long PublicationId { get; set; } 
+            public long PublicationId { get; set; }
+
+            public ArticlePublished ToMessage() {
+                if (string.IsNullOrWhiteSpace(Name)) throw new ArgumentNullException("Name property was not set correctly during persistance");
+                var type = Type.GetType(ArticleSerialisationType, throwOnError: true);
+                return new Messages.ArticlePublished(
+                           SubscribingReactorBucket,
+                           Name,
+                           SubscribingReactorId,
+                           PublishingReactorId,
+                           VersionNumber,
+                           SubscriptionId,
+                           PublicationId,
+                           JsonConvert.DeserializeObject(ArticleSerialisation, type)
+                       );
+            }
         }
         private async Task<IEnumerable<Messages.ArticlePublished>> PersistAsync(UnitOfWork uow) {
             if (uow.Reactor.State is null) throw new ReactorValidationException($"Can't persist a reactor {uow.Reactor.GetType().FullName} if its State property is null");
@@ -51,20 +68,7 @@ namespace EventSaucing.Reactors {
                     var (sb, args) = uow.GetSQLAndArgs();
                     //persist and get any subscriptions which need to be notified
                     IEnumerable<PreArticlePublishedMsg> preArticlePublishMessages = await con.QueryAsync<PreArticlePublishedMsg>(sb.ToString(), args);
-
-                    return preArticlePublishMessages.Select(pre => {
-                        var type = Type.GetType(pre.ArticleSerialisationType, throwOnError: true);
-
-                        return new Messages.ArticlePublished(
-                            pre.SubscribingReactorBucket,
-                            pre.SubscribingReactorId,
-                            pre.PublishingReactorId,
-                            pre.VersionNumber,
-                            pre.SubscriptionId,
-                            pre.PublicationId,
-                            JsonConvert.DeserializeObject(pre.ArticleSerialisation, type)
-                        );
-                    });
+                    return preArticlePublishMessages.Select(pre => pre.ToMessage());
                 }
             } catch (Exception e) {
 
@@ -124,7 +128,7 @@ SELECT * FROM dbo.ReactorPublications WHERE PublishingReactorId = @ReactorId;";
 
                 //load pubsub
                 var previous = new PreviouslyPersistedPubSubData(
-                   await results.ReadAsync<AggregateSubscription>(),
+                   await results.ReadAsync<ReactorAggregateSubscription>(),
                    await results.ReadAsync<ReactorSubscription>(),
                    (await results.ReadAsync<PreReactorPublication>()).Select(x=>x.ToReactorPublication())
                 );

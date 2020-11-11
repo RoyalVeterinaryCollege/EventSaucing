@@ -5,12 +5,17 @@ namespace EventSaucing.Reactors.Messages {
     /// Message sent when a reactor should notified that an article it subscribes to has been published.
     /// </summary>
     public class ArticlePublished : IConsistentHashable {
-        public ArticlePublished(string reactorBucket, long subscribingReactorId, long publishingReactorId, int versionNumber, long subscriptionId, long publicationId, object article) {
+        public ArticlePublished(string reactorBucket, string name, long subscribingReactorId, long publishingReactorId, int versionNumber, long subscriptionId, long publicationId, object article) {
             if (string.IsNullOrWhiteSpace(reactorBucket)) {
                 throw new System.ArgumentException($"'{nameof(reactorBucket)}' cannot be null or whitespace", nameof(reactorBucket));
             }
 
+            if (string.IsNullOrWhiteSpace(name)) {
+                throw new System.ArgumentException($"'{nameof(name)}' cannot be null or whitespace", nameof(name));
+            }
+
             ReactorBucket = reactorBucket;
+            Name = name;
             SubscribingReactorId = subscribingReactorId;
             PublishingReactorId = publishingReactorId;
             VersionNumber = versionNumber;
@@ -19,6 +24,7 @@ namespace EventSaucing.Reactors.Messages {
             Article = article ?? throw new System.ArgumentNullException(nameof(article));
         }
         public string ReactorBucket { get; }
+        public string Name { get; }
         public long SubscribingReactorId { get; }
         public long PublishingReactorId { get; }
         public int VersionNumber { get; }

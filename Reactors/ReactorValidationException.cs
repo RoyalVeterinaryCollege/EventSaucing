@@ -1,8 +1,8 @@
 ﻿using System;
 
-namespace EventSaucing {
+namespace EventSaucing.Reactors {
     /// <summary>
-    /// Exception occured when validating an EventSaucingReactor
+    /// Exception occured when validating an EventSaucing Reactor
     /// </summary>
     public class ReactorValidationException : Exception {
         public ReactorValidationException() {

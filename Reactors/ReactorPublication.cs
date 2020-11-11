@@ -17,8 +17,8 @@ namespace EventSaucing.Reactors {
         private object article;
 
         public static void GuardPublicationName(string name) { 
-            if (string.IsNullOrWhiteSpace(name)) throw new Exception("Publication name missing");
-            if (name.Length > 2048) throw new Exception("Publication name too long"); 
+            if (string.IsNullOrWhiteSpace(name)) throw new ReactorValidationException("Publication name missing");
+            if (name.Length > 2048) throw new ReactorValidationException("Publication name too long"); 
         }
         /// <summary>
         /// The name of the publication

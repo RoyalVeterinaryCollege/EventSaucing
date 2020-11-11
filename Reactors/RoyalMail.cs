@@ -53,7 +53,7 @@ GROUP BY
 
                 //Look for article subscriptions that need to be updated
                 const string sqlReactorSubscriptions = @"
-SELECT R.Bucket AS SubscribingReactorBucket, RP.Id AS [PublicationId], RS.SubscribingReactorId, RS.Id as SubscriptionId, RP.PublishingReactorId, RP.VersionNumber, RP.ArticleSerialisationType, RP.ArticleSerialisation
+SELECT R.Bucket AS SubscribingReactorBucket, RP.Name,  RP.Id AS [PublicationId], RS.SubscribingReactorId, RS.Id as SubscriptionId, RP.PublishingReactorId, RP.VersionNumber, RP.ArticleSerialisationType, RP.ArticleSerialisation
 
 FROM dbo.ReactorSubscriptions RS
 
@@ -81,6 +81,7 @@ WHERE
 
         private class PreArticlePublished {
             public string SubscribingReactorBucket { get; set; }
+            public string Name { get; set; }
             public string ArticleSerialisationType { get; set; }
             public string ArticleSerialisation { get; set; }
             public long SubscribingReactorId { get; set; }
@@ -92,6 +93,7 @@ WHERE
             public Messages.ArticlePublished ToMessage() {
                 return new Messages.ArticlePublished(
                     SubscribingReactorBucket,
+                    Name, 
                     SubscribingReactorId,
                     PublishingReactorId,
                     VersionNumber,
