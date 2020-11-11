@@ -22,7 +22,10 @@ namespace EventSaucing.Reactors {
         }
      
         public IUnitOfWork Attach(IReactor reactor) {
-            return new UnitOfWork(streamHasher, reactor, Option.None(), PersistAsync);
+            if (reactor.State is null) throw new ArgumentNullException($"Can't attach a reactor if its State property is null");
+            var uow = new UnitOfWork(streamHasher, reactor, Option.None(), PersistAsync);
+            uow.PersistState(reactor.State);
+            return uow;
         }
 
         public async Task<IUnitOfWork> LoadAsync(long reactorId) {

@@ -15,7 +15,7 @@ namespace EventSaucing.Reactors {
         public int VersionNumber { get; set; } = 1;
 
         /// <summary>
-        /// The reactor's id
+        /// The reactor's id. If None, the reactor has never been persisted.
         /// </summary>
         public Option<long> Id { get; set; } = Option.None();
 
@@ -24,7 +24,7 @@ namespace EventSaucing.Reactors {
         /// </summary>
         public abstract object State { get; set; }
 
-        public virtual Task ReactAsync(Messages.SubscribedAggregateChanged msg, IUnitOfWork uow) => Task.CompletedTask;
+        public virtual Task<int> ReactAsync(Messages.SubscribedAggregateChanged msg, IUnitOfWork uow) => Task.FromResult(1);
 
         public virtual Task ReactAsync(Messages.ArticlePublished msg, IUnitOfWork uow) => Task.CompletedTask;
         /// <summary>

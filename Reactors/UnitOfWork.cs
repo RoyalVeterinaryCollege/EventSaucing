@@ -9,20 +9,8 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace EventSaucing.Reactors {
-    /// <summary>
-    /// Represents a unit of work on a reactor.  All requested work is done in a transaction so all parts of the UOW either suceceed or fail
-    /// </summary>
-    public interface IUnitOfWork {
-        IReactor Reactor { get; }
-        /// <summary>
-        /// The previously persisted publicaiton and subscription records for the reactor.  If None, the reactor has never been persisted.
-        /// </summary>
-        Option<PreviouslyPersistedPubSubData> Previous { get; }
-        /// <summary>
-        /// Subscribe this reactor to the aggregate as part of the UOW
-        /// </summary>
-        /// <param name="subscription"></param>
-        void Subscribe(AggregateSubscription subscription);
+
+    internal interface IUnitOfWorkInternal : IUnitOfWork {
         /// <summary>
         /// Records delivery of an aggregate subscription
         /// </summary>
@@ -33,6 +21,27 @@ namespace EventSaucing.Reactors {
         /// Records delivery of an aggregate subscription
         /// </summary>
         void RecordDelivery(Guid aggregateId, IEventStream stream);
+        /// <summary>
+        /// Persist the hiddenstate of the reactor as part of the UOW
+        /// </summary>
+        /// <param name="hiddenState"></param>
+        void PersistState(object hiddenState);
+    }
+    /// <summary>
+    /// Represents a unit of work on a reactor.  All requested work is done in a transaction so all parts of the UOW either suceceed or fail
+    /// </summary>
+    public interface IUnitOfWork {
+        IReactor Reactor { get; }
+        /// <summary>
+        /// The previously persisted publication and subscription records for the reactor.  If None, the reactor has never been persisted.
+        /// </summary>
+        Option<PreviouslyPersistedPubSubData> Previous { get; }
+        /// <summary>
+        /// Subscribe this reactor to the aggregate as part of the UOW
+        /// </summary>
+        /// <param name="subscription"></param>
+        void Subscribe(AggregateSubscription subscription);
+        
 
         /// <summary>
         /// Subscribe this reactor to the named topic
@@ -59,37 +68,33 @@ namespace EventSaucing.Reactors {
         void Publish(string name, object article);
 
         /// <summary>
-        /// Persist the hiddenstate of the reactor as part of the UOW
-        /// </summary>
-        /// <param name="hiddenState"></param>
-        void PersistHiddenState(object hiddenState);
-        /// <summary>
         /// Completes the UOW by persisting to db
         /// </summary>
         /// <returns>Messages about any articles that need to be published</returns>
         Task<IEnumerable<Messages.ArticlePublished>> CompleteAsync();
     }
 
-    public class UnitOfWork : IUnitOfWork {
+    public class UnitOfWork : IUnitOfWorkInternal {
         private readonly IStreamIdHasher streamHasher;
         private readonly Func<UnitOfWork, Task<IEnumerable<Messages.ArticlePublished>>> persist;
-        private object hiddenState;
-        public bool ShouldPersistHiddenState { get => hiddenState != null; }
+        private object state;
         public IReactor Reactor { get; private set; }
         public Option<PreviouslyPersistedPubSubData> Previous { get; }
 
-        // public object HiddenState { get => hiddenState; set { hiddenState = value; ShouldPersistHiddenState = true; } }
-
         public UnitOfWork(IStreamIdHasher streamHasher, IReactor reactor, Option<PreviouslyPersistedPubSubData> previous, Func<UnitOfWork, Task<IEnumerable<Messages.ArticlePublished>>> persist) {
             this.streamHasher = streamHasher;
-            Reactor = reactor;
+            Reactor = reactor ;
             Previous = previous;
             this.persist = persist;
+            this.state = reactor.State;
         }
 
-        public Task<IEnumerable<Messages.ArticlePublished>> CompleteAsync() => persist(this);
-        public void PersistHiddenState(object hiddenState) {
-            this.hiddenState = hiddenState ?? throw new ArgumentNullException(nameof(hiddenState));
+        public Task<IEnumerable<Messages.ArticlePublished>> CompleteAsync() {
+            if (state == null) throw new ArgumentNullException($"Can't persist Reactor {Reactor.GetType().FullName} if its State property is null");
+            return persist(this);
+        }
+        public void PersistState(object state) {
+            this.state = state ?? throw new ArgumentNullException(nameof(state));
         }
         private class UnpersistedReactorSubscription {
             public string Name { get; set; }
@@ -147,8 +152,8 @@ namespace EventSaucing.Reactors {
             /// </summary>
             public long ReactorId { get; set; }
             public string ReactorType { get => uow.Reactor.GetType().AssemblyQualifiedName; }
-            public string StateType { get => uow.ShouldPersistHiddenState ? uow.hiddenState.GetType().AssemblyQualifiedName : ""; }
-            public string StateSerialisation { get => uow.ShouldPersistHiddenState ? JsonConvert.SerializeObject(uow.hiddenState) : ""; }
+            public string StateType { get => uow.state.GetType().AssemblyQualifiedName; }
+            public string StateSerialisation { get => JsonConvert.SerializeObject(uow.state); }
             public int ReactorVersionNumber { get => uow.Reactor.VersionNumber + 1; }
         }
         /// <summary>
@@ -220,23 +225,14 @@ SELECT @PersistingReactorID = SCOPE_IDENTITY();");
                 //Set declared variable to the parameterised SQL
                 sb.Append("SELECT @PersistingReactorID = @ReactorId;");
 
-                if (ShouldPersistHiddenState) {
-                    //todo optimisitic concurrency when updating reactors
-                    sb.Append(@"
+                //todo optimistic concurrency when updating reactors
+                sb.Append(@"
 UPDATE [dbo].[Reactors]
 SET 
     [StateSerialisation] = @StateSerialisation
     ,[StateType] = @StateType
     ,[VersionNumber] = @ReactorVersionNumber
 WHERE Id=@PersistingReactorID;");
-                } else {
-                    //todo optimisitic concurrency when updating reactors
-                    sb.Append(@"
-UPDATE [dbo].[Reactors]
-SET 
-    [VersionNumber] = @ReactorVersionNumber
-WHERE Id=@PersistingReactorID;");
-                }
             }
         }
 
