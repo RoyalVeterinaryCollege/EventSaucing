@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Collections;
 
 namespace EventSaucing.Reactors {
     /// <summary>
@@ -36,30 +35,30 @@ namespace EventSaucing.Reactors {
         /// <summary>
         /// The previously persisted publication and subscription records for the reactor.  If None, the reactor has never been persisted.
         /// </summary>
-        Option<PreviouslyPersistedPubSubData> Previous { get; }
+        Option<PersistedPubSubData> PersistedPubSub { get; }
         /// <summary>
-        /// Subscribe this reactor to the aggregate as part of the UOW
+        /// Subscribes to the aggregate's event stream
         /// </summary>
         /// <param name="subscription"></param>
         void Subscribe(ReactorAggregateSubscription subscription);
         /// <summary>
-        /// Subscribe this reactor to the named topic
-        /// </summary>
-        /// <param name="topic">The topic which the reactor subsctibes to</param>
-        void Subscribe(string topic);
-        /// <summary>
-        /// Subscribes to the event stream
+        /// Subscribes to the aggregate's event stream
         /// </summary>
         /// <param name="stream"></param>
         void Subscribe(Guid aggregateId, IEventStream stream);
         /// <summary>
-        /// Publish an article for a publication
+        /// Subscribe to articles published on the named topic
         /// </summary>
-        /// <param name="name"></param>
-        /// <param name="article"></param>
-        void Publish(string name, object article);
+        /// <param name="topic">The topic which the reactor subscribes to</param>
+        void Subscribe(string topic);
         /// <summary>
-        /// Attempt to complete the UOW by persisting to db.  Also publishes any new articles (NB only article persistance is guaranteed as part of the UOW, publication delivery is not guaranteed)
+        /// Publish an article to a named topic
+        /// </summary>
+        /// <param name="topic"></param>
+        /// <param name="article"></param>
+        void Publish(string topic, object article);
+        /// <summary>
+        /// Complete the UOW by persisting to db. This occurs as a transaction. Also publishes any new articles (NB only article persistance is guaranteed as part of the UOW, publication delivery is not guaranteed)
         /// </summary>
         Task CompleteAndPublishAsync();
     }
@@ -70,7 +69,7 @@ namespace EventSaucing.Reactors {
         private readonly IReactorBucketFacade reactorBucketFacade;
         private readonly Func<UnitOfWork, Task<IEnumerable<Messages.ArticlePublished>>> persist;
         public IReactor Reactor { get; private set; }
-        public Option<PreviouslyPersistedPubSubData> Previous { get; }
+        public Option<PersistedPubSubData> PersistedPubSub { get; }
         List<UnpersistedReactorSubscription> UnpersistedReactorSubscriptions { get; set; } = new List<UnpersistedReactorSubscription>();
         List<ReactorPublication> ReactorPublications { get; set; } = new List<ReactorPublication>();
         HashSet<ReactorAggregateSubscription> AggregateSubscriptions { get; set; } = new HashSet<ReactorAggregateSubscription>();
@@ -123,11 +122,11 @@ namespace EventSaucing.Reactors {
 
         #region Instantiation and interface implementation
 
-        public UnitOfWork(IStreamIdHasher streamHasher, IReactorBucketFacade reactorBucketFacade, IReactor reactor, Option<PreviouslyPersistedPubSubData> previous, Func<UnitOfWork, Task<IEnumerable<Messages.ArticlePublished>>> persist) {
+        public UnitOfWork(IStreamIdHasher streamHasher, IReactorBucketFacade reactorBucketFacade, IReactor reactor, Option<PersistedPubSubData> previous, Func<UnitOfWork, Task<IEnumerable<Messages.ArticlePublished>>> persist) {
             this.streamHasher = streamHasher;
             this.reactorBucketFacade = reactorBucketFacade;
             Reactor = reactor ;
-            Previous = previous;
+            PersistedPubSub = previous;
             this.persist = persist;
         }
 
@@ -148,7 +147,7 @@ namespace EventSaucing.Reactors {
 
             ReactorPublication publication = 
                 // re publish new version by name ..
-                Previous.FlatMap(previous =>
+                PersistedPubSub.FlatMap(previous =>
                     previous.Publications
                     .Where(pub => pub.Name == name)
                     .HeadOption()

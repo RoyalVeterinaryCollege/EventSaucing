@@ -5,8 +5,8 @@ namespace EventSaucing.Reactors {
     /// <summary>
     /// Previously persisted publication and subscription data for the reactor
     /// </summary>
-    public class PreviouslyPersistedPubSubData {
-        public PreviouslyPersistedPubSubData(IEnumerable<ReactorAggregateSubscription> enumerable1, IEnumerable<ReactorSubscription> enumerable2, IEnumerable<ReactorPublication> enumerable3, IEnumerable<ReactorPublicationDeliveries> enumerable4) {
+    public class PersistedPubSubData {
+        public PersistedPubSubData(IEnumerable<ReactorAggregateSubscription> enumerable1, IEnumerable<ReactorSubscription> enumerable2, IEnumerable<ReactorPublication> enumerable3, IEnumerable<ReactorPublicationDeliveries> enumerable4) {
             AggregateSubscriptions = enumerable1.ToList();
             ReactorSubscriptions = enumerable2.ToList();
             Publications = enumerable3.ToList();

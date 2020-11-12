@@ -19,7 +19,7 @@ namespace EventSaucing.Reactors {
             IUnitOfWorkInternal uow = (IUnitOfWorkInternal)await reactorRepo.LoadAsync(msg.ReactorId);
 
             // guard race condition where a reactor has already caught up
-            bool alreadyReacted = uow.Previous
+            bool alreadyReacted = uow.PersistedPubSub
                 // have we already delivered this aggregate version?
                 .Map(previous => previous.AggregateSubscriptions.Any(sub => sub.AggregateId == msg.AggregateId && sub.StreamRevision >= msg.StreamRevision))
                 .GetOrElse(false);
@@ -37,7 +37,7 @@ namespace EventSaucing.Reactors {
             IUnitOfWorkInternal uow = (IUnitOfWorkInternal)await reactorRepo.LoadAsync(msg.SubscribingReactorId);
 
             // guard race condition where a reactor has already caught up
-            bool alreadyReacted = uow.Previous
+            bool alreadyReacted = uow.PersistedPubSub
                 // have we already delivered this publication version?
                 .Map(previous => previous.PublicationDeliveries.Any(sub => sub.SubscriptionId == msg.SubscriptionId && sub.VersionNumber >= msg.VersionNumber))
                 .GetOrElse(false);

@@ -33,6 +33,6 @@ namespace EventSaucing.Reactors {
         /// <param name="uow"></param>
         /// <param name="aggregateId"></param>
         /// <returns></returns>
-        protected int GetLastAppliedStreamRevision(IUnitOfWork uow, Guid aggregateId) => uow.Previous.Map(previous => previous.AggregateSubscriptions.First(x => x.AggregateId == aggregateId).StreamRevision).GetOrElse(0);
+        protected int GetLastAppliedStreamRevision(IUnitOfWork uow, Guid aggregateId) => uow.PersistedPubSub.Map(previous => previous.AggregateSubscriptions.First(x => x.AggregateId == aggregateId).StreamRevision).GetOrElse(0);
     }
 }

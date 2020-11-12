@@ -105,7 +105,7 @@ namespace EventSaucing.Reactors {
             }
         }
        
-        public async Task<(IReactor, PreviouslyPersistedPubSubData) > LoadFromDbAsync(long reactorId) {
+        public async Task<(IReactor, PersistedPubSubData) > LoadFromDbAsync(long reactorId) {
             using (var con = dbService.GetConnection()) {
                 await con.OpenAsync();
 
@@ -136,7 +136,7 @@ WHERE
                 reactor.VersionNumber = intermediary.VersionNumber;
 
                 //load history of pub/sub
-                var previous = new PreviouslyPersistedPubSubData(
+                var previous = new PersistedPubSubData(
                    await results.ReadAsync<ReactorAggregateSubscription>(),
                    await results.ReadAsync<ReactorSubscription>(),
                    (await results.ReadAsync<PreReactorPublication>()).Select(x=>x.ToReactorPublication()),
