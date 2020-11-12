@@ -4,6 +4,9 @@ using Scalesque;
 using System.Threading.Tasks;
 
 namespace EventSaucing.Reactors {
+    /// <summary>
+    /// A convenience base class for Reactors; this implementation should be useful for most use-cases.  You don't need to implement ReactorBase, instead you can just implement IReactor.
+    /// </summary>
     public abstract class ReactorBase : IReactor {
         protected readonly ConventionalReactionDispatcher dispatcher;
         protected readonly IStoreEvents storeEvents;

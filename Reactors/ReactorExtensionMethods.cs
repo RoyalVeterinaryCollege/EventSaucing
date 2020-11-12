@@ -2,6 +2,7 @@
 using NEventStore;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace EventSaucing.Reactors {
     public static class ReactorExtensionMethods {
@@ -27,6 +28,17 @@ namespace EventSaucing.Reactors {
         /// <returns>IEventStream the (potentially partial) stream of events which have not yet been dispatched to the Reactor</returns>
         public static IEventStream LoadUndispatchedEvents(this IStoreEvents storeEvents, Guid aggregateId, int streamRevision = 1) {
             return storeEvents.OpenStream(aggregateId, streamRevision);
+        }
+
+        /// <summary>
+        /// Dispatches the eventstream to the reactor
+        /// </summary>
+        /// <param name="storeEvents"></param>
+        /// <returns>int The last streamrevision that was dispatched</returns>
+        public static async Task<int> DispatchEventStreamAsync(this IReactor reactor, IStoreEvents storeEvents, ConventionalReactionDispatcher dispatcher, Guid aggregateId, int streamRevision = 1) {
+            var stream = storeEvents.OpenStream(aggregateId, streamRevision);
+            await dispatcher.DispatchEventStreamAsync(reactor, stream);
+            return stream.StreamRevision;
         }
     }
 }
