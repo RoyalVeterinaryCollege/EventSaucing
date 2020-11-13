@@ -198,6 +198,7 @@ DECLARE @PersistingReactorID BIGINT
             SerialiseDeliveryRecord(sb, args);
 
             sb.Append(@"
+SELECT @PersistingReactorID [ReactorId];
 COMMIT");
 
             return (sb, args);
@@ -272,7 +273,7 @@ WHEN NOT MATCHED THEN
 
         private void SerialiseReactorPublicationRecords(StringBuilder sb, SQLArgs args) {
             sb.Append(@"
---holds all the publications which are persisted in the UOW
+--holds all the publications which are persisted in the UOW (both UPDATEs and INSERTs)
 DECLARE @NewPublications TABLE (  
     Id BIGINT NOT NULL,  
 	[PublishingReactorId] BIGINT NOT NULL,
@@ -285,7 +286,7 @@ DECLARE @NewPublications TABLE (
             //outputs updated and inserted records into the publication table
             const string sqlOutput = "OUTPUT inserted.Id, inserted.[PublishingReactorId], inserted.Name, inserted.NameHash, inserted.ArticleSerialisationType, inserted.ArticleSerialisation, inserted.VersionNumber  INTO @NewPublications";
 
-            // updates first
+            // updates first, one UPDATE statement per publication
             foreach (var publication in ReactorPublications.Where(pub => pub.Id.HasValue)) {
                 string articleType = publication.Article.GetType().AssemblyQualifiedName;
                 string articleSerialisation = JsonConvert.SerializeObject(publication.Article);
@@ -301,12 +302,10 @@ SET [ArticleSerialisationType] ='{articleType}'
 WHERE ID = {publication.Id.Get()};");
             }
 
-            // inserts next
+            // check for any new publications to be inserted
 
-            //guard no inserts
-            if (!ReactorPublications.Any(pub => !pub.Id.HasValue)) return;
-
-            sb.Append($@"
+            if (ReactorPublications.Any(pub => !pub.Id.HasValue)) {
+                sb.Append($@"
 INSERT INTO [dbo].[ReactorPublications]
     ([Name]
     ,[PublishingReactorId]
@@ -317,33 +316,36 @@ INSERT INTO [dbo].[ReactorPublications]
     ,[LastPublishedDate])
 {sqlOutput}
 VALUES");
+                //loop each new publication and add a value record for it
+                List<string> values = new List<string>();
+                foreach (var publication in ReactorPublications.Where(pub => !pub.Id.HasValue)) {
+                    string articleType = publication.Article.GetType().AssemblyQualifiedName;
+                    string articleSerialisation = JsonConvert.SerializeObject(publication.Article);
+                    values.Add($@"
+('{publication.Name}'
+, @PersistingReactorID
+,{ publication.NameHash}
+,'{articleType}'
+,'{articleSerialisation}'
+,1
+,GETDATE())");
+                }
 
-            List<string> values = new List<string>();
-            foreach (var publication in ReactorPublications.Where(pub => !pub.Id.HasValue)) {
-                string articleType = publication.Article.GetType().AssemblyQualifiedName;
-                string articleSerialisation = JsonConvert.SerializeObject(publication.Article);
-                values.Add($@"
-   ('{publication.Name}'
-   , @PersistingReactorID
-   ,{ publication.NameHash}
-    ,'{articleType}'
-    ,'{articleSerialisation}'
-    ,1
-    ,GETDATE())");
+                sb.Append(string.Join($",{Environment.NewLine}", values));
+                sb.Append(@";");
             }
-
-            sb.Append(string.Join(",", values));
-            sb.Append(@";
---get the subscribers to the newly updated or inserted publications
+            //now select all the newly inserted/updated publications from the table variable @NewPublications
+            sb.Append(@"
+--get the subscribers (if any) to the newly updated or inserted publications from @NewPublications
 SELECT R.Bucket AS [SubscribingReactorBucket], NP.Name, NP.PublishingReactorId, RS.SubscribingReactorId, NP.VersionNumber, NP.ArticleSerialisation, NP.ArticleSerialisationType, RS.Id AS SubscriptionId, NP.Id AS [PublicationId]
 FROM  
-	@NewPublications NP
+    @NewPublications NP
 
-	INNER JOIN dbo.ReactorSubscriptions RS
-		ON NP.NameHash = RS.NameHash
-		AND NP.Name = RS.Name
+    INNER JOIN dbo.ReactorSubscriptions RS
+        ON NP.NameHash = RS.NameHash
+        AND NP.Name = RS.Name
     INNER JOIN dbo.Reactors R
-        ON RS.SubscribingReactorId  = R.Id
+        ON RS.SubscribingReactorId  = R.Id;
 ");
         }
 

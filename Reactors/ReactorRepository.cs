@@ -2,9 +2,11 @@
 using Dapper;
 using EventSaucing.Reactors.Messages;
 using EventSaucing.Storage;
+using Microsoft.Extensions.Logging;
 using NEventStore.Persistence.Sql;
 using Newtonsoft.Json;
 using Scalesque;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,12 +17,14 @@ namespace EventSaucing.Reactors {
         private readonly IDbService dbService;
         private readonly IComponentContext container;
         private readonly IReactorBucketFacade reactorBucketFacade;
+        private readonly ILogger<ReactorRepository> logger;
         private readonly IStreamIdHasher streamHasher;
 
-        public ReactorRepository(IDbService dbService, IComponentContext container, IReactorBucketFacade reactorBucketFacade) {
+        public ReactorRepository(IDbService dbService, IComponentContext container, IReactorBucketFacade reactorBucketFacade, ILogger<ReactorRepository> logger) {
             this.dbService = dbService;
             this.container = container;
             this.reactorBucketFacade = reactorBucketFacade;
+            this.logger = logger;
             this.streamHasher=new Sha1StreamIdHasher();
         }
      
@@ -66,8 +70,16 @@ namespace EventSaucing.Reactors {
                 using (var con = dbService.GetConnection()) {
                     await con.OpenAsync();
                     var (sb, args) = uow.GetSQLAndArgs();
-                    //persist and get any subscriptions which need to be notified
-                    IEnumerable<PreArticlePublishedMsg> preArticlePublishMessages = await con.QueryAsync<PreArticlePublishedMsg>(sb.ToString(), args);
+
+                    //persist and get any subscriptions which need to be notified + the reactorid in the case of a new reactor
+                    var results = await con.QueryMultipleAsync(sb.ToString(), args);
+
+                    //article messages to be published
+                    IEnumerable<PreArticlePublishedMsg> preArticlePublishMessages = await results.ReadAsync<PreArticlePublishedMsg>();
+                    //set the reactor id (will only make a difference for new reactors
+                    uow.Reactor.Id = (await results.ReadFirstAsync<long>()).ToSome();
+
+                    logger.LogDebug($"Found {preArticlePublishMessages.Count()} article subscriptions to be delivered after persisting reactor id {uow.Reactor.Id.Get()}");
                     return preArticlePublishMessages.Select(pre => pre.ToMessage());
                 }
             } catch (Exception e) {

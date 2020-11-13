@@ -1,7 +1,9 @@
 ﻿using Akka.Actor;
 using Dapper;
 using EventSaucing.Storage;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,10 +16,12 @@ namespace EventSaucing.Reactors {
     public class RoyalMail : ReceiveActor {
         private readonly IDbService dbservice;
         private readonly IReactorBucketFacade reactorBucketRouter;
+        private readonly ILogger<RoyalMail> logger;
 
-        public RoyalMail(IDbService dbservice, IReactorBucketFacade reactorBucketRouter) {
+        public RoyalMail(IDbService dbservice, IReactorBucketFacade reactorBucketRouter, ILogger<RoyalMail> logger) {
             this.dbservice = dbservice;
             this.reactorBucketRouter = reactorBucketRouter;
+            this.logger = logger;
             ReceiveAsync<LocalMessages.PollForOutstandingArticles>(OnPollAsync);
         }
         private class PreSubscribedAggregateChanged {
@@ -48,7 +52,7 @@ GROUP BY
                 var aggregateSubscriptionMessages = await con.QueryAsync<PreSubscribedAggregateChanged>(sqlAggregateSubscriptions);
 
                 foreach (var preMsg in aggregateSubscriptionMessages) {
-                    reactorBucketRouter.Tell(preMsg.ToMessage());
+                    //reactorBucketRouter.Tell(preMsg.ToMessage());
                 }
 
                 //Look for article subscriptions that need to be updated
@@ -73,9 +77,12 @@ WHERE
 	OR (RPD.VersionNumber < RP.VersionNumber); --OR there is a new version";
 
                 var preMessages = await con.QueryAsync<PreArticlePublished>(sqlReactorSubscriptions);
+
                 foreach (var preMsg in preMessages) {
-                    reactorBucketRouter.Tell(preMsg.ToMessage());
+                    //reactorBucketRouter.Tell(preMsg.ToMessage());
                 }
+
+                logger.LogInformation($"Found {preMessages.Count()} article subscriptions & {aggregateSubscriptionMessages.Count()} aggregate subscriptions for delivery.");
             }
         }
 
@@ -108,7 +115,7 @@ WHERE
             //schedule a poll message to be sent every n seconds
             Context.System.Scheduler.ScheduleTellRepeatedly(
                 TimeSpan.FromSeconds(5), // on start up, wait this long
-                TimeSpan.FromSeconds(5), // polling interval
+                TimeSpan.FromSeconds(5), // todo polling interval for royal mail to come from config
                 Self, new LocalMessages.PollForOutstandingArticles(), 
                 ActorRefs.NoSender);
         }
