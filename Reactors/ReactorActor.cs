@@ -1,5 +1,5 @@
 ﻿using Akka.Actor;
-using Serilog;
+using Microsoft.Extensions.Logging;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -9,9 +9,9 @@ namespace EventSaucing.Reactors {
     /// </summary>
     public class ReactorActor : ReceiveActor {
         private readonly IReactorRepository reactorRepo;
-        private readonly ILogger logger;
+        private readonly ILogger<ReactorActor> logger;
 
-        public ReactorActor(IReactorRepository reactorRepo, ILogger logger) {
+        public ReactorActor(IReactorRepository reactorRepo, ILogger<ReactorActor> logger) {
             this.reactorRepo = reactorRepo;
             this.logger = logger;
             ReceiveAsync<Messages.ArticlePublished>(OnArticlePublishedAsync);
@@ -28,8 +28,8 @@ namespace EventSaucing.Reactors {
                 .GetOrElse(false);
 
             if (alreadyReacted) {
-                logger.Debug($"SubscribedAggregateChanged for aggregateid {msg.AggregateId} was sent to reactorId {msg.ReactorId} but the reactor had already processed the stream to (or after) that StreamRevision.");
-                logger.Debug("{@AggregateSubscriptions}", uow.PersistedPubSub.Get().AggregateSubscriptions);
+                logger.LogInformation($"SubscribedAggregateChanged for aggregateid {msg.AggregateId} was sent to reactorId {msg.ReactorId} but the reactor had already processed the stream to (or after) that StreamRevision.");
+                logger.LogDebug("{@AggregateSubscriptions}", uow.PersistedPubSub.Get().AggregateSubscriptions);
                 return;
             }
 
@@ -51,8 +51,8 @@ namespace EventSaucing.Reactors {
                 .GetOrElse(false);
 
             if (alreadyReacted) {
-                logger.Debug($"Publication id {msg.PublicationId} published from reactor id {msg.PublishingReactorId} to subscribing reactor id {msg.SubscribingReactorId} but the article had already been delivered");
-                logger.Debug("{@PublicationDeliveries}", uow.PersistedPubSub.Get().PublicationDeliveries);
+                logger.LogInformation($"Publication id {msg.PublicationId} published from reactor id {msg.PublishingReactorId} to subscribing reactor id {msg.SubscribingReactorId} but the article had already been delivered");
+                logger.LogDebug("{@PublicationDeliveries}", uow.PersistedPubSub.Get().PublicationDeliveries);
                 return;
             }
 
