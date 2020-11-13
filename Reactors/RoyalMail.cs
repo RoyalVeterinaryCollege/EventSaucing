@@ -3,15 +3,15 @@ using Dapper;
 using EventSaucing.Storage;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using Serilog;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace EventSaucing.Reactors {
     /// <summary>
-    /// Actor responsible for polling the db looking for subscribers with outstanding articles
+    /// Actor responsible for polling the db looking for subscribers with outstanding articles or aggregate events.  
+    /// 
+    /// Existing subscribers are messaged immediately when a publisher creates a new version of an article but newly created subscriptions don't receive any pre-existing publications immediately. They are messaged by RoyalMail.
     /// </summary>
     public class RoyalMail : ReceiveActor {
         private readonly IDbService dbservice;
@@ -52,7 +52,7 @@ GROUP BY
                 var aggregateSubscriptionMessages = await con.QueryAsync<PreSubscribedAggregateChanged>(sqlAggregateSubscriptions);
 
                 foreach (var preMsg in aggregateSubscriptionMessages) {
-                    //reactorBucketRouter.Tell(preMsg.ToMessage());
+                    reactorBucketRouter.Tell(preMsg.ToMessage());
                 }
 
                 //Look for article subscriptions that need to be updated
@@ -79,7 +79,7 @@ WHERE
                 var preMessages = await con.QueryAsync<PreArticlePublished>(sqlReactorSubscriptions);
 
                 foreach (var preMsg in preMessages) {
-                    //reactorBucketRouter.Tell(preMsg.ToMessage());
+                    reactorBucketRouter.Tell(preMsg.ToMessage());
                 }
 
                 logger.LogInformation($"Found {preMessages.Count()} article subscriptions & {aggregateSubscriptionMessages.Count()} aggregate subscriptions for delivery.");
