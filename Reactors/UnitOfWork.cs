@@ -74,7 +74,7 @@ namespace EventSaucing.Reactors {
         List<UnpersistedReactorSubscription> unpersistedReactorSubscriptions = new List<UnpersistedReactorSubscription>();
         List<ReactorPublication> reactorPublications = new List<ReactorPublication>();
         HashSet<ReactorAggregateSubscription> aggregateSubscriptions = new HashSet<ReactorAggregateSubscription>();
-        Option<UnpersistedReactorPublicationDelivery> delivery  = Option.None();
+        Option<InterimReactorPublicationDelivery> delivery  = Option.None();
 
         #endregion
 
@@ -91,9 +91,9 @@ namespace EventSaucing.Reactors {
         }
 
         /// <summary>
-        /// Represents a delivery of an article to a subscriber
+        /// Represents a delivery of an article to a subscriber prior to completion of the UOW eg this delivery might still fail as part of the UOW
         /// </summary>
-        public class UnpersistedReactorPublicationDelivery {
+        private class InterimReactorPublicationDelivery {
             public long SubscriptionId { get; set; }
             public long PublicationId { get; set; }
             public int VersionNumber { get; set; }
@@ -152,7 +152,7 @@ namespace EventSaucing.Reactors {
                     previous.Publications
                     .Where(pub => pub.Name == name)
                     .HeadOption()
-                ).Map(pub => new ReactorPublication { Id = pub.Id, Name = name, Article = article, VersionNumber = pub.VersionNumber + 1 })
+                ).Map(previouspublication => new ReactorPublication { Id = previouspublication.Id, Name = name, Article = article, VersionNumber = previouspublication.VersionNumber + 1 })
                 // .. or create new version
                 .GetOrElse(() => new ReactorPublication { Id = Option.None(), Name = name, Article = article, VersionNumber = 1 });
 
@@ -173,7 +173,7 @@ namespace EventSaucing.Reactors {
         public void RecordDelivery(Guid aggregateId, int streamRevision) => 
             aggregateSubscriptions.Add(new ReactorAggregateSubscription { AggregateId = aggregateId, StreamRevision = streamRevision });
         public void RecordDelivery(Messages.ArticlePublished msg) => 
-            delivery = new UnpersistedReactorPublicationDelivery { PublicationId = msg.PublicationId, SubscriptionId = msg.SubscriptionId, VersionNumber = msg.VersionNumber }.ToSome();
+            delivery = new InterimReactorPublicationDelivery { PublicationId = msg.PublicationId, SubscriptionId = msg.SubscriptionId, VersionNumber = msg.VersionNumber }.ToSome();
 
         #endregion
 
@@ -241,7 +241,7 @@ SELECT @PersistingReactorID [ReactorId];");
 
         private void SerialiseDeliveryRecord(StringBuilder sb, SQLArgs args) {
             if (!this.delivery.HasValue) return;
-            UnpersistedReactorPublicationDelivery delivery = this.delivery.Get();
+            InterimReactorPublicationDelivery delivery = this.delivery.Get();
 
             sb.Append($@"
 MERGE [dbo].[ReactorPublicationDeliveries] AS TARGET
