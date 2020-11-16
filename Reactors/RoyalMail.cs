@@ -65,8 +65,6 @@ GROUP BY
                     reactorBucketRouter.Tell(preMsg.ToMessage());
                 }
 
-               
-
                 //Look for article subscriptions that need to be updated
                 const string sqlReactorSubscriptions = @"
 SELECT R.Bucket AS SubscribingReactorBucket, RP.Name,  RP.Id AS [PublicationId], RS.SubscribingReactorId, RS.Id as SubscriptionId, RP.PublishingReactorId, RP.VersionNumber, RP.ArticleSerialisationType, RP.ArticleSerialisation
