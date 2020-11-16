@@ -26,12 +26,6 @@ namespace EventSaucing.Reactors {
         public void Tell(SubscribedAggregateChanged msg) {
             var mediator = DistributedPubSub.Get(system).Mediator;
             mediator.Tell(new Publish(ReactorBucketSupervisor.GetInternalPublicationTopic(msg.ReactorBucket), msg));
-            //TellInternal(msg.ReactorBucket, msg);
-        }
-
-        private void TellInternal(string bucket, object msg) {
-            var mediator = DistributedPubSub.Get(system).Mediator;
-            mediator.Tell(new Publish(ReactorBucketSupervisor.GetInternalPublicationTopic(bucket), msg));
         }
     }
 }
