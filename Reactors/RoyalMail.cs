@@ -51,9 +51,21 @@ GROUP BY
                 //Look for aggregate subscriptions that need to be updated
                 var aggregateSubscriptionMessages = await con.QueryAsync<PreSubscribedAggregateChanged>(sqlAggregateSubscriptions);
 
+                if (aggregateSubscriptionMessages.Any()) {
+                    var bucketcounts =
+                      aggregateSubscriptionMessages
+                      .GroupBy(x => x.ReactorBucket)
+                      .Select(x => $"'{x.Key}' {x.Count()} messages");
+                    logger.LogInformation($"Found article subscriptions for the following buckets: {string.Join(",", bucketcounts)}");
+                } else {
+                    logger.LogInformation($"No aggreggate subscriptions need to be updated");
+                }
+
                 foreach (var preMsg in aggregateSubscriptionMessages) {
                     reactorBucketRouter.Tell(preMsg.ToMessage());
                 }
+
+               
 
                 //Look for article subscriptions that need to be updated
                 const string sqlReactorSubscriptions = @"
@@ -78,11 +90,19 @@ WHERE
 
                 var preMessages = await con.QueryAsync<PreArticlePublished>(sqlReactorSubscriptions);
 
+                if (preMessages.Any()) {
+                    var bucketcounts =
+                      preMessages
+                      .GroupBy(x => x.SubscribingReactorBucket)
+                      .Select(x => $"'{x.Key}' {x.Count()} messages");
+                    logger.LogInformation($"Found article subscriptions for the following buckets: {string.Join(",", bucketcounts)}");
+                } else {
+                    logger.LogInformation($"No article subscriptions need to be updated");
+                }
+
                 foreach (var preMsg in preMessages) {
                     reactorBucketRouter.Tell(preMsg.ToMessage());
                 }
-
-                logger.LogInformation($"Found {preMessages.Count()} article subscriptions & {aggregateSubscriptionMessages.Count()} aggregate subscriptions for delivery.");
             }
         }
 

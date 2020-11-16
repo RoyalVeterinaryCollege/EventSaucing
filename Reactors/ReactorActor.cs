@@ -51,9 +51,8 @@ namespace EventSaucing.Reactors {
                 .GetOrElse(false);
 
             if (alreadyReacted) {
-                logger.LogInformation($"Publication id {msg.PublicationId} published from reactor id {msg.PublishingReactorId} to subscribing reactor id {msg.SubscribingReactorId} but the article had already been delivered");
+                logger.LogInformation($"ReactorID {msg.SubscribingReactorId} received article {msg.Name} on subscription id {msg.SubscriptionId} from publishing reactor id {msg.PublishingReactorId} to but the article version {msg.VersionNumber} had already been delivered");
                 logger.LogDebug("{@PublicationDeliveries}", uow.PersistedPubSub.Get().PublicationDeliveries);
-                return;
             }
 
             //react to msg

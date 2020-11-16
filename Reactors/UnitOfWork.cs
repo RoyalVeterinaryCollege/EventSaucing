@@ -156,9 +156,6 @@ namespace EventSaucing.Reactors {
                 // .. or create new version
                 .GetOrElse(() => new ReactorPublication { Id = Option.None(), Name = name, Article = article, VersionNumber = 1 });
 
-            if (PersistedPubSub.HasValue) {
-
-            }
             reactorPublications.Add(publication);
         }
         public void Subscribe(ReactorAggregateSubscription subscription) => aggregateSubscriptions.Add(subscription);
