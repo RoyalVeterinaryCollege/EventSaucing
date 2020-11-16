@@ -51,7 +51,7 @@ namespace EventSaucing.Reactors {
             public ArticlePublished ToMessage() {
                 if (string.IsNullOrWhiteSpace(Name)) throw new ArgumentNullException("Name property was not set correctly during persistance");
                 var type = Type.GetType(ArticleSerialisationType, throwOnError: true);
-                return new Messages.ArticlePublished(
+                var msg = new Messages.ArticlePublished(
                            SubscribingReactorBucket,
                            Name,
                            SubscribingReactorId,
@@ -61,6 +61,7 @@ namespace EventSaucing.Reactors {
                            PublicationId,
                            JsonConvert.DeserializeObject(ArticleSerialisation, type)
                        );
+                return msg;
             }
         }
         private async Task<IEnumerable<Messages.ArticlePublished>> PersistAsync(UnitOfWork uow) {
@@ -130,10 +131,10 @@ SELECT * FROM dbo.ReactorPublications WHERE PublishingReactorId = @ReactorId;
 SELECT 
     RPD.* 
 FROM 
-    dbo.ReactorPublicationDeliveries RPD 
+    dbo.ReactorSubscriptions RS 
 
-    INNER JOIN dbo.ReactorSubscriptions RS 
-        ON RPD.SubscriptionId = RS.Id
+    INNER JOIN dbo.ReactorPublicationDeliveries RPD 
+        ON RS.Id = RPD.SubscriptionId
 WHERE
     RS.SubscribingReactorId=@ReactorId;";
                 var results = await con.QueryMultipleAsync(sql, new { reactorId });
