@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace EventSaucing.Reactors {
     /// <summary>
-    /// The overall supervisor for the reactor infrastructure.  Only one of these needed per cluster. Nodes in the cluster should just start their own ReactorBucketSupervisor actor.
+    /// The overall supervisor for the reactor infrastructure.  Only one of these needed per cluster. To host a bucket outside of the main node, start a ReactorBucketSupervisor actor instead.
     /// </summary>
     public class ReactorSupervisor : ReceiveActor {
         public ReactorSupervisor() {

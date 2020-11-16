@@ -67,27 +67,21 @@ namespace EventSaucing.Reactors {
         private async Task<IEnumerable<Messages.ArticlePublished>> PersistAsync(UnitOfWork uow) {
             if (uow.Reactor.State is null) throw new ReactorValidationException($"Can't persist a reactor {uow.Reactor.GetType().FullName} if its State property is null");
 
-            try {
-                using (var con = dbService.GetConnection()) {
-                    await con.OpenAsync();
-                    var (sb, args) = uow.GetSQLAndArgs();
+            using (var con = dbService.GetConnection()) {
+                await con.OpenAsync();
+                var (sb, args) = uow.GetSQLAndArgs();
 
-                    //persist and get any subscriptions which need to be notified + the reactorid in the case of a new reactor
-                    var results = await con.QueryMultipleAsync(sb.ToString(), args);
+                //persist and get any subscriptions which need to be notified + the reactorid in the case of a new reactor
+                var results = await con.QueryMultipleAsync(sb.ToString(), args);
 
-                    //article messages to be published
-                    IEnumerable<PreArticlePublishedMsg> preArticlePublishMessages = await results.ReadAsync<PreArticlePublishedMsg>();
-                    //set the reactor id (will only make a difference for new reactors
-                    uow.Reactor.Id = (await results.ReadFirstAsync<long>()).ToSome();
+                //article messages to be published
+                IEnumerable<PreArticlePublishedMsg> preArticlePublishMessages = await results.ReadAsync<PreArticlePublishedMsg>();
+                //set the reactor id (will only make a difference for new reactors
+                uow.Reactor.Id = (await results.ReadFirstAsync<long>()).ToSome();
 
-                    logger.LogDebug($"Found {preArticlePublishMessages.Count()} article subscriptions to be delivered after persisting reactor id {uow.Reactor.Id.Get()}");
-                    return preArticlePublishMessages.Select(pre => pre.ToMessage());
-                }
-            } catch (Exception e) {
-
-                throw;
+                logger.LogDebug($"Found {preArticlePublishMessages.Count()} article subscriptions to be delivered after persisting reactor id {uow.Reactor.Id.Get()}");
+                return preArticlePublishMessages.Select(pre => pre.ToMessage());
             }
-            
         }
 
         private class PreReactor {
