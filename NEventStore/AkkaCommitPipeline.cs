@@ -9,7 +9,7 @@ namespace EventSaucing.NEventStore {
     /// <summary>
     /// This class hooks into the NEventStore pipeline and sends the commits to the LocalProjectionSupervisorActor in Akka
     /// </summary>
-    class AkkaCommitPipeline : PipelineHookBase {
+    public class AkkaCommitPipeline : PipelineHookBase {
         private readonly Func<ActorPaths> _getPaths;
         private readonly Func<ActorSystem> _getAkka;
 
