@@ -203,7 +203,7 @@ DECLARE @PersistingReactorID BIGINT
 -- Persistence complete
 COMMIT
 
--- get any outstanding publications or subscriptions for the persisting reactor
+-- get any new publications for the persisting reactor
 -- (This query must happen outside of the Tx as otherwise we get deadlocks)
 
 SELECT R.Bucket AS SubscribingReactorBucket, RP.Name, RP.Id AS[PublicationId], RS.SubscribingReactorId, RS.Id as SubscriptionId, RP.PublishingReactorId, RP.VersionNumber, RP.ArticleSerialisationType, RP.ArticleSerialisation
@@ -218,17 +218,16 @@ LEFT JOIN dbo.ReactorPublicationDeliveries RPD
     ON RS.Id = RPD.SubscriptionId
     AND RP.Id = RPD.PublicationId
 
-INNER JOIN dbo.Reactors R
+--To get bucket
+INNER JOIN dbo.Reactors R WITH(READUNCOMMITTED)
     ON RS.SubscribingReactorId = R.Id
 
 WHERE
-    (
+    RP.PublishingReactorId = @PersistingReactorId -- published by persisting reactor
+    AND (
         RPD.SubscriptionId IS NULL -- subscription has never been delivered
         OR RPD.VersionNumber < RP.VersionNumber -- there is a new version of a previously-delivered subscription
-    ) AND (
-        RP.PublishingReactorId = @PersistingReactorId -- published by persisting reactor
-        OR RS.SubscribingReactorId = @PersistingReactorId -- subscribed to by persisting reactor
-    );
+    ); 
 
 -- get the reactorId. Needed for INSERTED reactors
 SELECT @PersistingReactorID [ReactorId];");

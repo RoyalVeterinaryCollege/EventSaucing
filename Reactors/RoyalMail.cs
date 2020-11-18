@@ -35,8 +35,9 @@ namespace EventSaucing.Reactors {
             using (var con = dbservice.GetConnection()) {
                 await con.OpenAsync();
 
+                //todo Need to limit the numbers of RoyalMail messages via config rather than hardcode 100
                 const string sqlAggregateSubscriptions = @"
-SELECT R.Bucket AS ReactorBucket, RS.ReactorId, RS.AggregateId, MAX(C.StreamRevision) StreamRevision
+SELECT TOP 100 R.Bucket AS ReactorBucket, RS.ReactorId, RS.AggregateId, MAX(C.StreamRevision) StreamRevision
 FROM 
     [dbo].[ReactorAggregateSubscriptions] RS 
     INNER JOIN dbo.Commits C
@@ -65,9 +66,10 @@ GROUP BY
                     reactorBucketRouter.Tell(preMsg.ToMessage());
                 }
 
+                //todo Need to limit the numbers of RoyalMail messages via config rather than hardcode 100
                 //Look for article subscriptions that need to be updated
                 const string sqlReactorSubscriptions = @"
-SELECT R.Bucket AS SubscribingReactorBucket, RP.Name,  RP.Id AS [PublicationId], RS.SubscribingReactorId, RS.Id as SubscriptionId, RP.PublishingReactorId, RP.VersionNumber, RP.ArticleSerialisationType, RP.ArticleSerialisation
+SELECT TOP 100 R.Bucket AS SubscribingReactorBucket, RP.Name,  RP.Id AS [PublicationId], RS.SubscribingReactorId, RS.Id as SubscriptionId, RP.PublishingReactorId, RP.VersionNumber, RP.ArticleSerialisationType, RP.ArticleSerialisation
 
 FROM dbo.ReactorSubscriptions RS
 
