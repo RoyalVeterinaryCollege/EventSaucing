@@ -28,57 +28,50 @@ namespace EventSaucing {
 				.RegisterModule(new DatabaseConnectivity())
 				.RegisterModule(new NEventStoreModule(configuration.UseProjectorPipeline))
 				.RegisterModule(new AkkaModule(configuration))
-				.RegisterModule(new ReactorInfrastructureModule(configuration));
+				.RegisterModule(new ReactorInfrastructureModule());
 		}
 
 		/// <summary>
-		/// Starts the main EventSaucing projector pipeline without Reactor support. Assumes you have already called RegisterEventSaucingModules.
+		/// Starts the main EventSaucing projector pipeline. Assumes you have already called RegisterEventSaucingModules.
 		/// </summary>
-		public static IContainer StartEventSaucing(this IContainer container) {
+		public static IContainer StartEventSaucingProjectorPipeline(this IContainer container) {
 			// Ensure the Projector Status is initialised.
 			var dbService = container.Resolve<IDbService>();
 			ProjectorHelper.InitialiseProjectorStatusStore(dbService);
 
             var actorSystem = container.Resolve<ActorSystem>();
-            var propsResolver = container.Resolve<IDependencyResolver>();
-            actorSystem.AddDependencyResolver(propsResolver);
-            var commitSerialisor = actorSystem.ActorOf(propsResolver.Create<CommitSerialiserActor>(), nameof(CommitSerialiserActor));
+            var commitSerialisor = actorSystem.ActorOf(actorSystem.DI().Props<CommitSerialiserActor>(), nameof(CommitSerialiserActor));
             container.Resolve<ActorPaths>().LocalCommitSerialisor = commitSerialisor.Path;
 			return container;
 		}
 		/// <summary>
-		/// Starts the main EventSaucing pipeline and also starts the Reactors main supervisor including RoyalMail.  Assumes you have already called RegisterEventSaucingModules.
+		/// Starts Reactor supervision for an akka cluster.  Need to call this once per akka cluster on the main node.  You call this even if your cluster only has one node.
 		/// </summary>
 		/// <param name="container"></param>
 		/// <param name="localReactorBucketName"></param>
 		/// <returns></returns>
-		public static IContainer StartEventSaucingWithReactors(this IContainer container, string localReactorBucketName) {
-			StartEventSaucing(container);
+		public static IContainer StartEventSaucingReactorClusterSupervision(this IContainer container, string localReactorBucketName) {
 			//todo : Create Reactor database tables
-
 			var actorSystem = container.Resolve<ActorSystem>();
-			var propsResolver = container.Resolve<IDependencyResolver>();
 
 			//start the overall reactor infrastrucure, only one of these needed per cluster
-			var reactorsuper = actorSystem.ActorOf(propsResolver.Create<ReactorSupervisor>(), name: "reactor-supervisor");
+			var reactorsuper = actorSystem.ActorOf(actorSystem.DI().Props<ReactorSupervisor>(), name: "reactor-supervisor");
 
 			//tell the local infrastructure its bucket identity
 			reactorsuper.Tell(new ReactorBucketSupervisor.LocalMessages.SubscribeToBucket(localReactorBucketName));
 			return container;
 		}
 		/// <summary>
-		/// Starts a local Reactor bucket which automatically connects to the main EventSuacing Reactor system.  Use this for secondary Reactor processes outside of the main webserver. . Assumes you have already called RegisterEventSaucingModules.
+		/// Starts a local Reactor bucket which automaticaly connects to the main EventSuacing Reactor system.  Use this for secondary Reactor processes outside of the main webserver. . Assumes you have already called RegisterEventSaucingModules.
 		/// </summary>
 		/// <param name="container"></param>
 		/// <param name="localReactorBucketName"></param>
 		/// <returns></returns>
-		public static IContainer StartLocalReactorBucket(this IContainer container, string localReactorBucketName) {
+		public static IContainer StartEventSaucingReactorNode(this IContainer container, string localReactorBucketName) {
 			var actorSystem = container.Resolve<ActorSystem>();
-			var propsResolver = container.Resolve<IDependencyResolver>();
-			actorSystem.AddDependencyResolver(propsResolver); //combine Akka with Autofac if this hasn't been done yet
 
 			//start the local reactor bucket supervisor.  It will automatically connect to the main Reactor process.
-			var bucket = actorSystem.ActorOf(propsResolver.Create<ReactorBucketSupervisor>(), name: "reactor-bucket");
+			var bucket = actorSystem.ActorOf(actorSystem.DI().Props<ReactorBucketSupervisor>(), name: "reactor-bucket");
 			bucket.Tell(new ReactorBucketSupervisor.LocalMessages.SubscribeToBucket(localReactorBucketName));
 			return container;
 		}

@@ -28,7 +28,8 @@ namespace EventSaucing.DependencyInjection.Autofac {
         }
     
         protected override void Load(ContainerBuilder builder) {
-            //should come first so akka is configured to use autofac as early as possible during start up
+            //should come first so akka is configured to use autofac as early as possible during start up, else various components will fail as they can't find their dependencies
+            builder.RegisterType<AutoFacDependencyResolver>().As<IDependencyResolver>().SingleInstance();
             builder.RegisterType<AkkaAutofacConfigurer>().As<IStartable>();
 
 			var entryAssemby = Assembly.GetEntryAssembly(); // Get the assembly that kicks the show off, this should have the projectors in it.
@@ -37,10 +38,6 @@ namespace EventSaucing.DependencyInjection.Autofac {
 			builder.RegisterAssemblyTypes(entryAssemby).AssignableTo<ReceiveActor>();
 			builder.RegisterAssemblyTypes(executingAssemby).AssignableTo<ReceiveActor>();
 			builder.Register(x => new ActorPaths()).SingleInstance();
-
-           //  builder.RegisterType<AutoFacDependencyResolver>()
-           //     .As<IDependencyResolver>()
-           //     .SingleInstance();
 
             builder
                 .Register(x => ActorSystem.Create(actorsystemname, config))
