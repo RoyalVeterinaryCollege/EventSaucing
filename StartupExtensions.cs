@@ -3,18 +3,19 @@ using Akka.DI.Core;
 using Autofac;
 using Autofac.Core.Registration;
 using EventSaucing.Akka.Actors;
+using EventSaucing.DependencyInjection.Autofac;
 using EventSaucing.Projector;
 using EventSaucing.Reactors;
 using EventSaucing.Storage;
 using System;
 
-namespace EventSaucing.DependencyInjection.Autofac {
+namespace EventSaucing {
 	/// <summary>
 	/// Holds extension methods to facilitate configuration and startup of event saucing
 	/// </summary>
     public static class StartupExtensions {
 		/// <summary>
-		/// Registers modules required for EventSaucing.  You must call this before starting eventsaucing in any way (including starting a local reactor bucket)
+		/// Registers modules required for EventSaucing.  Starts Akka. You must call this before starting eventsaucing in any way (including starting a local reactor bucket)
 		/// </summary>
 		public static IModuleRegistrar RegisterEventSaucingModules(this ContainerBuilder builder, EventSaucingConfiguration configuration) {
 			if (builder == null)
@@ -74,7 +75,7 @@ namespace EventSaucing.DependencyInjection.Autofac {
 		public static IContainer StartLocalReactorBucket(this IContainer container, string localReactorBucketName) {
 			var actorSystem = container.Resolve<ActorSystem>();
 			var propsResolver = container.Resolve<IDependencyResolver>();
-			actorSystem.AddDependencyResolver(propsResolver); //combine Akka with Autofac
+			actorSystem.AddDependencyResolver(propsResolver); //combine Akka with Autofac if this hasn't been done yet
 
 			//start the local reactor bucket supervisor.  It will automatically connect to the main Reactor process.
 			var bucket = actorSystem.ActorOf(propsResolver.Create<ReactorBucketSupervisor>(), name: "reactor-bucket");

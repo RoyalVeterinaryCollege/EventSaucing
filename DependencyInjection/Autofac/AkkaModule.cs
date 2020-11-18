@@ -1,5 +1,4 @@
-﻿using System;
-using System.Reflection;
+﻿using System.Reflection;
 using Akka.Actor;
 using Akka.Configuration;
 using Akka.DI.AutoFac;
@@ -29,6 +28,8 @@ namespace EventSaucing.DependencyInjection.Autofac {
         }
     
         protected override void Load(ContainerBuilder builder) {
+            //should come first so akka is configured to use autofac as early as possible during start up
+            builder.RegisterType<AkkaAutofacConfigurer>().As<IStartable>();
 
 			var entryAssemby = Assembly.GetEntryAssembly(); // Get the assembly that kicks the show off, this should have the projectors in it.
 			var executingAssemby = Assembly.GetExecutingAssembly(); // This assembly, which has infrastructor actors.
@@ -37,11 +38,10 @@ namespace EventSaucing.DependencyInjection.Autofac {
 			builder.RegisterAssemblyTypes(executingAssemby).AssignableTo<ReceiveActor>();
 			builder.Register(x => new ActorPaths()).SingleInstance();
 
-            builder.RegisterType<AutoFacDependencyResolver>()
-                .As<IDependencyResolver>()
-                .SingleInstance();
+           //  builder.RegisterType<AutoFacDependencyResolver>()
+           //     .As<IDependencyResolver>()
+           //     .SingleInstance();
 
-            //see http://getakka.net/docs/Serilog for logging info
             builder
                 .Register(x => ActorSystem.Create(actorsystemname, config))
                 .SingleInstance(); // Akka starts at this point
