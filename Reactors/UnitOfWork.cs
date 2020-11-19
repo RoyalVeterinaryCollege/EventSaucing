@@ -68,6 +68,7 @@ namespace EventSaucing.Reactors {
         public IReactor Reactor { get; private set; }
         public Option<PersistedPubSubData> PersistedPubSub { get; private set; }
 
+        readonly Random rnd = new Random();
         readonly IStreamIdHasher streamHasher;
         readonly IReactorBucketFacade reactorBucketFacade;
         readonly Func<UnitOfWork, Task<IEnumerable<Messages.ArticlePublished>>> persist;
@@ -133,7 +134,7 @@ namespace EventSaucing.Reactors {
 
         public async Task CompleteAndPublishAsync() {
             IEnumerable<Messages.ArticlePublished> publications = await PersistWithPublicationsAysnc();
-            foreach (var articlePublished in publications) {
+            foreach (var articlePublished in publications.Shuffle(rnd)) {
                 reactorBucketFacade.Tell(articlePublished);
             }
         }
@@ -194,10 +195,10 @@ BEGIN TRAN
 DECLARE @PersistingReactorID BIGINT
 ");
             SerialiseReactorRecord(sb, args);
-            SerialiseReactorSubscriptionRecords(sb, args);
-            SerialiseAggregateRecords(sb, args);
-            SerialiseReactorPublicationRecords(sb, args);
             SerialiseDeliveryRecord(sb, args);
+            SerialiseReactorPublicationRecords(sb, args);
+            SerialiseAggregateRecords(sb, args);
+            SerialiseReactorSubscriptionRecords(sb, args);
 
             sb.Append(@"
 -- Persistence complete
@@ -218,7 +219,7 @@ LEFT JOIN dbo.ReactorPublicationDeliveries RPD
     ON RS.Id = RPD.SubscriptionId
     AND RP.Id = RPD.PublicationId
 
---To get bucket
+-- Without this lock hint, RoyalMail (or this code) can deadlock with UoW's reactor persistance code.  It's safe to read dirty data here because we are only joining to get the Reactor Bucket and this never changes
 INNER JOIN dbo.Reactors R WITH(READUNCOMMITTED)
     ON RS.SubscribingReactorId = R.Id
 
@@ -240,7 +241,7 @@ SELECT @PersistingReactorID [ReactorId];");
             InterimReactorPublicationDelivery delivery = this.delivery.Get();
 
             sb.Append($@"
-MERGE [dbo].[ReactorPublicationDeliveries] AS TARGET
+MERGE [dbo].[ReactorPublicationDeliveries] WITH (ROWLOCK) AS TARGET
 USING (SELECT {delivery.SubscriptionId} AS [SubscriptionId], {delivery.PublicationId} AS [PublicationId], {delivery.VersionNumber} AS [VersionNumber]) AS SOURCE
 ON TARGET.[SubscriptionId] = SOURCE.[SubscriptionId] AND TARGET.[PublicationId] = SOURCE.[PublicationId]
 WHEN MATCHED THEN
@@ -277,7 +278,7 @@ SELECT @PersistingReactorID = SCOPE_IDENTITY();");
 
                 //todo optimistic concurrency when updating reactors
                 sb.Append(@"
-UPDATE [dbo].[Reactors]
+UPDATE [dbo].[Reactors]  WITH (ROWLOCK)
 SET 
     [StateSerialisation] = @StateSerialisation
     ,[StateType] = @StateType
@@ -291,7 +292,7 @@ WHERE Id=@PersistingReactorID;");
                 var streamId = streamHasher.GetHash(subscription.AggregateId.ToString());
 
                 sb.Append($@"
-MERGE [dbo].[ReactorAggregateSubscriptions] AS TARGET
+MERGE [dbo].[ReactorAggregateSubscriptions]  WITH (ROWLOCK) AS TARGET
 USING (SELECT '{streamId}' AS StreamId, @PersistingReactorID AS ReactorId, '{subscription.AggregateId}' AS AggregateId, {subscription.StreamRevision} AS StreamRevision) AS SOURCE
 ON TARGET.StreamId = SOURCE.StreamId AND TARGET.ReactorId = SOURCE.ReactorId
 WHEN MATCHED THEN
@@ -310,7 +311,7 @@ WHEN NOT MATCHED THEN
 
                 //update first
                 sb.Append($@"
-UPDATE [dbo].[ReactorPublications]
+UPDATE [dbo].[ReactorPublications]  WITH (ROWLOCK)
 SET [ArticleSerialisationType] ='{articleType}'
 ,[ArticleSerialisation] = '{articleSerialisation}'
 ,[VersionNumber] = {publication.VersionNumber}
@@ -351,18 +352,17 @@ VALUES");
         }
 
         private void SerialiseReactorSubscriptionRecords(StringBuilder sb, SQLArgs args) {
-            foreach (var subscription in unpersistedReactorSubscriptions) {
-                sb.Append($@"
+            if (!unpersistedReactorSubscriptions.Any()) return;
+            sb.Append($@"
 INSERT INTO [dbo].[ReactorSubscriptions]
     ([SubscribingReactorId]
     ,[Name]
     ,[NameHash])
-VALUES(
-    @PersistingReactorID
-    ,'{subscription.Name}'
-    ,{subscription.NameHash}
-);");
-            }
+VALUES
+");
+            var values = unpersistedReactorSubscriptions.Select(sub => $"(@PersistingReactorID,'{sub.Name}',{sub.NameHash})");
+            sb.Append(string.Join($",{Environment.NewLine}", values));
+            sb.Append(@";");
         }
 
         #endregion

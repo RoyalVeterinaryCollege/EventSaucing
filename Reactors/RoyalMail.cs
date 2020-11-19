@@ -17,12 +17,14 @@ namespace EventSaucing.Reactors {
         private readonly IDbService dbservice;
         private readonly IReactorBucketFacade reactorBucketRouter;
         private readonly ILogger<RoyalMail> logger;
+        private readonly Random rnd;
 
         public RoyalMail(IDbService dbservice, IReactorBucketFacade reactorBucketRouter, ILogger<RoyalMail> logger) {
             this.dbservice = dbservice;
             this.reactorBucketRouter = reactorBucketRouter;
             this.logger = logger;
             ReceiveAsync<LocalMessages.PollForOutstandingArticles>(OnPollAsync);
+            rnd = new Random();
         }
         private class PreSubscribedAggregateChanged {
             public string ReactorBucket { get; set; }
@@ -44,7 +46,9 @@ FROM
         ON RS.StreamId = C.StreamId
         AND C.StreamRevision > RS.StreamRevision
         AND C.BucketId='default'
-    INNER JOIN dbo.Reactors R
+
+    -- Without this lock hint, RoyalMail can deadlock with UoW's reactor persistance code.  It's safe to read dirty data here because we are only joining to get the Reactor Bucket and this never changes
+    INNER JOIN dbo.Reactors R WITH(READUNCOMMITTED)
         ON RS.ReactorId = R.Id
 GROUP BY
     R.Bucket, RS.ReactorId, RS.AggregateId;";
@@ -62,7 +66,7 @@ GROUP BY
                     logger.LogInformation($"No aggreggate subscriptions need to be updated");
                 }
 
-                foreach (var preMsg in aggregateSubscriptionMessages) {
+                foreach (var preMsg in aggregateSubscriptionMessages.Shuffle(rnd)) {
                     reactorBucketRouter.Tell(preMsg.ToMessage());
                 }
 
@@ -81,7 +85,8 @@ LEFT JOIN dbo.ReactorPublicationDeliveries RPD
 	ON RS.Id = RPD.SubscriptionId
 	AND RP.Id = RPD.PublicationId
 
-INNER JOIN dbo.Reactors R
+-- Without this lock hint, RoyalMail can deadlock with UoW's reactor persistance code.  It's safe to read dirty data here because we are only joining to get the Reactor Bucket and this never changes
+INNER JOIN dbo.Reactors R WITH(READUNCOMMITTED)
     ON RS.SubscribingReactorId = R.Id
 
 WHERE 
@@ -100,7 +105,7 @@ WHERE
                     logger.LogInformation($"No article subscriptions need to be updated");
                 }
 
-                foreach (var preMsg in preMessages) {
+                foreach (var preMsg in preMessages.Shuffle(rnd)) {
                     reactorBucketRouter.Tell(preMsg.ToMessage());
                 }
             }
