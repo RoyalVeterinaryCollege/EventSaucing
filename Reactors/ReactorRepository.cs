@@ -25,15 +25,13 @@ namespace EventSaucing.Reactors {
             this.reactorBucketFacade = reactorBucketFacade;
             this.logger = logger;
             this.streamHasher = new Sha1StreamIdHasher();
-
-            CreateReactorTables(dbService);
         }
 
-        private static void CreateReactorTables(IDbService dbService) {
+        public async Task CreateReactorTablesAsync() {
             //create the reactor tables if necessary
             using (var con = dbService.GetConnection()) {
-                con.Open();
-                con.Execute(SqlCreateReactorTables);
+                await con.OpenAsync();
+                await con.ExecuteAsync(SqlCreateReactorTables);
             }
         }
 
@@ -172,10 +170,10 @@ SET IMPLICIT_TRANSACTIONS ON
 
 /****** Object:  Table [dbo].[Reactors]    Script Date: 20/11/2020 13:57:34 ******/
 SET ANSI_NULLS ON
-GO
+;
 
 SET QUOTED_IDENTIFIER ON
-GO
+;
 
 IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[Reactors]') AND type in (N'U'))
 BEGIN
@@ -194,14 +192,14 @@ CREATE TABLE [dbo].[Reactors](
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, FILLFACTOR = 95) ON [PRIMARY]
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 END
-GO
+;
 
 /****** Object:  Table [dbo].[ReactorSubscriptions]    Script Date: 20/11/2020 13:57:34 ******/
 SET ANSI_NULLS ON
-GO
+;
 
 SET QUOTED_IDENTIFIER ON
-GO
+;
 
 IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[ReactorSubscriptions]') AND type in (N'U'))
 BEGIN
@@ -216,14 +214,14 @@ CREATE TABLE [dbo].[ReactorSubscriptions](
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
 ) ON [PRIMARY]
 END
-GO
+;
 
 /****** Object:  Table [dbo].[ReactorPublications]    Script Date: 20/11/2020 13:57:34 ******/
 SET ANSI_NULLS ON
-GO
+;
 
 SET QUOTED_IDENTIFIER ON
-GO
+;
 
 IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[ReactorPublications]') AND type in (N'U'))
 BEGIN
@@ -242,14 +240,14 @@ CREATE TABLE [dbo].[ReactorPublications](
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, FILLFACTOR = 95) ON [PRIMARY]
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 END
-GO
+;
 
 /****** Object:  Table [dbo].[ReactorPublicationDeliveries]    Script Date: 20/11/2020 13:57:34 ******/
 SET ANSI_NULLS ON
-GO
+;
 
 SET QUOTED_IDENTIFIER ON
-GO
+;
 
 IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[ReactorPublicationDeliveries]') AND type in (N'U'))
 BEGIN
@@ -265,7 +263,7 @@ CREATE TABLE [dbo].[ReactorPublicationDeliveries](
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
 ) ON [PRIMARY]
 END
-GO
+;
 
 /****** Object:  Index [IX_ReactorSubscriptions]    Script Date: 20/11/2020 13:57:34 ******/
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[ReactorSubscriptions]') AND name = N'IX_ReactorSubscriptions')
@@ -273,7 +271,7 @@ CREATE NONCLUSTERED INDEX [IX_ReactorSubscriptions] ON [dbo].[ReactorSubscriptio
 (
 	[NameHash] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
-GO
+;
 
 /****** Object:  Index [IX_ReactorSubscriptions_1]    Script Date: 20/11/2020 13:57:34 ******/
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[ReactorSubscriptions]') AND name = N'IX_ReactorSubscriptions_1')
@@ -281,7 +279,7 @@ CREATE NONCLUSTERED INDEX [IX_ReactorSubscriptions_1] ON [dbo].[ReactorSubscript
 (
 	[SubscribingReactorId] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
-GO
+;
 
 /****** Object:  Index [IX_ReactorPublications]    Script Date: 20/11/2020 13:57:34 ******/
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[ReactorPublications]') AND name = N'IX_ReactorPublications')
@@ -289,49 +287,49 @@ CREATE NONCLUSTERED INDEX [IX_ReactorPublications] ON [dbo].[ReactorPublications
 (
 	[NameHash] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
-GO
+;
 
 IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE object_id = OBJECT_ID(N'[dbo].[FK_has_subscriptions]') AND parent_object_id = OBJECT_ID(N'[dbo].[ReactorSubscriptions]'))
 ALTER TABLE [dbo].[ReactorSubscriptions]  WITH CHECK ADD  CONSTRAINT [FK_has_subscriptions] FOREIGN KEY([SubscribingReactorId])
 REFERENCES [dbo].[Reactors] ([Id])
 ON UPDATE CASCADE
 ON DELETE CASCADE
-GO
+;
 
 IF  EXISTS (SELECT * FROM sys.foreign_keys WHERE object_id = OBJECT_ID(N'[dbo].[FK_has_subscriptions]') AND parent_object_id = OBJECT_ID(N'[dbo].[ReactorSubscriptions]'))
 ALTER TABLE [dbo].[ReactorSubscriptions] CHECK CONSTRAINT [FK_has_subscriptions]
-GO
+;
 
 IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE object_id = OBJECT_ID(N'[dbo].[FK_publication_of]') AND parent_object_id = OBJECT_ID(N'[dbo].[ReactorPublications]'))
 ALTER TABLE [dbo].[ReactorPublications]  WITH CHECK ADD  CONSTRAINT [FK_publication_of] FOREIGN KEY([PublishingReactorId])
 REFERENCES [dbo].[Reactors] ([Id])
 ON UPDATE CASCADE
 ON DELETE CASCADE
-GO
+;
 
 IF  EXISTS (SELECT * FROM sys.foreign_keys WHERE object_id = OBJECT_ID(N'[dbo].[FK_publication_of]') AND parent_object_id = OBJECT_ID(N'[dbo].[ReactorPublications]'))
 ALTER TABLE [dbo].[ReactorPublications] CHECK CONSTRAINT [FK_publication_of]
-GO
+;
 
 IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE object_id = OBJECT_ID(N'[dbo].[FK_has_delivery]') AND parent_object_id = OBJECT_ID(N'[dbo].[ReactorPublicationDeliveries]'))
 ALTER TABLE [dbo].[ReactorPublicationDeliveries]  WITH CHECK ADD  CONSTRAINT [FK_has_delivery] FOREIGN KEY([PublicationId])
 REFERENCES [dbo].[ReactorPublications] ([Id])
-GO
+;
 
 IF  EXISTS (SELECT * FROM sys.foreign_keys WHERE object_id = OBJECT_ID(N'[dbo].[FK_has_delivery]') AND parent_object_id = OBJECT_ID(N'[dbo].[ReactorPublicationDeliveries]'))
 ALTER TABLE [dbo].[ReactorPublicationDeliveries] CHECK CONSTRAINT [FK_has_delivery]
-GO
+;
 
 IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE object_id = OBJECT_ID(N'[dbo].[FK_was_delivered]') AND parent_object_id = OBJECT_ID(N'[dbo].[ReactorPublicationDeliveries]'))
 ALTER TABLE [dbo].[ReactorPublicationDeliveries]  WITH CHECK ADD  CONSTRAINT [FK_was_delivered] FOREIGN KEY([SubscriptionId])
 REFERENCES [dbo].[ReactorSubscriptions] ([Id])
 ON UPDATE CASCADE
 ON DELETE CASCADE
-GO
+;
 
 IF  EXISTS (SELECT * FROM sys.foreign_keys WHERE object_id = OBJECT_ID(N'[dbo].[FK_was_delivered]') AND parent_object_id = OBJECT_ID(N'[dbo].[ReactorPublicationDeliveries]'))
 ALTER TABLE [dbo].[ReactorPublicationDeliveries] CHECK CONSTRAINT [FK_was_delivered]
-GO
+;
 
 
 IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[ReactorAggregateSubscriptions]') AND type in (N'U'))
@@ -348,7 +346,7 @@ CREATE TABLE [dbo].[ReactorAggregateSubscriptions](
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
 ) ON [PRIMARY]
 END
-GO
+;
 
 /****** Object:  Index [IX_ReactorAggregateSubscriptions]    Script Date: 20/11/2020 13:58:19 ******/
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[ReactorAggregateSubscriptions]') AND name = N'IX_ReactorAggregateSubscriptions')
@@ -356,18 +354,20 @@ CREATE NONCLUSTERED INDEX [IX_ReactorAggregateSubscriptions] ON [dbo].[ReactorAg
 (
 	[AggregateId] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
-GO
+;
 
 IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE object_id = OBJECT_ID(N'[dbo].[FK_has_aggregate_subscription]') AND parent_object_id = OBJECT_ID(N'[dbo].[ReactorAggregateSubscriptions]'))
 ALTER TABLE [dbo].[ReactorAggregateSubscriptions]  WITH CHECK ADD  CONSTRAINT [FK_has_aggregate_subscription] FOREIGN KEY([ReactorId])
 REFERENCES [dbo].[Reactors] ([Id])
 ON UPDATE CASCADE
 ON DELETE CASCADE
-GO
+;
 
 IF  EXISTS (SELECT * FROM sys.foreign_keys WHERE object_id = OBJECT_ID(N'[dbo].[FK_has_aggregate_subscription]') AND parent_object_id = OBJECT_ID(N'[dbo].[ReactorAggregateSubscriptions]'))
 ALTER TABLE [dbo].[ReactorAggregateSubscriptions] CHECK CONSTRAINT [FK_has_aggregate_subscription]
-GO
+;
+
+
 
 COMMIT";
     }
