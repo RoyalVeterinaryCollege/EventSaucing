@@ -205,30 +205,19 @@ DECLARE @PersistingReactorID BIGINT
 COMMIT
 
 -- get any new publications for the persisting reactor
--- (This query must happen outside of the Tx as otherwise we get deadlocks)
+-- (This query must happen outside of the Tx to reduce deadlocks)
 
-SELECT R.Bucket AS SubscribingReactorBucket, RP.Name, RP.Id AS[PublicationId], RS.SubscribingReactorId, RS.Id as SubscriptionId, RP.PublishingReactorId, RP.VersionNumber, RP.ArticleSerialisationType, RP.ArticleSerialisation
+SELECT R.Bucket AS SubscribingReactorBucket, NP.Name, NP.PublicationId, RS.SubscribingReactorId, RS.Id as SubscriptionId, @PersistingReactorId AS PublishingReactorId, NP.VersionNumber, NP.ArticleSerialisationType, NP.ArticleSerialisation
 
 FROM dbo.ReactorSubscriptions RS
 
-INNER JOIN dbo.ReactorPublications RP
-    ON RS.NameHash = RP.NameHash
-    AND RS.Name = RP.Name
-
-LEFT JOIN dbo.ReactorPublicationDeliveries RPD
-    ON RS.Id = RPD.SubscriptionId
-    AND RP.Id = RPD.PublicationId
+INNER JOIN @NewPublications NP
+    ON RS.NameHash = NP.NameHash 
+    AND RS.Name = NP.Name
 
 -- Without this lock hint, RoyalMail (or this code) can deadlock with UoW's reactor persistance code.  It's safe to read dirty data here because we are only joining to get the Reactor Bucket and this never changes
-INNER JOIN dbo.Reactors R WITH(READUNCOMMITTED)
-    ON RS.SubscribingReactorId = R.Id
-
-WHERE
-    RP.PublishingReactorId = @PersistingReactorId -- published by persisting reactor
-    AND (
-        RPD.SubscriptionId IS NULL -- subscription has never been delivered
-        OR RPD.VersionNumber < RP.VersionNumber -- there is a new version of a previously-delivered subscription
-    ); 
+INNER JOIN dbo.Reactors R WITH(NOLOCK)
+    ON RS.SubscribingReactorId = R.Id;
 
 -- get the reactorId. Needed for INSERTED reactors
 SELECT @PersistingReactorID [ReactorId];");
@@ -304,6 +293,24 @@ WHEN NOT MATCHED THEN
         }
 
         private void SerialiseReactorPublicationRecords(StringBuilder sb, SQLArgs args) {
+
+            sb.Append(@"
+
+-- to hold articles published in this batch
+DECLARE @NewPublications AS TABLE (
+	PublicationId BIGINT NOT NULL,
+	[Name] VARCHAR(2048) NOT NULL,
+	NameHash INT NOT NULL,
+	VersionNumber INT NOT NULL,
+	ArticleSerialisation NVARCHAR(MAX) NOT NULL,
+	ArticleSerialisationType NVARCHAR(MAX) NOT NULL
+)
+
+");
+            const string OUTPUT = @"
+OUTPUT INSERTED.Id, INSERTED.Name, INSERTED.NameHash, INSERTED.VersionNumber, INSERTED.ArticleSerialisation, INSERTED.ArticleSerialisationType INTO 
+ @NewPublications(PublicationId, Name, NameHash, VersionNumber, ArticleSerialisation, ArticleSerialisationType)
+";
             // updates first, one UPDATE statement per publication
             foreach (var publication in reactorPublications.Where(pub => pub.Id.HasValue)) {
                 string articleType = publication.Article.GetType().AssemblyQualifiedName;
@@ -316,6 +323,7 @@ SET [ArticleSerialisationType] ='{articleType}'
 ,[ArticleSerialisation] = '{articleSerialisation}'
 ,[VersionNumber] = {publication.VersionNumber}
 ,[LastPublishedDate] = GETDATE()
+{OUTPUT}
 WHERE ID = {publication.Id.Get()};");
             }
 
@@ -330,6 +338,7 @@ INSERT INTO [dbo].[ReactorPublications]
     ,[ArticleSerialisation]
     ,[VersionNumber]
     ,[LastPublishedDate])
+{OUTPUT}
 VALUES");
                 //loop each new publication and add a value record for it
                 List<string> values = new List<string>();
