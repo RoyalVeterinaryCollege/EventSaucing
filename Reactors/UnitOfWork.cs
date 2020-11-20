@@ -204,9 +204,7 @@ DECLARE @PersistingReactorID BIGINT
 -- Persistence complete
 COMMIT
 
--- get any new publications for the persisting reactor
--- (This query must happen outside of the Tx to reduce deadlocks)
-
+--Identify all subscribing reactors for the newly published articles
 SELECT R.Bucket AS SubscribingReactorBucket, NP.Name, NP.PublicationId, RS.SubscribingReactorId, RS.Id as SubscriptionId, @PersistingReactorId AS PublishingReactorId, NP.VersionNumber, NP.ArticleSerialisationType, NP.ArticleSerialisation
 
 FROM dbo.ReactorSubscriptions RS
@@ -230,7 +228,7 @@ SELECT @PersistingReactorID [ReactorId];");
             InterimReactorPublicationDelivery delivery = this.delivery.Get();
 
             sb.Append($@"
-MERGE [dbo].[ReactorPublicationDeliveries] WITH (ROWLOCK) AS TARGET
+MERGE [dbo].[ReactorPublicationDeliveries] AS TARGET
 USING (SELECT {delivery.SubscriptionId} AS [SubscriptionId], {delivery.PublicationId} AS [PublicationId], {delivery.VersionNumber} AS [VersionNumber]) AS SOURCE
 ON TARGET.[SubscriptionId] = SOURCE.[SubscriptionId] AND TARGET.[PublicationId] = SOURCE.[PublicationId]
 WHEN MATCHED THEN
@@ -267,7 +265,7 @@ SELECT @PersistingReactorID = SCOPE_IDENTITY();");
 
                 //todo optimistic concurrency when updating reactors
                 sb.Append(@"
-UPDATE [dbo].[Reactors]  WITH (ROWLOCK)
+UPDATE [dbo].[Reactors] 
 SET 
     [StateSerialisation] = @StateSerialisation
     ,[StateType] = @StateType
@@ -281,7 +279,7 @@ WHERE Id=@PersistingReactorID;");
                 var streamId = streamHasher.GetHash(subscription.AggregateId.ToString());
 
                 sb.Append($@"
-MERGE [dbo].[ReactorAggregateSubscriptions]  WITH (ROWLOCK) AS TARGET
+MERGE [dbo].[ReactorAggregateSubscriptions] AS TARGET
 USING (SELECT '{streamId}' AS StreamId, @PersistingReactorID AS ReactorId, '{subscription.AggregateId}' AS AggregateId, {subscription.StreamRevision} AS StreamRevision) AS SOURCE
 ON TARGET.StreamId = SOURCE.StreamId AND TARGET.ReactorId = SOURCE.ReactorId
 WHEN MATCHED THEN
@@ -318,7 +316,7 @@ OUTPUT INSERTED.Id, INSERTED.Name, INSERTED.NameHash, INSERTED.VersionNumber, IN
 
                 //update first
                 sb.Append($@"
-UPDATE [dbo].[ReactorPublications]  WITH (ROWLOCK)
+UPDATE [dbo].[ReactorPublications]
 SET [ArticleSerialisationType] ='{articleType}'
 ,[ArticleSerialisation] = '{articleSerialisation}'
 ,[VersionNumber] = {publication.VersionNumber}
