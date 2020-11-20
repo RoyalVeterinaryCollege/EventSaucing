@@ -5,19 +5,17 @@
 		/// </summary>
 		public bool UseProjectorPipeline { get; set; }
         /// <summary>
-        /// Gets or sets the database connection string used to store and retrieve events.
+        /// Gets or sets the database connection string which holds the commit store.
         /// </summary>
         public string ConnectionString { get; set; }
 		/// <summary>
-		/// Gets or sets the maximum number of commits to cache in memory. The default is 10.
+		/// Gets or sets the maximum number of commits to cache in memory for the projector pipeline. The default is 10.
 		/// </summary>
 		public int MaxCommitsToCacheInMemory { get; set; } = 10;
-
 		/// <summary>
-		/// The name of the akka actorsystem
+		/// The name of the akka actorsystem. Defaults to 'EventSaucing'.  All nodes in the akka cluster must use the same name.
 		/// </summary>
 		public string ActorSystemName { get; set; } = "EventSaucing";
-
 		/// <summary>
 		/// The config in HCON format for Akka's configuration. See https://getakka.net/articles/concepts/configuration.html
 		/// </summary>

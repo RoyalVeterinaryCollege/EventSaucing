@@ -45,13 +45,16 @@ namespace EventSaucing {
 			return container;
 		}
 		/// <summary>
-		/// Starts Reactor supervision for an akka cluster.  Need to call this once per akka cluster on the main node.  You call this even if your cluster only has one node.
+		/// Starts Reactor supervision for an akka cluster.  Need to call this once per akka cluster on the main node.  You call this even if your cluster only has one node. Assumes you have already called RegisterEventSaucingModules.
 		/// </summary>
 		/// <param name="container"></param>
 		/// <param name="localReactorBucketName"></param>
 		/// <returns></returns>
 		public static IContainer StartEventSaucingReactorClusterSupervision(this IContainer container, string localReactorBucketName) {
-			//todo : Create Reactor database tables
+			//create the reactor persistence tables if not already created
+			var reactorRepo = container.Resolve<IReactorRepository>();
+			reactorRepo.CreateReactorTablesAsync().Wait();
+
 			var actorSystem = container.Resolve<ActorSystem>();
 
 			//start the overall reactor infrastrucure, only one of these needed per cluster
@@ -62,7 +65,7 @@ namespace EventSaucing {
 			return container;
 		}
 		/// <summary>
-		/// Starts a local Reactor bucket which automaticaly connects to the main EventSuacing Reactor system.  Use this for secondary Reactor processes outside of the main webserver. . Assumes you have already called RegisterEventSaucingModules.
+		/// Starts a local Reactor bucket which automaticaly connects to the main EventSuacing Reactor system.  Use this for secondary Reactor processes outside of the main webserver. Assumes you have already called RegisterEventSaucingModules.
 		/// </summary>
 		/// <param name="container"></param>
 		/// <param name="localReactorBucketName"></param>

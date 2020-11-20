@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EventSaucing.Akka {
     /// <summary>
-    /// Class which waits for the ASP.Net process to indicate that it is shutting down, then shuts down Akka gracefully
+    /// Class which waits for the host process to indicate that it is shutting down, then shuts down Akka gracefully
     /// </summary>
     public class AkkaShutdown : IStartable {
         private readonly ILogger<AkkaShutdown> logger;
