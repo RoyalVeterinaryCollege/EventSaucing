@@ -31,8 +31,9 @@ namespace EventSaucing.DependencyInjection.Autofac {
             //should come first so akka is configured to use autofac as early as possible during start up, else various components will fail as they can't find their dependencies
             builder.RegisterType<AutoFacDependencyResolver>().As<IDependencyResolver>().SingleInstance();
             builder.RegisterType<AkkaAutofacConfigurer>().As<IStartable>();
+            builder.RegisterType<Akka.AkkaShutdown>().As<IStartable>();
 
-			var entryAssemby = Assembly.GetEntryAssembly(); // Get the assembly that kicks the show off, this should have the projectors in it.
+            var entryAssemby = Assembly.GetEntryAssembly(); // Get the assembly that kicks the show off, this should have the projectors in it.
 			var executingAssemby = Assembly.GetExecutingAssembly(); // This assembly, which has infrastructor actors.
 			
 			builder.RegisterAssemblyTypes(entryAssemby).AssignableTo<ReceiveActor>();
