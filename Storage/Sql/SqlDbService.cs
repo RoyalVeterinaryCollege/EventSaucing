@@ -20,6 +20,7 @@ namespace EventSaucing.Storage.Sql {
             return GetConnection(_connectionString);
         }
 
+		/*
 		//Required by NEvent
 		IDbConnection IConnectionFactory.Open() {
 			return new ConnectionScope(_connectionString, () => {
@@ -27,9 +28,13 @@ namespace EventSaucing.Storage.Sql {
 				conn.Open();
 				return conn;
 			});
+		}*/
+		IDbConnection IConnectionFactory.Open() {
+			var conn = GetConnection();
+			conn.Open();
+			return conn;
 		}
-
-	    public Type GetDbProviderFactoryType() {
+		public Type GetDbProviderFactoryType() {
 			var connection = GetConnection();
 			return DbProviderFactories.GetFactory(connection).GetType();
 		}

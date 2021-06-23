@@ -4,6 +4,7 @@ using Akka.Configuration;
 using Akka.DI.AutoFac;
 using Akka.DI.Core;
 using Autofac;
+using EventSaucing.Projector;
 using Module = Autofac.Module;
 
 namespace EventSaucing.DependencyInjection.Autofac {
@@ -33,12 +34,10 @@ namespace EventSaucing.DependencyInjection.Autofac {
             builder.RegisterType<AkkaAutofacConfigurer>().As<IStartable>();
             builder.RegisterType<Akka.AkkaShutdown>().As<IStartable>();
 
-            var entryAssemby = Assembly.GetEntryAssembly(); // Get the assembly that kicks the show off, this should have the projectors in it.
-			var executingAssemby = Assembly.GetExecutingAssembly(); // This assembly, which has infrastructor actors.
 			
-			builder.RegisterAssemblyTypes(entryAssemby).AssignableTo<ReceiveActor>();
-			builder.RegisterAssemblyTypes(executingAssemby).AssignableTo<ReceiveActor>();
-			builder.Register(x => new ActorPaths()).SingleInstance();
+			builder.RegisterAssemblyTypes(Assembly.GetEntryAssembly()).AssignableTo<ProjectorBase>(); // Get the assembly that kicks the show off, this should have projectors in it.
+            builder.RegisterAssemblyTypes(Assembly.GetExecutingAssembly()).AssignableTo<ReceiveActor>(); // This assembly, which has infrastructure actors.
+            builder.Register(x => new ActorPaths()).SingleInstance();
 
             builder
                 .Register(x => ActorSystem.Create(actorsystemname, config))
