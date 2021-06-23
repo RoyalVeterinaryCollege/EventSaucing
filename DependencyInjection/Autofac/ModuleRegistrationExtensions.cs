@@ -1,5 +1,4 @@
 ﻿using System;
-//using System.Runtime.Remoting.Messaging;
 using Autofac;
 using Autofac.Core.Registration;
 
@@ -26,7 +25,7 @@ namespace EventSaucing.DependencyInjection.Autofac {
 			builder.RegisterInstance(configuration);
 			return builder
 				.RegisterModule(new DatabaseConnectivity())
-				.RegisterModule(new NEventStoreModule())
+				.RegisterModule(new NEventStoreModule(true))
 				.RegisterModule(new AkkaModule(configuration));
 		}
 	}

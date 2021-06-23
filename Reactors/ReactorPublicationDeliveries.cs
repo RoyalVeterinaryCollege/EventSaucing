@@ -5,6 +5,6 @@ namespace EventSaucing.Reactors {
         public long SubscriptionId { get; set; }
         public long PublicationId { get; set; }
         public int VersionNumber { get; set; }
-        public DateTime LastDeliverDate { get; set; }
+        public DateTime LastDeliveryDate { get; set; }
     }
 }

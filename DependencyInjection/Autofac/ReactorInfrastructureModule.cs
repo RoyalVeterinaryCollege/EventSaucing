@@ -9,18 +9,8 @@ namespace EventSaucing.DependencyInjection.Autofac {
     /// A self contained module for using EventSaucing reactors
     /// </summary>
     public class ReactorInfrastructureModule : Module {
-        private readonly EventSaucingConfiguration configuration;
-
-        public ReactorInfrastructureModule(EventSaucingConfiguration configuration) {
-            this.configuration = configuration;
-        }
         protected override void Load(ContainerBuilder builder) {
-            builder.RegisterInstance(configuration);
-
-            //register this as we depend on it
-            builder.RegisterModule(new DatabaseConnectivity());
-
-            //tell dapper how to handle Option<long> which is used frequently in reactor persistance
+            //tell dapper how to handle Option<long> which is used in reactor persistance
             SqlMapper.AddTypeHandler(typeof(Option<long>), new Storage.OptionHandler());
 
             //reactor services
@@ -29,6 +19,7 @@ namespace EventSaucing.DependencyInjection.Autofac {
             builder.RegisterType<ReactorPublicationFinder>().As<IReactorPublicationFinder>().SingleInstance();
 
             //reactor actors
+            builder.RegisterType<ReactorSupervisor>();
             builder.RegisterType<ReactorActor>();
             builder.RegisterType<ReactorBucketSupervisor>();
             builder.RegisterType<RoyalMail>();

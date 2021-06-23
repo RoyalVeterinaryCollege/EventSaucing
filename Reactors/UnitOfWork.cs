@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Collections;
 
 namespace EventSaucing.Reactors {
     /// <summary>
@@ -36,45 +35,47 @@ namespace EventSaucing.Reactors {
         /// <summary>
         /// The previously persisted publication and subscription records for the reactor.  If None, the reactor has never been persisted.
         /// </summary>
-        Option<PreviouslyPersistedPubSubData> Previous { get; }
+        Option<PersistedPubSubData> PersistedPubSub { get; }
         /// <summary>
-        /// Subscribe this reactor to the aggregate as part of the UOW
+        /// Subscribes to the aggregate's event stream
         /// </summary>
         /// <param name="subscription"></param>
         void Subscribe(ReactorAggregateSubscription subscription);
         /// <summary>
-        /// Subscribe this reactor to the named topic
-        /// </summary>
-        /// <param name="topic">The topic which the reactor subsctibes to</param>
-        void Subscribe(string topic);
-        /// <summary>
-        /// Subscribes to the event stream
+        /// Subscribes to the aggregate's event stream
         /// </summary>
         /// <param name="stream"></param>
         void Subscribe(Guid aggregateId, IEventStream stream);
         /// <summary>
-        /// Publish an article for a publication
+        /// Subscribe to articles published on the named topic
         /// </summary>
-        /// <param name="name"></param>
-        /// <param name="article"></param>
-        void Publish(string name, object article);
+        /// <param name="topic">The topic which the reactor subscribes to</param>
+        void Subscribe(string topic);
         /// <summary>
-        /// Attempt to complete the UOW by persisting to db.  Also publishes any new articles (NB only article persistance is guaranteed as part of the UOW, publication delivery is not guaranteed)
+        /// Publish an article to a named topic
+        /// </summary>
+        /// <param name="topic"></param>
+        /// <param name="article"></param>
+        void Publish(string topic, object article);
+        /// <summary>
+        /// Complete the UOW by persisting to db. This occurs as a transaction. Also publishes any new articles (NB only article persistance is guaranteed as part of the UOW, publication delivery is not guaranteed)
         /// </summary>
         Task CompleteAndPublishAsync();
     }
 
     public class UnitOfWork : IUnitOfWorkInternal {
         #region Properties and fields
-        private readonly IStreamIdHasher streamHasher;
-        private readonly IReactorBucketFacade reactorBucketFacade;
-        private readonly Func<UnitOfWork, Task<IEnumerable<Messages.ArticlePublished>>> persist;
         public IReactor Reactor { get; private set; }
-        public Option<PreviouslyPersistedPubSubData> Previous { get; }
-        List<UnpersistedReactorSubscription> UnpersistedReactorSubscriptions { get; set; } = new List<UnpersistedReactorSubscription>();
-        List<ReactorPublication> ReactorPublications { get; set; } = new List<ReactorPublication>();
-        HashSet<ReactorAggregateSubscription> AggregateSubscriptions { get; set; } = new HashSet<ReactorAggregateSubscription>();
-        Option<UnpersistedReactorPublicationDelivery> Delivery { get; set; } = Option.None();
+        public Option<PersistedPubSubData> PersistedPubSub { get; private set; }
+
+        readonly Random rnd = new Random();
+        readonly IStreamIdHasher streamHasher;
+        readonly IReactorBucketFacade reactorBucketFacade;
+        readonly Func<UnitOfWork, Task<IEnumerable<Messages.ArticlePublished>>> persist;
+        List<UnpersistedReactorSubscription> unpersistedReactorSubscriptions = new List<UnpersistedReactorSubscription>();
+        List<ReactorPublication> reactorPublications = new List<ReactorPublication>();
+        HashSet<ReactorAggregateSubscription> aggregateSubscriptions = new HashSet<ReactorAggregateSubscription>();
+        Option<InterimReactorPublicationDelivery> delivery  = Option.None();
 
         #endregion
 
@@ -91,9 +92,9 @@ namespace EventSaucing.Reactors {
         }
 
         /// <summary>
-        /// Represents a delivery of an article to a subscriber
+        /// Represents a delivery of an article to a subscriber prior to completion of the UOW eg this delivery might still fail as part of the UOW
         /// </summary>
-        public class UnpersistedReactorPublicationDelivery {
+        private class InterimReactorPublicationDelivery {
             public long SubscriptionId { get; set; }
             public long PublicationId { get; set; }
             public int VersionNumber { get; set; }
@@ -123,17 +124,17 @@ namespace EventSaucing.Reactors {
 
         #region Instantiation and interface implementation
 
-        public UnitOfWork(IStreamIdHasher streamHasher, IReactorBucketFacade reactorBucketFacade, IReactor reactor, Option<PreviouslyPersistedPubSubData> previous, Func<UnitOfWork, Task<IEnumerable<Messages.ArticlePublished>>> persist) {
+        public UnitOfWork(IStreamIdHasher streamHasher, IReactorBucketFacade reactorBucketFacade, IReactor reactor, Option<PersistedPubSubData> persistedPubSubData, Func<UnitOfWork, Task<IEnumerable<Messages.ArticlePublished>>> persist) {
             this.streamHasher = streamHasher;
             this.reactorBucketFacade = reactorBucketFacade;
             Reactor = reactor ;
-            Previous = previous;
+            PersistedPubSub = persistedPubSubData;
             this.persist = persist;
         }
 
         public async Task CompleteAndPublishAsync() {
             IEnumerable<Messages.ArticlePublished> publications = await PersistWithPublicationsAysnc();
-            foreach (var articlePublished in publications) {
+            foreach (var articlePublished in publications.Shuffle(rnd)) {
                 reactorBucketFacade.Tell(articlePublished);
             }
         }
@@ -145,31 +146,32 @@ namespace EventSaucing.Reactors {
 
         public void Publish(string name, object article) {
             ReactorPublication.GuardPublicationName(name);
-
+            
             ReactorPublication publication = 
                 // re publish new version by name ..
-                Previous.FlatMap(previous =>
+                PersistedPubSub.FlatMap(previous =>
                     previous.Publications
                     .Where(pub => pub.Name == name)
                     .HeadOption()
-                ).Map(pub => new ReactorPublication { Id = pub.Id, Name = name, Article = article, VersionNumber = pub.VersionNumber + 1 })
+                ).Map(previouspublication => new ReactorPublication { Id = previouspublication.Id, Name = name, Article = article, VersionNumber = previouspublication.VersionNumber + 1 })
                 // .. or create new version
                 .GetOrElse(() => new ReactorPublication { Id = Option.None(), Name = name, Article = article, VersionNumber = 1 });
-            ReactorPublications.Add(publication);
+
+            reactorPublications.Add(publication);
         }
-        public void Subscribe(ReactorAggregateSubscription subscription) => AggregateSubscriptions.Add(subscription);
+        public void Subscribe(ReactorAggregateSubscription subscription) => aggregateSubscriptions.Add(subscription);
         public void Subscribe(Guid aggregateId, IEventStream stream) {
             Subscribe(new ReactorAggregateSubscription { AggregateId = aggregateId, StreamRevision = stream.CommittedEvents.Count });
         }
         public void Subscribe(string publicationName) {
             ReactorPublication.GuardPublicationName(publicationName);
-            UnpersistedReactorSubscriptions.Add(new UnpersistedReactorSubscription { Name = publicationName });
+            unpersistedReactorSubscriptions.Add(new UnpersistedReactorSubscription { Name = publicationName });
         }
 
         public void RecordDelivery(Guid aggregateId, int streamRevision) => 
-            AggregateSubscriptions.Add(new ReactorAggregateSubscription { AggregateId = aggregateId, StreamRevision = streamRevision });
+            aggregateSubscriptions.Add(new ReactorAggregateSubscription { AggregateId = aggregateId, StreamRevision = streamRevision });
         public void RecordDelivery(Messages.ArticlePublished msg) => 
-            Delivery = new UnpersistedReactorPublicationDelivery { PublicationId = msg.PublicationId, SubscriptionId = msg.SubscriptionId, VersionNumber = msg.VersionNumber }.ToSome();
+            delivery = new InterimReactorPublicationDelivery { PublicationId = msg.PublicationId, SubscriptionId = msg.SubscriptionId, VersionNumber = msg.VersionNumber }.ToSome();
 
         #endregion
 
@@ -193,20 +195,37 @@ BEGIN TRAN
 DECLARE @PersistingReactorID BIGINT
 ");
             SerialiseReactorRecord(sb, args);
-            SerialiseReactorSubscriptionRecords(sb, args);
-            SerialiseAggregateRecords(sb, args);
-            SerialiseReactorPublicationRecords(sb, args);
             SerialiseDeliveryRecord(sb, args);
+            SerialiseReactorPublicationRecords(sb, args);
+            SerialiseAggregateRecords(sb, args);
+            SerialiseReactorSubscriptionRecords(sb, args);
 
             sb.Append(@"
-COMMIT");
+-- Persistence complete
+COMMIT
+
+--Identify all subscribing reactors for the newly published articles
+SELECT R.Bucket AS SubscribingReactorBucket, NP.Name, NP.PublicationId, RS.SubscribingReactorId, RS.Id as SubscriptionId, @PersistingReactorId AS PublishingReactorId, NP.VersionNumber, NP.ArticleSerialisationType, NP.ArticleSerialisation
+
+FROM dbo.ReactorSubscriptions RS
+
+INNER JOIN @NewPublications NP
+    ON RS.NameHash = NP.NameHash 
+    AND RS.Name = NP.Name
+
+-- Without this lock hint, RoyalMail (or this code) can deadlock with UoW's reactor persistance code.  It's safe to read dirty data here because we are only joining to get the Reactor Bucket and this never changes
+INNER JOIN dbo.Reactors R WITH(NOLOCK)
+    ON RS.SubscribingReactorId = R.Id;
+
+-- get the reactorId. Needed for INSERTED reactors
+SELECT @PersistingReactorID [ReactorId];");
 
             return (sb, args);
         }
 
         private void SerialiseDeliveryRecord(StringBuilder sb, SQLArgs args) {
-            if (!Delivery.HasValue) return;
-            UnpersistedReactorPublicationDelivery delivery = Delivery.Get();
+            if (!this.delivery.HasValue) return;
+            InterimReactorPublicationDelivery delivery = this.delivery.Get();
 
             sb.Append($@"
 MERGE [dbo].[ReactorPublicationDeliveries] AS TARGET
@@ -246,7 +265,7 @@ SELECT @PersistingReactorID = SCOPE_IDENTITY();");
 
                 //todo optimistic concurrency when updating reactors
                 sb.Append(@"
-UPDATE [dbo].[Reactors]
+UPDATE [dbo].[Reactors] 
 SET 
     [StateSerialisation] = @StateSerialisation
     ,[StateType] = @StateType
@@ -256,7 +275,7 @@ WHERE Id=@PersistingReactorID;");
         }
 
         private void SerialiseAggregateRecords(StringBuilder sb, SQLArgs args) {
-            foreach(var subscription in AggregateSubscriptions) {
+            foreach(var subscription in aggregateSubscriptions) {
                 var streamId = streamHasher.GetHash(subscription.AggregateId.ToString());
 
                 sb.Append($@"
@@ -272,22 +291,26 @@ WHEN NOT MATCHED THEN
         }
 
         private void SerialiseReactorPublicationRecords(StringBuilder sb, SQLArgs args) {
+
             sb.Append(@"
---holds all the publications which are persisted in the UOW
-DECLARE @NewPublications TABLE (  
-    Id BIGINT NOT NULL,  
-	[PublishingReactorId] BIGINT NOT NULL,
-    [Name] VARCHAR(2048) NOT NULL,
-    [NameHash] INT NOT NULL,
-	[ArticleSerialisationType] NVARCHAR(MAX) NOT NULL,
-    [ArticleSerialisation] NVARCHAR(MAX) NOT NULL,
-	[VersionNumber] INT NOT NULL); ");
 
-            //outputs updated and inserted records into the publication table
-            const string sqlOutput = "OUTPUT inserted.Id, inserted.[PublishingReactorId], inserted.Name, inserted.NameHash, inserted.ArticleSerialisationType, inserted.ArticleSerialisation, inserted.VersionNumber  INTO @NewPublications";
+-- to hold articles published in this batch
+DECLARE @NewPublications AS TABLE (
+	PublicationId BIGINT NOT NULL,
+	[Name] VARCHAR(2048) NOT NULL,
+	NameHash INT NOT NULL,
+	VersionNumber INT NOT NULL,
+	ArticleSerialisation NVARCHAR(MAX) NOT NULL,
+	ArticleSerialisationType NVARCHAR(MAX) NOT NULL
+)
 
-            // updates first
-            foreach (var publication in ReactorPublications.Where(pub => pub.Id.HasValue)) {
+");
+            const string OUTPUT = @"
+OUTPUT INSERTED.Id, INSERTED.Name, INSERTED.NameHash, INSERTED.VersionNumber, INSERTED.ArticleSerialisation, INSERTED.ArticleSerialisationType INTO 
+ @NewPublications(PublicationId, Name, NameHash, VersionNumber, ArticleSerialisation, ArticleSerialisationType)
+";
+            // updates first, one UPDATE statement per publication
+            foreach (var publication in reactorPublications.Where(pub => pub.Id.HasValue)) {
                 string articleType = publication.Article.GetType().AssemblyQualifiedName;
                 string articleSerialisation = JsonConvert.SerializeObject(publication.Article);
 
@@ -298,16 +321,13 @@ SET [ArticleSerialisationType] ='{articleType}'
 ,[ArticleSerialisation] = '{articleSerialisation}'
 ,[VersionNumber] = {publication.VersionNumber}
 ,[LastPublishedDate] = GETDATE()
-{sqlOutput}
+{OUTPUT}
 WHERE ID = {publication.Id.Get()};");
             }
 
-            // inserts next
-
-            //guard no inserts
-            if (!ReactorPublications.Any(pub => !pub.Id.HasValue)) return;
-
-            sb.Append($@"
+            // check for any new publications to be inserted
+            if (reactorPublications.Any(pub => !pub.Id.HasValue)) {
+                sb.Append($@"
 INSERT INTO [dbo].[ReactorPublications]
     ([Name]
     ,[PublishingReactorId]
@@ -316,51 +336,40 @@ INSERT INTO [dbo].[ReactorPublications]
     ,[ArticleSerialisation]
     ,[VersionNumber]
     ,[LastPublishedDate])
-{sqlOutput}
+{OUTPUT}
 VALUES");
+                //loop each new publication and add a value record for it
+                List<string> values = new List<string>();
+                foreach (var publication in reactorPublications.Where(pub => !pub.Id.HasValue)) {
+                    string articleType = publication.Article.GetType().AssemblyQualifiedName;
+                    string articleSerialisation = JsonConvert.SerializeObject(publication.Article);
+                    values.Add($@"
+('{publication.Name}'
+, @PersistingReactorID
+,{ publication.NameHash}
+,'{articleType}'
+,'{articleSerialisation}'
+,1
+,GETDATE())");
+                }
 
-            List<string> values = new List<string>();
-            foreach (var publication in ReactorPublications.Where(pub => !pub.Id.HasValue)) {
-                string articleType = publication.Article.GetType().AssemblyQualifiedName;
-                string articleSerialisation = JsonConvert.SerializeObject(publication.Article);
-                values.Add($@"
-   ('{publication.Name}'
-   , @PersistingReactorID
-   ,{ publication.NameHash}
-    ,'{articleType}'
-    ,'{articleSerialisation}'
-    ,1
-    ,GETDATE())");
+                sb.Append(string.Join($",{Environment.NewLine}", values));
+                sb.Append(@";");
             }
-
-            sb.Append(string.Join(",", values));
-            sb.Append(@";
---get the subscribers to the newly updated or inserted publications
-SELECT R.Bucket AS [SubscribingReactorBucket], NP.Name, NP.PublishingReactorId, RS.SubscribingReactorId, NP.VersionNumber, NP.ArticleSerialisation, NP.ArticleSerialisationType, RS.Id AS SubscriptionId, NP.Id AS [PublicationId]
-FROM  
-	@NewPublications NP
-
-	INNER JOIN dbo.ReactorSubscriptions RS
-		ON NP.NameHash = RS.NameHash
-		AND NP.Name = RS.Name
-    INNER JOIN dbo.Reactors R
-        ON RS.SubscribingReactorId  = R.Id
-");
         }
 
         private void SerialiseReactorSubscriptionRecords(StringBuilder sb, SQLArgs args) {
-            foreach (var subscription in UnpersistedReactorSubscriptions) {
-                sb.Append($@"
+            if (!unpersistedReactorSubscriptions.Any()) return;
+            sb.Append($@"
 INSERT INTO [dbo].[ReactorSubscriptions]
     ([SubscribingReactorId]
     ,[Name]
     ,[NameHash])
-VALUES(
-    @PersistingReactorID
-    ,'{subscription.Name}'
-    ,{subscription.NameHash}
-);");
-            }
+VALUES
+");
+            var values = unpersistedReactorSubscriptions.Select(sub => $"(@PersistingReactorID,'{sub.Name}',{sub.NameHash})");
+            sb.Append(string.Join($",{Environment.NewLine}", values));
+            sb.Append(@";");
         }
 
         #endregion

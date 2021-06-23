@@ -1,10 +1,10 @@
-﻿using System;
-using System.Reflection;
+﻿using System.Reflection;
 using Akka.Actor;
 using Akka.Configuration;
 using Akka.DI.AutoFac;
 using Akka.DI.Core;
 using Autofac;
+using EventSaucing.Projector;
 using Module = Autofac.Module;
 
 namespace EventSaucing.DependencyInjection.Autofac {
@@ -29,19 +29,16 @@ namespace EventSaucing.DependencyInjection.Autofac {
         }
     
         protected override void Load(ContainerBuilder builder) {
+            //should come first so akka is configured to use autofac as early as possible during start up, else various components will fail as they can't find their dependencies
+            builder.RegisterType<AutoFacDependencyResolver>().As<IDependencyResolver>().SingleInstance();
+            builder.RegisterType<AkkaAutofacConfigurer>().As<IStartable>();
+            builder.RegisterType<Akka.AkkaShutdown>().As<IStartable>();
 
-			var entryAssemby = Assembly.GetEntryAssembly(); // Get the assembly that kicks the show off, this should have the projectors in it.
-			var executingAssemby = Assembly.GetExecutingAssembly(); // This assembly, which has infrastructor actors.
 			
-			builder.RegisterAssemblyTypes(entryAssemby).AssignableTo<ReceiveActor>();
-			builder.RegisterAssemblyTypes(executingAssemby).AssignableTo<ReceiveActor>();
-			builder.Register(x => new ActorPaths()).SingleInstance();
+			builder.RegisterAssemblyTypes(Assembly.GetEntryAssembly()).AssignableTo<ProjectorBase>(); // Get the assembly that kicks the show off, this should have projectors in it.
+            builder.RegisterAssemblyTypes(Assembly.GetExecutingAssembly()).AssignableTo<ReceiveActor>(); // This assembly, which has infrastructure actors.
+            builder.Register(x => new ActorPaths()).SingleInstance();
 
-            builder.RegisterType<AutoFacDependencyResolver>()
-                .As<IDependencyResolver>()
-                .SingleInstance();
-
-            //see http://getakka.net/docs/Serilog for logging info
             builder
                 .Register(x => ActorSystem.Create(actorsystemname, config))
                 .SingleInstance(); // Akka starts at this point
