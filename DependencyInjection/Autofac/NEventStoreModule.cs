@@ -1,6 +1,7 @@
 ﻿using Autofac;
 using EventSaucing.Aggregates;
 using EventSaucing.NEventStore;
+using Microsoft.Extensions.Logging;
 using NEventStore;
 using NEventStore.Domain;
 using NEventStore.Domain.Core;
@@ -16,13 +17,11 @@ namespace EventSaucing.DependencyInjection.Autofac {
     public class NEventStoreModule : Module
     {
         protected override void Load(ContainerBuilder builder) {
-            builder.RegisterType<LoggerAdapter>()
-                   .As<global::NEventStore.Logging.ILog>()
-                   .SingleInstance();
+          
 
             builder.RegisterType<AkkaCommitPipeline>().SingleInstance();
             builder.Register(c => {
-                var eventStoreLogger = c.Resolve<global::NEventStore.Logging.ILog>();
+                var eventStoreLogger = c.Resolve<ILogger>();
 
                 var eventStore = Wireup.Init()
                                        .HookIntoPipelineUsing(c.Resolve<AkkaCommitPipeline>(), c.ResolveOptional<ICustomPipelineHook>())
@@ -30,7 +29,7 @@ namespace EventSaucing.DependencyInjection.Autofac {
                                        .UsingSqlPersistence(c.Resolve<IConnectionFactory>())
                                        .WithDialect(new MsSqlDialect())
                                        .InitializeStorageEngine()
-                                       .UsingCustomSerialization(new JsonSerializer())
+                                       //.UsingCustomSerialization(new JsonSerializer())
                                        .Build();
                 return eventStore;
             }).SingleInstance();
