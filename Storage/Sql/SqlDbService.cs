@@ -30,8 +30,8 @@ namespace EventSaucing.Storage.Sql {
 		}
 
 	    public Type GetDbProviderFactoryType() {
-			var connection = GetConnection();
-			return DbProviderFactories.GetFactory(connection).GetType();
-		}
+            //hard coded to sql server client
+            return System.Data.SqlClient.SqlClientFactory.Instance.GetType();
+        }
     }
 }
