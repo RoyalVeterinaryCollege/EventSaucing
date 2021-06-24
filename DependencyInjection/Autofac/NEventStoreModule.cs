@@ -39,7 +39,7 @@ namespace EventSaucing.DependencyInjection.Autofac {
                    .UsingSqlPersistence(c.Resolve<IConnectionFactory>())
                    .WithDialect(new MsSqlDialect())
                    .InitializeStorageEngine()
-                   //.UsingCustomSerialization(new JsonSerializer())
+                   .UsingCustomSerialization(new JsonSerializer())
                    .Build();
                 return eventStore;
             }).SingleInstance();
