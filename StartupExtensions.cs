@@ -65,7 +65,7 @@ namespace EventSaucing {
 			return container;
 		}
 		/// <summary>
-		/// Starts a local Reactor bucket which automaticaly connects to the main EventSuacing Reactor system.  Use this for secondary Reactor processes outside of the main webserver. Assumes you have already called RegisterEventSaucingModules.
+		/// Starts a local Reactor bucket which automatically connects to the main EventSaucing Reactor system.  Use this for secondary Reactor processes outside of the main webserver. Assumes you have already called RegisterEventSaucingModules.
 		/// </summary>
 		/// <param name="container"></param>
 		/// <param name="localReactorBucketName"></param>
@@ -78,5 +78,21 @@ namespace EventSaucing {
 			bucket.Tell(new ReactorBucketSupervisor.LocalMessages.SubscribeToBucket(localReactorBucketName));
 			return container;
 		}
+
+        /// <summary>
+        /// Starts a local Reactor bucket which automatically connects to the main EventSaucing Reactor system.  Use this for secondary Reactor processes outside of the main webserver. Assumes you have already called RegisterEventSaucingModules.
+        /// </summary>
+        /// <param name="autofacContainer"></param>
+        /// <param name="localReactorBucketName"></param>
+        /// <returns></returns>
+        public static ILifetimeScope StartEventSaucingReactorNode(this ILifetimeScope autofacContainer, string localReactorBucketName)
+        {
+            var actorSystem = autofacContainer.Resolve<ActorSystem>();
+
+            //start the local reactor bucket supervisor.  It will automatically connect to the main Reactor process.
+            var bucket = actorSystem.ActorOf(actorSystem.DI().Props<ReactorBucketSupervisor>(), name: "reactor-bucket");
+            bucket.Tell(new ReactorBucketSupervisor.LocalMessages.SubscribeToBucket(localReactorBucketName));
+            return autofacContainer;
+        }
 	}
 }
