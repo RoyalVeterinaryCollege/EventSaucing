@@ -8,7 +8,7 @@ using EventSaucing.Reactors;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace EventSaucing
+namespace EventSaucing.HostedServices
 {
     /// <summary>
     /// Starts a local Reactor bucket which automatically connects to the main EventSaucing Reactor system.
