@@ -138,14 +138,6 @@ WHERE
             }
         }
 
-        protected override void PreStart() {
-            //schedule a poll message to be sent every n seconds
-            Context.System.Scheduler.ScheduleTellRepeatedly(
-                TimeSpan.FromSeconds(_config.GetValue<int?>("EventSaucing:RoyalMail:StartupDelay") ?? 5), // on start up, wait this long
-                TimeSpan.FromSeconds(_config.GetValue<int?>("EventSaucing:RoyalMail:PollingInterval") ?? 5), // wait this long between polling
-                Self, new LocalMessages.PollForOutstandingArticles(), 
-                ActorRefs.NoSender);
-        }
         /// <summary>
         /// RoyalMail's messages
         /// </summary>

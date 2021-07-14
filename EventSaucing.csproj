@@ -25,6 +25,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <OutputPath>bin\Debug\netstandard2.0\</OutputPath>
     <DocumentationFile>bin\Debug\netstandard2.0\EventSaucing.xml</DocumentationFile>
+    <NoWarn>1701;1702;CS1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Akka.Cluster.Tools" Version="1.4.21" />
