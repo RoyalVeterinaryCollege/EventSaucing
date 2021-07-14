@@ -24,7 +24,7 @@ namespace EventSaucing.Reactors {
         }
 
         private Task OnSubscribeToBucketAsync(ReactorBucketSupervisor.LocalMessages.SubscribeToBucket msg) {
-            logger.LogInformation($"ReactorSupervisor received SubscribeToBucket for {msg.Bucket} bucket");
+            logger.LogInformation($"ReactorSupervisor received SubscribeToBucket for '{msg.Bucket}' bucket");
 
             //just send it on to the bucket actor
             bucketactor.Forward(msg);

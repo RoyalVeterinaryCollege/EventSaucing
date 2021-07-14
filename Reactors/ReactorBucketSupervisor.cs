@@ -9,7 +9,8 @@ using EventSaucing.Reactors.Messages;
 namespace EventSaucing.Reactors {
 
     /// <summary>
-    /// The supervisor for a Reactor bucket.  This is the actor which is responsible for handling messages about about reactor articles & subscriptions.
+    /// The supervisor for a Reactor bucket.  It subscribes to messages posted to the pub/sub mediator for a particular bucket.
+    /// It then forwards these messages to its children, which are a pool of reactor actors.
     /// </summary>
     public class ReactorBucketSupervisor : ReceiveActor {
         /// <summary>
@@ -43,6 +44,9 @@ namespace EventSaucing.Reactors {
         /// </summary>
         const string ReactorActorsRelativeAddress = "reactor-actors";
 
+        /// <summary>
+        /// Intatiates
+        /// </summary>
         public ReactorBucketSupervisor() {
             ReceiveAsync<LocalMessages.SubscribeToBucket>(OnSubscribeToBucketAsync);
             ReceiveAsync<ArticlePublished>(OnArticlePublishedAsync);
@@ -76,7 +80,7 @@ namespace EventSaucing.Reactors {
         }
 
         /// <summary>
-        /// Tells the actor which Reactor bucket it is.  Actor subscribes to messags published for that bucket.
+        /// Tells the actor which Reactor bucket it is.  Actor subscribes to messages published for that bucket.
         /// </summary>
         /// <param name="msg"></param>
         /// <returns></returns>
@@ -90,7 +94,7 @@ namespace EventSaucing.Reactors {
         }
 
         /// <summary>
-        /// Overriding postRestart to disable the call to preStart() after restarts.  This means children are restarted, and we dont create extra instances each time
+        /// Overriding postRestart to disable the call to preStart() after restarts.  This means children are restarted, and we don't create extra instances each time
         /// </summary>
         /// <param name="reason"></param>
         protected override void PostRestart(Exception reason) {

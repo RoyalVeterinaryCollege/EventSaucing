@@ -54,16 +54,16 @@ GROUP BY
     R.Bucket, RS.ReactorId, RS.AggregateId;";
                 
                 //Look for aggregate subscriptions that need to be updated
-                var aggregateSubscriptionMessages = await con.QueryAsync<PreSubscribedAggregateChanged>(sqlAggregateSubscriptions);
+                var aggregateSubscriptionMessages = (await con.QueryAsync<PreSubscribedAggregateChanged>(sqlAggregateSubscriptions)).ToList();
 
                 if (aggregateSubscriptionMessages.Any()) {
                     var bucketcounts =
                       aggregateSubscriptionMessages
                       .GroupBy(x => x.ReactorBucket)
                       .Select(x => $"'{x.Key}' {x.Count()} messages");
-                    logger.LogInformation($"Found article subscriptions for the following buckets: {string.Join(",", bucketcounts)}");
+                    logger.LogInformation($"Found aggregate subscriptions for the following buckets: {string.Join(",", bucketcounts)}");
                 } else {
-                    logger.LogInformation($"No aggreggate subscriptions need to be updated");
+                    logger.LogInformation($"No aggregate subscriptions need to be updated");
                 }
 
                 foreach (var preMsg in aggregateSubscriptionMessages.Shuffle(rnd)) {
