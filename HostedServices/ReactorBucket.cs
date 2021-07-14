@@ -14,19 +14,23 @@ namespace EventSaucing.HostedServices
     /// Starts a local Reactor bucket which automatically connects to the main EventSaucing Reactor system.
     /// Use this for secondary Reactor processes outside of the main webserver. Assumes you have already called RegisterEventSaucingModules.
     /// </summary>
-    public class ReactorNode  : IHostedService
+    public class ReactorBucket  : IHostedService
     {
-        private readonly ILifetimeScope _autofacContainer;
-        private readonly ILogger<ReactorNode> _logger;
+        private readonly ActorSystem _actorSystem;
+        private readonly ILogger<ReactorBucket> _logger;
+        private readonly IReactorRepository _reactorRepo;
 
         /// <summary>
         /// Instantiates
         /// </summary>
-        /// <param name="autofacContainer"></param>
+        /// <param name="actorSystem"></param>
+        /// <param name="dependencyResolver">Required.  If you remove this, then autofac starts this class before the actor system is configured to use DI and actors cant be created</param>
         /// <param name="logger"></param>
-        public ReactorNode(ILifetimeScope autofacContainer, ILogger<ReactorNode> logger){
-            _autofacContainer = autofacContainer;
+        /// <param name="reactorRepo"></param>
+        public ReactorBucket(ActorSystem actorSystem, IDependencyResolver dependencyResolver, ILogger<ReactorBucket> logger, IReactorRepository reactorRepo){
+            _actorSystem = actorSystem;
             _logger = logger;
+            _reactorRepo = reactorRepo;
         }
         /// <summary>
         /// Starts a local reactor node
@@ -34,16 +38,17 @@ namespace EventSaucing.HostedServices
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         /// <exception cref="NotImplementedException"></exception>
-        public Task StartAsync(CancellationToken cancellationToken) {
+        public async Task StartAsync(CancellationToken cancellationToken) {
             _logger.LogInformation("EventSaucing Reactor node starting");
-            var actorSystem = _autofacContainer.Resolve<ActorSystem>();
+
+            //create the reactor persistence tables if not already created
+            await _reactorRepo.CreateReactorTablesAsync();
 
             //start the local reactor bucket supervisor.  It will automatically connect to the main Reactor process.
-            var bucket = actorSystem.ActorOf(actorSystem.DI().Props<ReactorBucketSupervisor>(), name: "reactor-bucket");
-            // bucket.Tell(new ReactorBucketSupervisor.LocalMessages.SubscribeToBucket(localReactorBucketName));
-            bucket.Tell(new ReactorBucketSupervisor.LocalMessages.SubscribeToBucket("testing ")); //todo .net 5 port, move to config
+            _actorSystem.ActorOf(_actorSystem.DI().Props<ReactorBucketSupervisor>(), name: "reactor-bucket");
 
-            return Task.CompletedTask;
+            //start the local royal mail.
+            _actorSystem.ActorOf(_actorSystem.DI().Props<RoyalMail>(), "royal-mail");
         }
 
         /// <summary>

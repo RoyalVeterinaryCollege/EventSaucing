@@ -21,7 +21,7 @@ namespace EventSaucing.HostedServices
         private readonly IDbService _dbService;
         private readonly ActorSystem _actorSystem;
         private readonly ActorPaths _actorPaths;
-        private readonly ILogger<ReactorClusterSupervision> _logger;
+        private readonly ILogger<ProjectorPipeline> _logger;
 
         /// <summary>
         /// Instantiates
@@ -30,7 +30,7 @@ namespace EventSaucing.HostedServices
         /// <param name="actorSystem"></param>
         /// <param name="actorPaths"></param>
         /// <param name="logger"></param>
-        public ProjectorPipeline(IDbService dbService, ActorSystem actorSystem, ActorPaths actorPaths, ILogger<ReactorClusterSupervision> logger) {
+        public ProjectorPipeline(IDbService dbService, ActorSystem actorSystem, ActorPaths actorPaths, ILogger<ProjectorPipeline> logger) {
             _dbService = dbService;
             _actorSystem = actorSystem;
             _actorPaths = actorPaths;

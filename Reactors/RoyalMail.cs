@@ -6,6 +6,8 @@ using Newtonsoft.Json;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using EventSaucing.Reactors.Messages;
+using Microsoft.Extensions.Configuration;
 
 namespace EventSaucing.Reactors {
     /// <summary>
@@ -15,65 +17,69 @@ namespace EventSaucing.Reactors {
     /// </summary>
     public class RoyalMail : ReceiveActor {
         private readonly IDbService dbservice;
-        private readonly IReactorBucketFacade reactorBucketRouter;
-        private readonly ILogger<RoyalMail> logger;
-        private readonly Random rnd;
+        private readonly IReactorBucketFacade _reactorBucketRouter;
+        private readonly ILogger<RoyalMail> _logger;
+        private readonly IConfiguration _config;
+        private readonly Random _rnd;
+        private readonly string _bucket;
 
-        public RoyalMail(IDbService dbservice, IReactorBucketFacade reactorBucketRouter, ILogger<RoyalMail> logger) {
+        public RoyalMail(IDbService dbservice, IReactorBucketFacade reactorBucketRouter, ILogger<RoyalMail> logger, IConfiguration config) {
             this.dbservice = dbservice;
-            this.reactorBucketRouter = reactorBucketRouter;
-            this.logger = logger;
+            this._reactorBucketRouter = reactorBucketRouter;
+            this._logger = logger;
+            _config = config;
+            _bucket = config.GetLocalBucketName();
+
             ReceiveAsync<LocalMessages.PollForOutstandingArticles>(OnPollAsync);
-            rnd = new Random();
+            _rnd = new Random();
         }
         private class PreSubscribedAggregateChanged {
-            public string ReactorBucket { get; set; }
             public long ReactorId { get; set; }
             public Guid AggregateId { get; set; }
             public int StreamRevision { get; set; }
-            public Messages.SubscribedAggregateChanged ToMessage() => new Messages.SubscribedAggregateChanged(ReactorBucket, ReactorId, AggregateId, StreamRevision);
+            public Messages.SubscribedAggregateChanged ToMessage(string bucket) => new Messages.SubscribedAggregateChanged(bucket, ReactorId, AggregateId, StreamRevision);
         }
         private async Task OnPollAsync(LocalMessages.PollForOutstandingArticles arg) {
+            // max number of subscriptions to update in one poll
+            int maxSubscriptions = _config.GetValue<int?>("EventSaucing:RoyalMail:MaxNumberSubscriptions") ?? 100;
+
             using (var con = dbservice.GetConnection()) {
                 await con.OpenAsync();
 
-                //todo Need to limit the numbers of RoyalMail messages via config rather than hardcode 100
                 const string sqlAggregateSubscriptions = @"
-SELECT TOP 100 R.Bucket AS ReactorBucket, RS.ReactorId, RS.AggregateId, MAX(C.StreamRevision) StreamRevision
+SELECT TOP (@MaxSubscriptions) RS.ReactorId, RS.AggregateId, MAX(C.StreamRevision) StreamRevision
 FROM 
     [dbo].[ReactorAggregateSubscriptions] RS 
-    INNER JOIN dbo.Commits C
-        ON RS.StreamId = C.StreamId
-        AND C.StreamRevision > RS.StreamRevision
-        AND C.BucketId='default'
+INNER JOIN dbo.Commits C
+    ON RS.StreamId = C.StreamId
+    AND C.StreamRevision > RS.StreamRevision
+    AND C.BucketId='default'
 
-    -- Without this lock hint, RoyalMail can deadlock with UoW's reactor persistance code.  It's safe to read dirty data here because we are only joining to get the Reactor Bucket and this never changes
-    INNER JOIN dbo.Reactors R WITH(READUNCOMMITTED)
-        ON RS.ReactorId = R.Id
+-- Without this lock hint, RoyalMail can deadlock with UoW's reactor persistence code.  It's safe to read dirty data here because we are only joining to get the Reactor Bucket and this never changes
+INNER JOIN dbo.Reactors R WITH(READUNCOMMITTED)
+    ON RS.ReactorId = R.Id
+WHERE
+    R.Bucket = @Bucket
 GROUP BY
-    R.Bucket, RS.ReactorId, RS.AggregateId;";
+   RS.ReactorId, RS.AggregateId;";
                 
-                //Look for aggregate subscriptions that need to be updated
-                var aggregateSubscriptionMessages = (await con.QueryAsync<PreSubscribedAggregateChanged>(sqlAggregateSubscriptions)).ToList();
+                //Look for aggregate subscriptions that need to be updated in our bucket
+                var aggregateSubscriptionMessages = (await con.QueryAsync<PreSubscribedAggregateChanged>(sqlAggregateSubscriptions, new {bucket=_bucket, maxSubscriptions})).ToList();
 
                 if (aggregateSubscriptionMessages.Any()) {
-                    var bucketcounts =
-                      aggregateSubscriptionMessages
-                      .GroupBy(x => x.ReactorBucket)
-                      .Select(x => $"'{x.Key}' {x.Count()} messages");
-                    logger.LogInformation($"Found aggregate subscriptions for the following buckets: {string.Join(",", bucketcounts)}");
+                    _logger.LogInformation($"Found {aggregateSubscriptionMessages.Count} aggregate subscriptions for bucket {_bucket}");
                 } else {
-                    logger.LogInformation($"No aggregate subscriptions need to be updated");
+                    _logger.LogInformation($"No aggregate subscriptions for bucket {_bucket} need to be updated");
                 }
 
-                foreach (var preMsg in aggregateSubscriptionMessages.Shuffle(rnd)) {
-                    reactorBucketRouter.Tell(preMsg.ToMessage());
+                foreach (var preMsg in aggregateSubscriptionMessages.Shuffle(_rnd)) {
+                    _reactorBucketRouter.Tell(preMsg.ToMessage(_bucket));
                 }
 
-                //todo Need to limit the numbers of RoyalMail messages via config rather than hardcode 100
+                
                 //Look for article subscriptions that need to be updated
                 const string sqlReactorSubscriptions = @"
-SELECT TOP 100 R.Bucket AS SubscribingReactorBucket, RP.Name,  RP.Id AS [PublicationId], RS.SubscribingReactorId, RS.Id as SubscriptionId, RP.PublishingReactorId, RP.VersionNumber, RP.ArticleSerialisationType, RP.ArticleSerialisation
+SELECT TOP (@MaxSubscriptions) RP.Name,  RP.Id AS [PublicationId], RS.SubscribingReactorId, RS.Id as SubscriptionId, RP.PublishingReactorId, RP.VersionNumber, RP.ArticleSerialisationType, RP.ArticleSerialisation
 
 FROM dbo.ReactorSubscriptions RS
 
@@ -90,29 +96,25 @@ INNER JOIN dbo.Reactors R WITH(READUNCOMMITTED)
     ON RS.SubscribingReactorId = R.Id
 
 WHERE 
-	RPD.SubscriptionId IS NULL --never delivered
+    R.Bucket = @Bucket
+	AND RPD.SubscriptionId IS NULL --never delivered
 	OR (RPD.VersionNumber < RP.VersionNumber); --OR there is a new version";
 
-                var preMessages = await con.QueryAsync<PreArticlePublished>(sqlReactorSubscriptions);
+                var preMessages = await con.QueryAsync<PreArticlePublished>(sqlReactorSubscriptions, new {Bucket=_bucket, maxSubscriptions });
 
                 if (preMessages.Any()) {
-                    var bucketcounts =
-                      preMessages
-                      .GroupBy(x => x.SubscribingReactorBucket)
-                      .Select(x => $"'{x.Key}' {x.Count()} messages");
-                    logger.LogInformation($"Found article subscriptions for the following buckets: {string.Join(",", bucketcounts)}");
+                    _logger.LogInformation($"Found {aggregateSubscriptionMessages.Count} article subscriptions for bucket {_bucket}");
                 } else {
-                    logger.LogInformation($"No article subscriptions need to be updated");
+                    _logger.LogInformation($"No article subscriptions for bucket {_bucket} need to be updated");
                 }
 
-                foreach (var preMsg in preMessages.Shuffle(rnd)) {
-                    reactorBucketRouter.Tell(preMsg.ToMessage());
+                foreach (var preMsg in preMessages.Shuffle(_rnd)) {
+                    _reactorBucketRouter.Tell(preMsg.ToMessage(_bucket));
                 }
             }
         }
 
         private class PreArticlePublished {
-            public string SubscribingReactorBucket { get; set; }
             public string Name { get; set; }
             public string ArticleSerialisationType { get; set; }
             public string ArticleSerialisation { get; set; }
@@ -122,9 +124,9 @@ WHERE
             public long SubscriptionId { get; set; } 
             public long PublicationId { get; set; } 
 
-            public Messages.ArticlePublished ToMessage() {
+            public ArticlePublished ToMessage(string subscribingReactorBucket) {
                 return new Messages.ArticlePublished(
-                    SubscribingReactorBucket,
+                    subscribingReactorBucket,
                     Name, 
                     SubscribingReactorId,
                     PublishingReactorId,
@@ -139,11 +141,14 @@ WHERE
         protected override void PreStart() {
             //schedule a poll message to be sent every n seconds
             Context.System.Scheduler.ScheduleTellRepeatedly(
-                TimeSpan.FromSeconds(5), // on start up, wait this long
-                TimeSpan.FromSeconds(5), // todo polling interval for royal mail to come from config
+                TimeSpan.FromSeconds(_config.GetValue<int?>("EventSaucing:RoyalMail:StartupDelay") ?? 5), // on start up, wait this long
+                TimeSpan.FromSeconds(_config.GetValue<int?>("EventSaucing:RoyalMail:PollingInterval") ?? 5), // wait this long between polling
                 Self, new LocalMessages.PollForOutstandingArticles(), 
                 ActorRefs.NoSender);
         }
+        /// <summary>
+        /// RoyalMail's messages
+        /// </summary>
         public class LocalMessages {
             /// <summary>
             /// Message instructs royalmail to poll db to check for reactor subscriptions with new articles or for aggregates with new commits

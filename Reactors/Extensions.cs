@@ -1,11 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 
 namespace EventSaucing.Reactors {
     public static class Extensions {
+        /// <summary>
+        /// Gets the EventSaucing:Bucket name from config
+        /// </summary>
+        /// <param name="config"></param>
+        /// <returns></returns>
+        public static string GetLocalBucketName(this IConfiguration config) {
+            var bucket = config["EventSaucing:Bucket"];
+            if (string.IsNullOrWhiteSpace(bucket))
+                throw new ArgumentException("EventSaucing:Bucket not set in config.");
+            return bucket;
+        }
 
         public static IEnumerable<T> Shuffle<T>(this IEnumerable<T> source, Random rng) {
             T[] elements = source.ToArray();
