@@ -16,7 +16,7 @@ namespace EventSaucing.Reactors {
     /// Existing subscribers are messaged immediately when a publisher creates a new version of an article but newly created subscriptions don't receive any pre-existing publications immediately. They are messaged by RoyalMail.
     /// </summary>
     public class RoyalMail : ReceiveActor {
-        private readonly IDbService dbservice;
+        private readonly IDbService _dbservice;
         private readonly IReactorBucketFacade _reactorBucketRouter;
         private readonly ILogger<RoyalMail> _logger;
         private readonly IConfiguration _config;
@@ -24,7 +24,7 @@ namespace EventSaucing.Reactors {
         private readonly string _bucket;
 
         public RoyalMail(IDbService dbservice, IReactorBucketFacade reactorBucketRouter, ILogger<RoyalMail> logger, IConfiguration config) {
-            this.dbservice = dbservice;
+            this._dbservice = dbservice;
             this._reactorBucketRouter = reactorBucketRouter;
             this._logger = logger;
             _config = config;
@@ -43,7 +43,7 @@ namespace EventSaucing.Reactors {
             // max number of subscriptions to update in one poll
             int maxSubscriptions = _config.GetValue<int?>("EventSaucing:RoyalMail:MaxNumberSubscriptions") ?? 100;
 
-            using (var con = dbservice.GetConnection()) {
+            using (var con = _dbservice.GetConnection()) {
                 await con.OpenAsync();
 
                 const string sqlAggregateSubscriptions = @"
