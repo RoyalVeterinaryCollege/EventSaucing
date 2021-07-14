@@ -27,16 +27,16 @@
     <DocumentationFile>bin\Debug\netstandard2.0\EventSaucing.xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Akka.Cluster.Tools" Version="1.4.11" />
+    <PackageReference Include="Akka.Cluster.Tools" Version="1.4.21" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="5.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="3.0.3" />
     <PackageReference Include="Dapper" Version="2.0.35" />
     <PackageReference Include="NEventStore.Domain" Version="8.0.0" />
     <PackageReference Include="NEventStore.Persistence.Sql" Version="8.0.0" />
     <PackageReference Include="NEventStore.Serialization.Json" Version="8.0.0" />
     <PackageReference Include="Akka.DI.AutoFac" Version="1.4.1" />
-    <PackageReference Include="Akka.DI.Core" Version="1.4.11" />
-    <PackageReference Include="Akka.Logger.Serilog" Version="1.4.11" />
+    <PackageReference Include="Akka.DI.Core" Version="1.4.21" />
+    <PackageReference Include="Akka.Logger.Serilog" Version="1.4.17" />
     <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="7.1.0" />
     <PackageReference Include="Scalesque" Version="1.0.3" />
   </ItemGroup>
