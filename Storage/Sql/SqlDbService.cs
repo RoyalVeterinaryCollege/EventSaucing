@@ -22,11 +22,9 @@ namespace EventSaucing.Storage.Sql {
 
 		//Required by NEvent
 		IDbConnection IConnectionFactory.Open() {
-			return new ConnectionScope(_connectionString, () => {
-				var conn = GetConnection();
-				conn.Open();
-				return conn;
-			});
+			var conn = GetConnection();
+			conn.Open();
+			return conn;
 		}
 
 	    public Type GetDbProviderFactoryType() {
