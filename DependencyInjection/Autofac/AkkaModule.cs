@@ -21,11 +21,9 @@ namespace EventSaucing.DependencyInjection.Autofac {
 
     public class AkkaModule : Module {
         private readonly string actorsystemname;
-        private readonly Config config;
 
         public AkkaModule(EventSaucingConfiguration config) {
             this.actorsystemname = config.ActorSystemName;
-            this.config = config.AkkaConfiguration;
         }
     
         protected override void Load(ContainerBuilder builder) {
@@ -40,7 +38,7 @@ namespace EventSaucing.DependencyInjection.Autofac {
             builder.Register(x => new ActorPaths()).SingleInstance();
 
             builder
-                .Register(x => ActorSystem.Create(actorsystemname, config))
+                .Register(x => ActorSystem.Create(actorsystemname)) // Akka configured in app.config
                 .SingleInstance(); // Akka starts at this point, but without the dependency resolver
         }
     }
