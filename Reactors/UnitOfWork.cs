@@ -194,11 +194,11 @@ BEGIN TRAN
 --reactor id of the reactor being persisted.  We set this within T-SQL script (it's not parameterised)
 DECLARE @PersistingReactorID BIGINT
 ");
-            SerialiseReactorRecord(sb, args);
-            SerialiseDeliveryRecord(sb, args);
-            SerialiseReactorPublicationRecords(sb, args);
-            SerialiseAggregateRecords(sb, args);
-            SerialiseReactorSubscriptionRecords(sb, args);
+            SerialiseReactorRecord(sb, args); // sql injection safe
+            SerialiseDeliveryRecord(sb, args); // sql injection safe
+            SerialiseReactorPublicationRecords(sb, args); // not safe and has potentially multiple VALUE inserts which need to be escaped
+            SerialiseAggregateRecords(sb, args); // sql injection safe
+            SerialiseReactorSubscriptionRecords(sb, args); //not safe and has potentially multiple VALUE inserts which need to be escaped
 
             sb.Append(@"
 -- Persistence complete
@@ -318,7 +318,7 @@ OUTPUT INSERTED.Id, INSERTED.Name, INSERTED.NameHash, INSERTED.VersionNumber, IN
                 sb.Append($@"
 UPDATE [dbo].[ReactorPublications]
 SET [ArticleSerialisationType] ='{articleType}'
-,[ArticleSerialisation] = '{articleSerialisation}'
+,[ArticleSerialisation] = '{articleSerialisation}' 
 ,[VersionNumber] = {publication.VersionNumber}
 ,[LastPublishedDate] = GETDATE()
 {OUTPUT}
