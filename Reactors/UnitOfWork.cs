@@ -201,11 +201,11 @@ BEGIN TRAN
 --reactor id of the reactor being persisted.  We set this within T-SQL script (it's not parameterised)
 DECLARE @PersistingReactorID BIGINT
 ");
-            SerialiseReactorRecord(sb, args); // FIXED sql injection safe
-            SerialiseDeliveryRecord(sb, args); // FIXED sql injection safe
-            SerialiseReactorPublicationRecords(sb, args); // FIXED not safe and has potentially multiple VALUE inserts which need to be escaped
-            SerialiseAggregateRecords(sb, args); // FIXED sql injection safe
-            SerialiseReactorSubscriptionRecords(sb, args); // FIXED not safe and has potentially multiple VALUE inserts which need to be escaped
+            SerialiseReactorRecord(sb, args); 
+            SerialiseDeliveryRecord(sb, args); 
+            SerialiseReactorPublicationRecords(sb, args); 
+            SerialiseAggregateRecords(sb, args); 
+            SerialiseReactorSubscriptionRecords(sb, args);
 
             sb.Append(@"
 -- Persistence complete
@@ -226,8 +226,6 @@ INNER JOIN dbo.Reactors R WITH(NOLOCK)
 
 -- get the reactorId. Needed for INSERTED reactors
 SELECT @PersistingReactorID [ReactorId];");
-
-            
 
             return (sb, args);
         }
@@ -401,7 +399,7 @@ VALUES
             foreach (var sub in unpersistedReactorSubscriptions) {
                 args.Add("SerialiseReactorSubscriptionRecords_Name", sub.Name);
                 args.Add("SerialiseReactorSubscriptionRecords_NameHash", sub.NameHash);
-                valueList.Add($"(@PersistingReactorID @SerialiseReactorSubscriptionRecords_Name, @SerialiseReactorSubscriptionRecords_NameHash)");
+                valueList.Add($"(@PersistingReactorID, @SerialiseReactorSubscriptionRecords_Name, @SerialiseReactorSubscriptionRecords_NameHash)");
             }
             sb.Append(string.Join($",{Environment.NewLine}", valueList.Distinct())); //Distinct makes sure that if a subscription is accidentally added twice, the SQL statement won't generate two subscriptions
             sb.Append(@";");
