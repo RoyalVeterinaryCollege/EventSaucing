@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Dapper;
 
 namespace EventSaucing.Reactors {
     /// <summary>
@@ -181,10 +182,16 @@ namespace EventSaucing.Reactors {
         /// Creates a single T SQL statement wrapped in a transaction to persist all parts of the UOW
         /// </summary>
         /// <returns></returns>
-        public (StringBuilder, object) GetSQLAndArgs() {
+        public (StringBuilder, DynamicParameters) GetSQLAndArgs() {
             //prepare string builder + args
             var sb = new StringBuilder();
-            var args = new SQLArgs(this);
+            DynamicParameters args = new DynamicParameters();
+            args.Add("ReactorBucket", Reactor.Bucket);
+            args.Add("ReactorType", Reactor.GetType().AssemblyQualifiedName);
+            args.Add("StateType", Reactor.State.GetType().AssemblyQualifiedName);
+            args.Add("StateSerialisation", JsonConvert.SerializeObject(Reactor.State));
+            args.Add("ReactorVersionNumber", Reactor.VersionNumber + 1);
+
 
             sb.Append(@"
 SET XACT_ABORT ON
@@ -194,10 +201,10 @@ BEGIN TRAN
 --reactor id of the reactor being persisted.  We set this within T-SQL script (it's not parameterised)
 DECLARE @PersistingReactorID BIGINT
 ");
-            SerialiseReactorRecord(sb, args);
-            SerialiseDeliveryRecord(sb, args);
-            SerialiseReactorPublicationRecords(sb, args);
-            SerialiseAggregateRecords(sb, args);
+            SerialiseReactorRecord(sb, args); 
+            SerialiseDeliveryRecord(sb, args); 
+            SerialiseReactorPublicationRecords(sb, args); 
+            SerialiseAggregateRecords(sb, args); 
             SerialiseReactorSubscriptionRecords(sb, args);
 
             sb.Append(@"
@@ -213,7 +220,7 @@ INNER JOIN @NewPublications NP
     ON RS.NameHash = NP.NameHash 
     AND RS.Name = NP.Name
 
--- Without this lock hint, RoyalMail (or this code) can deadlock with UoW's reactor persistance code.  It's safe to read dirty data here because we are only joining to get the Reactor Bucket and this never changes
+-- Without this lock hint, RoyalMail (or this code) can deadlock with UoW's reactor persistence code.  It's safe to read dirty data here because we are only joining to get the Reactor Bucket and this never changes
 INNER JOIN dbo.Reactors R WITH(NOLOCK)
     ON RS.SubscribingReactorId = R.Id;
 
@@ -223,13 +230,18 @@ SELECT @PersistingReactorID [ReactorId];");
             return (sb, args);
         }
 
-        private void SerialiseDeliveryRecord(StringBuilder sb, SQLArgs args) {
+        private void SerialiseDeliveryRecord(StringBuilder sb, DynamicParameters args) {
             if (!this.delivery.HasValue) return;
+
             InterimReactorPublicationDelivery delivery = this.delivery.Get();
+
+            args.Add("SerialiseDeliveryRecord_Delivery_SubscriptionId", delivery.SubscriptionId);
+            args.Add("SerialiseDeliveryRecord_Delivery_PublicationId", delivery.PublicationId);
+            args.Add("SerialiseDeliveryRecord_Delivery_VersionNumber", delivery.VersionNumber);
 
             sb.Append($@"
 MERGE [dbo].[ReactorPublicationDeliveries] AS TARGET
-USING (SELECT {delivery.SubscriptionId} AS [SubscriptionId], {delivery.PublicationId} AS [PublicationId], {delivery.VersionNumber} AS [VersionNumber]) AS SOURCE
+USING (SELECT @SerialiseDeliveryRecord_Delivery_SubscriptionId AS [SubscriptionId], @SerialiseDeliveryRecord_Delivery_PublicationId AS [PublicationId], @SerialiseDeliveryRecord_Delivery_VersionNumber AS [VersionNumber]) AS SOURCE
 ON TARGET.[SubscriptionId] = SOURCE.[SubscriptionId] AND TARGET.[PublicationId] = SOURCE.[PublicationId]
 WHEN MATCHED THEN
     UPDATE SET VersionNumber = SOURCE.VersionNumber, LastDeliveryDate = GETDATE()
@@ -239,7 +251,7 @@ WHEN NOT MATCHED THEN
 ");
         }
 
-        private void SerialiseReactorRecord(StringBuilder sb, SQLArgs args) {
+        private void SerialiseReactorRecord(StringBuilder sb, DynamicParameters args) {
             if (!Reactor.Id.HasValue) {
                 sb.Append(@"
 INSERT INTO [dbo].[Reactors]
@@ -258,7 +270,7 @@ VALUES
     ,1);
 SELECT @PersistingReactorID = SCOPE_IDENTITY();");
             } else {
-                args.ReactorId = Reactor.Id.Get();
+                args.Add("ReactorID", Reactor.Id.Get());
 
                 //Set declared variable to the parameterised SQL
                 sb.Append("SELECT @PersistingReactorID = @ReactorId;");
@@ -274,13 +286,18 @@ WHERE Id=@PersistingReactorID;");
             }
         }
 
-        private void SerialiseAggregateRecords(StringBuilder sb, SQLArgs args) {
+        private void SerialiseAggregateRecords(StringBuilder sb, DynamicParameters args) {
+            int i = 0; // uniquifier
+
             foreach(var subscription in aggregateSubscriptions) {
-                var streamId = streamHasher.GetHash(subscription.AggregateId.ToString());
+                i++;
+                args.Add($"SerialiseAggregateRecords_StreamID{i}", streamHasher.GetHash(subscription.AggregateId.ToString()));
+                args.Add($"SerialiseAggregateRecords_AggregateID{i}", subscription.AggregateId);
+                args.Add($"SerialiseAggregateRecords_StreamRevision{i}", subscription.StreamRevision);
 
                 sb.Append($@"
 MERGE [dbo].[ReactorAggregateSubscriptions] AS TARGET
-USING (SELECT '{streamId}' AS StreamId, @PersistingReactorID AS ReactorId, '{subscription.AggregateId}' AS AggregateId, {subscription.StreamRevision} AS StreamRevision) AS SOURCE
+USING (SELECT @SerialiseAggregateRecords_StreamID{i} AS StreamId, @PersistingReactorID AS ReactorId, @SerialiseAggregateRecords_AggregateID{i} AS AggregateId, @SerialiseAggregateRecords_StreamRevision{i} AS StreamRevision) AS SOURCE
 ON TARGET.StreamId = SOURCE.StreamId AND TARGET.ReactorId = SOURCE.ReactorId
 WHEN MATCHED THEN
     UPDATE SET StreamRevision = SOURCE.StreamRevision
@@ -290,7 +307,7 @@ WHEN NOT MATCHED THEN
             }
         }
 
-        private void SerialiseReactorPublicationRecords(StringBuilder sb, SQLArgs args) {
+        private void SerialiseReactorPublicationRecords(StringBuilder sb, DynamicParameters args) {
 
             sb.Append(@"
 
@@ -310,19 +327,25 @@ OUTPUT INSERTED.Id, INSERTED.Name, INSERTED.NameHash, INSERTED.VersionNumber, IN
  @NewPublications(PublicationId, Name, NameHash, VersionNumber, ArticleSerialisation, ArticleSerialisationType)
 ";
             // updates first, one UPDATE statement per publication
+
+            int i = 0; // uniquifier
             foreach (var publication in reactorPublications.Where(pub => pub.Id.HasValue)) {
-                string articleType = publication.Article.GetType().AssemblyQualifiedName;
-                string articleSerialisation = JsonConvert.SerializeObject(publication.Article);
+                i++;
+
+                args.Add($"SerialiseReactorPublicationRecords_ArticleType{i}", publication.Article.GetType().AssemblyQualifiedName);
+                args.Add($"SerialiseReactorPublicationRecords_ArticleSerialisation{i}", JsonConvert.SerializeObject(publication.Article));
+                args.Add($"SerialiseReactorPublicationRecords_PublicationVersionNumber{i}", publication.VersionNumber);
+                args.Add($"SerialiseReactorPublicationRecords_PublicationID{i}", publication.Id.Get());
 
                 //update first
                 sb.Append($@"
 UPDATE [dbo].[ReactorPublications]
-SET [ArticleSerialisationType] ='{articleType}'
-,[ArticleSerialisation] = '{articleSerialisation}'
-,[VersionNumber] = {publication.VersionNumber}
+SET [ArticleSerialisationType] = @SerialiseReactorPublicationRecords_ArticleType{i}
+,[ArticleSerialisation] = @SerialiseReactorPublicationRecords_ArticleSerialisation{i} 
+,[VersionNumber] = @SerialiseReactorPublicationRecords_PublicationVersionNumber{i}
 ,[LastPublishedDate] = GETDATE()
 {OUTPUT}
-WHERE ID = {publication.Id.Get()};");
+WHERE ID = @SerialiseReactorPublicationRecords_PublicationID{i};");
             }
 
             // check for any new publications to be inserted
@@ -341,16 +364,20 @@ VALUES");
                 //loop each new publication and add a value record for it
                 List<string> values = new List<string>();
                 foreach (var publication in reactorPublications.Where(pub => !pub.Id.HasValue)) {
-                    string articleType = publication.Article.GetType().AssemblyQualifiedName;
-                    string articleSerialisation = JsonConvert.SerializeObject(publication.Article);
+                    i++;
+
+                    args.Add($"SerialiseReactorPublicationRecords_Publication_Name{i}", publication.Name);
+                    args.Add($"SerialiseReactorPublicationRecords_Publication_NameHash{i}", publication.NameHash);
+                    args.Add($"SerialiseReactorPublicationRecords_ArticleType{i}", publication.Article.GetType().AssemblyQualifiedName);
+                    args.Add($"SerialiseReactorPublicationRecords_ArticleSerialisation{i}", JsonConvert.SerializeObject(publication.Article));
                     values.Add($@"
-('{publication.Name}'
+( @SerialiseReactorPublicationRecords_Publication_Name{i}
 , @PersistingReactorID
-,{ publication.NameHash}
-,'{articleType}'
-,'{articleSerialisation}'
-,1
-,GETDATE())");
+, @SerialiseReactorPublicationRecords_Publication_NameHash{i}
+, @SerialiseReactorPublicationRecords_ArticleType{i}
+, @SerialiseReactorPublicationRecords_ArticleSerialisation{i}
+, 1
+, GETDATE())");
                 }
 
                 sb.Append(string.Join($",{Environment.NewLine}", values));
@@ -358,8 +385,9 @@ VALUES");
             }
         }
 
-        private void SerialiseReactorSubscriptionRecords(StringBuilder sb, SQLArgs args) {
+        private void SerialiseReactorSubscriptionRecords(StringBuilder sb, DynamicParameters args) {
             if (!unpersistedReactorSubscriptions.Any()) return;
+
             sb.Append($@"
 INSERT INTO [dbo].[ReactorSubscriptions]
     ([SubscribingReactorId]
@@ -367,8 +395,13 @@ INSERT INTO [dbo].[ReactorSubscriptions]
     ,[NameHash])
 VALUES
 ");
-            var values = unpersistedReactorSubscriptions.Select(sub => $"(@PersistingReactorID,'{sub.Name}',{sub.NameHash})");
-            sb.Append(string.Join($",{Environment.NewLine}", values));
+            var valueList = new List<string>();
+            foreach (var sub in unpersistedReactorSubscriptions) {
+                args.Add("SerialiseReactorSubscriptionRecords_Name", sub.Name);
+                args.Add("SerialiseReactorSubscriptionRecords_NameHash", sub.NameHash);
+                valueList.Add($"(@PersistingReactorID, @SerialiseReactorSubscriptionRecords_Name, @SerialiseReactorSubscriptionRecords_NameHash)");
+            }
+            sb.Append(string.Join($",{Environment.NewLine}", valueList.Distinct())); //Distinct makes sure that if a subscription is accidentally added twice, the SQL statement won't generate two subscriptions
             sb.Append(@";");
         }
 

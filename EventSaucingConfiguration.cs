@@ -1,4 +1,6 @@
-﻿namespace EventSaucing {
+﻿using System;
+
+namespace EventSaucing {
     public class EventSaucingConfiguration {
 		/// <summary>
 		/// Gets or sets if you want to use the EventSaucing projector pipeline
@@ -16,9 +18,5 @@
 		/// The name of the akka actorsystem. Defaults to 'EventSaucing'.  All nodes in the akka cluster must use the same name.
 		/// </summary>
 		public string ActorSystemName { get; set; } = "EventSaucing";
-		/// <summary>
-		/// The config in HCON format for Akka's configuration. See https://getakka.net/articles/concepts/configuration.html
-		/// </summary>
-		public string AkkaConfiguration { get; set; } = "akka { loglevel=INFO,  loggers=[\"Akka.Logger.Serilog.SerilogLogger, Akka.Logger.Serilog\"]}";
 	}
 }

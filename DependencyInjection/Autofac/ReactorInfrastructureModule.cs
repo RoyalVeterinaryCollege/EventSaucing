@@ -19,7 +19,6 @@ namespace EventSaucing.DependencyInjection.Autofac {
             builder.RegisterType<ReactorPublicationFinder>().As<IReactorPublicationFinder>().SingleInstance();
 
             //reactor actors
-            builder.RegisterType<ReactorSupervisor>();
             builder.RegisterType<ReactorActor>();
             builder.RegisterType<ReactorBucketSupervisor>();
             builder.RegisterType<RoyalMail>();

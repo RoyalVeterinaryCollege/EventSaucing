@@ -5,49 +5,43 @@ using System;
 using System.Threading.Tasks;
 using Akka.Cluster.Tools.PublishSubscribe;
 using EventSaucing.Reactors.Messages;
+using Microsoft.Extensions.Configuration;
 
 namespace EventSaucing.Reactors {
 
     /// <summary>
-    /// The supervisor for a Reactor bucket.  This is the actor which is responsible for handling messages about about reactor articles & subscriptions.
+    /// The supervisor for a Reactor bucket.  It subscribes to messages posted to the pub/sub mediator for a particular bucket.
+    /// It then forwards these messages to its children, which are a pool of reactor actors.
     /// </summary>
     public class ReactorBucketSupervisor : ReceiveActor {
+        private readonly IConfiguration _config;
+
+        /// <summary>
+        /// This is 'our' bucket.  We process reactors that are contained in this bucket.
+        /// </summary>
+        readonly string _bucket;
+        /// <summary>
+        /// The name of the router for reactor actors (child actors)
+        /// </summary>
+        const string ReactorActorsRelativeAddress = "reactor-actors";
+
+        /// <summary>
+        /// Instantiates
+        /// </summary>
+        public ReactorBucketSupervisor(IConfiguration config) {
+            _config = config;
+            _bucket = config.GetLocalBucketName();
+
+            ReceiveAsync<ArticlePublished>(OnArticlePublishedAsync);
+            ReceiveAsync<SubscribedAggregateChanged>(OnSubscribedAggregateChangedAsync);
+        }
+
         /// <summary>
         /// Gets the internal Akka PubSub topic for a Reactor bucket.  Akka cluster PubSub is used to route reactor messages to the correct bucket.
         /// </summary>
         /// <param name="bucket"></param>
         /// <returns></returns>
         public static string GetInternalPublicationTopic(string bucket) => $"/reactors/bucket/{bucket}/";
-        public class LocalMessages {
-            /// <summary>
-            /// Tells the reactor bucket actor to subscribe to reactor messages for a particular bucket
-            /// </summary>
-            public class SubscribeToBucket {
-                public SubscribeToBucket(string bucket) {
-                    if (string.IsNullOrWhiteSpace(bucket)) {
-                        throw new ArgumentException($"'{nameof(bucket)}' cannot be null or whitespace", nameof(bucket));
-                    }
-
-                    this.Bucket = bucket;
-                }
-
-                public string Bucket { get; }
-            }
-        }
-        /// <summary>
-        /// This is 'our' bucket.  We process reactors that are contained in this bucket.
-        /// </summary>
-        string bucket;
-        /// <summary>
-        /// The name of the router for reactor actors (child actors)
-        /// </summary>
-        const string ReactorActorsRelativeAddress = "reactor-actors";
-
-        public ReactorBucketSupervisor() {
-            ReceiveAsync<LocalMessages.SubscribeToBucket>(OnSubscribeToBucketAsync);
-            ReceiveAsync<ArticlePublished>(OnArticlePublishedAsync);
-            ReceiveAsync<SubscribedAggregateChanged>(OnSubscribedAggregateChangedAsync);
-        }
 
         /// <summary>
         /// Route the message to a child ReactorActor who will actually update the reactor
@@ -70,27 +64,18 @@ namespace EventSaucing.Reactors {
         }
 
         protected override void PreStart() {
-            //todo number of reactor actors from config
+            int instances = _config.GetValue<int?>("EventSaucing:NumberOfReactorActors") ?? 5;
+
             //These child actors will process any messages on our behalf
-            Context.ActorOf(Context.System.DI().Props<ReactorActor>().WithRouter(new ConsistentHashingPool(5)), ReactorActorsRelativeAddress);
-        }
+            Context.ActorOf(Context.System.DI().Props<ReactorActor>().WithRouter(new ConsistentHashingPool(instances)), ReactorActorsRelativeAddress);
 
-        /// <summary>
-        /// Tells the actor which Reactor bucket it is.  Actor subscribes to messags published for that bucket.
-        /// </summary>
-        /// <param name="msg"></param>
-        /// <returns></returns>
-        private Task OnSubscribeToBucketAsync(LocalMessages.SubscribeToBucket msg) {
-            //todo:get bucket from config rather than a message.  The reason is that an exception will remove the state and this actor may then stop processing the bucket.
-            bucket = msg.Bucket;
             var mediator = DistributedPubSub.Get(Context.System).Mediator;
-            string topic = GetInternalPublicationTopic(bucket);
+            string topic = GetInternalPublicationTopic(_bucket);
             mediator.Tell(new Subscribe(topic, Self));
-            return Task.CompletedTask;
         }
 
         /// <summary>
-        /// Overriding postRestart to disable the call to preStart() after restarts.  This means children are restarted, and we dont create extra instances each time
+        /// Overriding postRestart to disable the call to preStart() after restarts.  This means children are restarted, and we don't create extra instances each time
         /// </summary>
         /// <param name="reason"></param>
         protected override void PostRestart(Exception reason) {
