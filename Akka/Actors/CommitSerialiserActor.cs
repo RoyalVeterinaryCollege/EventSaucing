@@ -87,6 +87,7 @@ namespace EventSaucing.Akka.Actors {
                        "Received a commit notification (checkpoint {0}) whilst currentcheckpoint={1}.  Commit couldn't be serialised via the cache so polling with @backlog count={2}",
                        msg.Commit.CheckpointToken, currentCheckpoint, _backlogCommitCount);
 
+            // this actor stops itself after it has processed the msg
             var eventStorePollerActor = MakeNewEventStorePollerActor();
 
             //ask the poller to get the commits directly from the store
