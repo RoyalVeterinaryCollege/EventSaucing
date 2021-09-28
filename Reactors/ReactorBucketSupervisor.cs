@@ -41,7 +41,7 @@ namespace EventSaucing.Reactors {
         /// </summary>
         /// <param name="bucket"></param>
         /// <returns></returns>
-        public static string GetInternalPublicationTopic(string bucket) => $"/reactors/bucket/{bucket}/";
+        public static string GetInternalPublicationTopic(string bucket) => $"/eventsaucing/reactors/bucket/{bucket}/";
 
         /// <summary>
         /// Route the message to a child ReactorActor who will actually update the reactor

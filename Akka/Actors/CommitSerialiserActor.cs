@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Akka.Actor;
+using Akka.Cluster.Tools.PublishSubscribe;
 using Akka.DI.Core;
 using Akka.Event;
 using Akka.Routing;
@@ -16,6 +18,10 @@ namespace EventSaucing.Akka.Actors {
     /// Actor which receives commits from the event store.  Its only job is to send commits in the correct order to the local projection supervisor
     /// </summary>
     public class CommitSerialiserActor : ReceiveActor {
+        /// <summary>
+        /// The pub/sub topic where commit notifications are published to
+        /// </summary>
+        public static string PubSubCommitNotificationTopic = "/eventsaucing/commitnotification/";
         private readonly IInMemoryCommitSerialiserCache _cache;
 
         /// <summary>
@@ -35,13 +41,27 @@ namespace EventSaucing.Akka.Actors {
 
         private ActorPath _projectorsBroadCastRouter;
 
-        public CommitSerialiserActor(IDbService dbService, IInMemoryCommitSerialiserCache cache) {
+        public CommitSerialiserActor(IInMemoryCommitSerialiserCache cache) {
             _cache = cache;
             InitialiseProjectors();
 
-            Receive<CommitNotification>(msg => { Received(msg); });
-            Receive<OrderedCommitNotification>(msg => { Received(msg); });
+            Receive<CommitNotification>(Received);
+            Receive<OrderedCommitNotification>(Received);
         }
+
+        protected override void PreStart() {
+            base.PreStart();
+            //subscribe to commit notification messages
+            var mediator = DistributedPubSub.Get(Context.System).Mediator;
+            mediator.Tell(new Subscribe(PubSubCommitNotificationTopic, Self));
+        }
+
+
+        /// <summary>
+        /// Overriding postRestart to disable the call to preStart() after restarts.  This means children are restarted, and we don't create extra instances each time
+        /// </summary>
+        /// <param name="reason"></param>
+        protected override void PostRestart(Exception reason) { }
 
         /// <summary>
         /// This message is sent from NEventstore after a commit is created.  Commits might not be sent in the correct order however...

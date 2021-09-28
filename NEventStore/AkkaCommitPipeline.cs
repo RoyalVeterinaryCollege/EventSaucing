@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Threading;
 using Akka.Actor;
+using Akka.Cluster.Tools.PublishSubscribe;
+using EventSaucing.Akka.Actors;
 using EventSaucing.Akka.Messages;
 using EventSaucing.DependencyInjection.Autofac;
+using EventSaucing.Reactors;
 using NEventStore;
 
 namespace EventSaucing.NEventStore {
@@ -50,7 +53,10 @@ namespace EventSaucing.NEventStore {
         }
 
         private void Notify(ICommit committed) {
-            _actorSystem.ActorSelection(_pathToProjectionSupervisor).Tell(new CommitNotification(committed));
+            // _actorSystem.ActorSelection(_pathToProjectionSupervisor).Tell(new CommitNotification(committed));
+            var msg = new CommitNotification(committed);
+            var mediator = DistributedPubSub.Get(_actorSystem).Mediator;
+            mediator.Tell(new Publish(CommitSerialiserActor.PubSubCommitNotificationTopic, msg));
         }
     }
 }
