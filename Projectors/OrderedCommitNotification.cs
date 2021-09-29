@@ -2,7 +2,7 @@
 using NEventStore;
 using Scalesque;
 
-namespace EventSaucing.Akka.Messages {
+namespace EventSaucing.Projectors {
 	/// <summary>
 	/// A message containing a commit and also the previous checkpoint which allows the commit to be ordered correctly
 	/// </summary>

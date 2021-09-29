@@ -2,7 +2,7 @@
 using EventSaucing.Storage;
 using NEventStore;
 
-namespace EventSaucing.Projector {
+namespace EventSaucing.Projectors {
     /// <summary>
     /// A conventional way of projecting commits.  This handles ACIDic projection of all projectable events in the commit.
     /// </summary>

@@ -1,4 +1,4 @@
-﻿namespace EventSaucing.Projector {
+﻿namespace EventSaucing.Projectors {
     /// <summary>
     /// Represents the state a projector has reached with processing events from the distributed eventstores
     /// </summary>

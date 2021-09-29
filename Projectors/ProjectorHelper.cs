@@ -7,7 +7,7 @@ using Dapper;
 using EventSaucing.Storage;
 using Scalesque;
 
-namespace EventSaucing.Projector {
+namespace EventSaucing.Projectors {
     public static class ProjectorHelper {
         /// <summary>
         ///     Gets the uniqueprojectorId of a projector
@@ -87,16 +87,6 @@ namespace EventSaucing.Projector {
 				conn.Execute(SqlInitialiseProjectorStatus);
 			}
 		}
-
-        public static List<Type> FindAllProjectorsInProject() {
-            //Reflect on assembly to identify projectors and have DI create them
-	        var types = Assembly.GetEntryAssembly().GetTypes();
-            return
-                (from type in types
-				 where type.GetCustomAttributes(typeof (ProjectorAttribute), false).Any()
-                    select type
-                    ).ToList();
-        }
 
         private static object GetProjectorParams(ProjectorBase projector) {
             return new {

@@ -1,4 +1,4 @@
-﻿using EventSaucing.Akka.Messages;
+﻿using EventSaucing.Projectors;
 using Scalesque;
 
 namespace EventSaucing.NEventStore {

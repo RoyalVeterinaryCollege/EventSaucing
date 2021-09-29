@@ -4,7 +4,7 @@ using Akka.Configuration;
 using Akka.DI.AutoFac;
 using Akka.DI.Core;
 using Autofac;
-using EventSaucing.Projector;
+using EventSaucing.Projectors;
 using Module = Autofac.Module;
 
 namespace EventSaucing.DependencyInjection.Autofac {

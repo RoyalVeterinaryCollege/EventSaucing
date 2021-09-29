@@ -2,9 +2,8 @@
 using System.Threading;
 using Akka.Actor;
 using Akka.Cluster.Tools.PublishSubscribe;
-using EventSaucing.Akka.Actors;
-using EventSaucing.Akka.Messages;
 using EventSaucing.DependencyInjection.Autofac;
+using EventSaucing.Projectors;
 using EventSaucing.Reactors;
 using NEventStore;
 

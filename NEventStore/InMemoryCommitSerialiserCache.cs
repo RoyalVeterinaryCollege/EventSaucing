@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using EventSaucing.Akka.Messages;
+using EventSaucing.Projectors;
 using NEventStore;
 using Scalesque;
 

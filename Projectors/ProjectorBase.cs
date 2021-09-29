@@ -2,14 +2,13 @@ using System.Collections.Generic;
 using Akka.Actor;
 using Akka.Event;
 using Dapper;
-using EventSaucing.Akka.Messages;
 using EventSaucing.NEventStore;
 using EventSaucing.Storage;
 using NEventStore;
 using NEventStore.Persistence;
 using Scalesque;
 
-namespace EventSaucing.Projector {
+namespace EventSaucing.Projectors {
     public abstract class ProjectorBase : ReceiveActor {
         private readonly IPersistStreams _persistStreams;
         private readonly IDbService _dbService;

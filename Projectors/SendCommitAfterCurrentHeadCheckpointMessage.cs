@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using Scalesque;
 
-namespace EventSaucing.Akka.Messages {
+namespace EventSaucing.Projectors {
 	/// <summary>
 	/// Message sent to ask for a commit notification to be ordered
 	/// </summary>

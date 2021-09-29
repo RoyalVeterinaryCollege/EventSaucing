@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using NEventStore;
 
-namespace EventSaucing.Akka.Messages {
+namespace EventSaucing.Projectors {
 	/// <summary>
 	///     An actor message wrapping an NEventStore commit (this is sent from the eventstore)
 	/// </summary>

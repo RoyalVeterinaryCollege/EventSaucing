@@ -2,11 +2,10 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using EventSaucing.NEventStore;
 using NEventStore;
 using Scalesque;
 
-namespace EventSaucing.Projector {
+namespace EventSaucing.Projectors {
     /// <summary>
     /// A convention based way of dispatching events to methods which project those events
     /// </summary>

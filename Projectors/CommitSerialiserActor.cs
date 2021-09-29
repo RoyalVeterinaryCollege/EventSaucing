@@ -6,14 +6,10 @@ using Akka.Cluster.Tools.PublishSubscribe;
 using Akka.DI.Core;
 using Akka.Event;
 using Akka.Routing;
-using EventSaucing.Akka.Messages;
 using EventSaucing.NEventStore;
-using EventSaucing.Projector;
-using EventSaucing.Storage;
 using Scalesque;
 
-namespace EventSaucing.Akka.Actors {
-
+namespace EventSaucing.Projectors {
     /// <summary>
     /// Actor which receives commits from the event store.  Its only job is to send commits in the correct order to the local projection supervisor
     /// </summary>
@@ -41,12 +37,31 @@ namespace EventSaucing.Akka.Actors {
 
         private ActorPath _projectorsBroadCastRouter;
 
-        public CommitSerialiserActor(IInMemoryCommitSerialiserCache cache) {
+        /// <summary>
+        /// Instantiates
+        /// </summary>
+        /// <param name="cache"></param>
+        /// <param name="projectorTypeProvider">IProjectorTypeProvider a contract which returns Projectors to be wired up</param>
+        public CommitSerialiserActor(IInMemoryCommitSerialiserCache cache, IProjectorTypeProvider projectorTypeProvider) {
             _cache = cache;
-            InitialiseProjectors();
+            InitialiseProjectors(projectorTypeProvider);
 
             Receive<CommitNotification>(Received);
             Receive<OrderedCommitNotification>(Received);
+        }
+
+        private void InitialiseProjectors(IProjectorTypeProvider projectorTypeProvider)  {
+            //Reflect on assembly to identify projectors and have DI create them
+            var projectorsMetaData =
+                (from type in projectorTypeProvider.GetProjectorTypes()
+                    select new { Type = type, ActorRef = Context.ActorOf(Context.DI().Props(type), type.FullName), ProjectorId = type.GetProjectorId() }
+                ).ToList();
+
+            //put the projectors in a broadcast router
+            _projectorsBroadCastRouter = Context.ActorOf(Props.Empty.WithRouter(new BroadcastGroup(projectorsMetaData.Map(_ => _.ActorRef.Path.ToString()))), "ProjectionBroadcastRouter").Path;
+
+            //tell them to catchup, else they will sit and wait for the first user activity (from the first commit)
+            Context.ActorSelection(_projectorsBroadCastRouter).Tell(new CatchUpMessage());
         }
 
         protected override void PreStart() {
@@ -55,7 +70,6 @@ namespace EventSaucing.Akka.Actors {
             var mediator = DistributedPubSub.Get(Context.System).Mediator;
             mediator.Tell(new Subscribe(PubSubCommitNotificationTopic, Self));
         }
-
 
         /// <summary>
         /// Overriding postRestart to disable the call to preStart() after restarts.  This means children are restarted, and we don't create extra instances each time
@@ -151,21 +165,6 @@ namespace EventSaucing.Akka.Actors {
             public long MaxCheckpointNumber { get; set; }
         }
 
-        private void InitialiseProjectors() {
-            //Reflect on assembly to identify projectors and have DI create them
-            var projectorTypes = ProjectorHelper.FindAllProjectorsInProject();
-            var projectorsMetaData =
-                (from type in projectorTypes
-                 select new { Type = type, ActorRef = Context.ActorOf(Context.DI().Props(type), type.FullName), ProjectorId = type.GetProjectorId() }
-               ).ToList();
-
-            //put the projectors in a broadcast router
-            _projectorsBroadCastRouter = Context.ActorOf(Props.Empty.WithRouter(new BroadcastGroup(projectorsMetaData.Map(_ => _.ActorRef.Path.ToString()))), "ProjectionBroadcastRouter").Path;
-
-            //tell them to catchup, else they will sit and wait for the first user activity (from the first commit)
-            Context.ActorSelection(_projectorsBroadCastRouter).Tell(new CatchUpMessage()); 
-        }
-        
         /// <summary>
         /// Sends the commit to the projectors for projection
         /// </summary>
