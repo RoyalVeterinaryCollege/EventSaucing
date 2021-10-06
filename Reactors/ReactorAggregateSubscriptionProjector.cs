@@ -16,13 +16,12 @@ namespace EventSaucing.Reactors {
         private readonly IReactorBucketFacade _reactorBucketRouter;
         private readonly string _bucket;
 
-        public ReactorAggregateSubscriptionProjector(IPersistStreams persistStreams, IDbService dbService, IConfiguration config, IReactorBucketFacade reactorBucketRouter) : base(persistStreams, dbService, ) {
+        public ReactorAggregateSubscriptionProjector(IPersistStreams persistStreams, IDbService dbService, IConfiguration config, IReactorBucketFacade reactorBucketRouter) : base(persistStreams, dbService, config) {
             _reactorBucketRouter = reactorBucketRouter;
             _bucket = config.GetLocalBucketName();
         }
         
         public override void Project(ICommit commit) {
-            
             using (var con = _dbService.GetConnection()) {
                 con.Open();
                 
