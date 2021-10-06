@@ -5,9 +5,12 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using EventSaucing.Reactors.Messages;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyModel.Resolution;
+using Scalesque;
 
 namespace EventSaucing.Reactors {
     /// <summary>
@@ -23,6 +26,10 @@ namespace EventSaucing.Reactors {
         private readonly Random _rnd;
         private readonly string _bucket;
 
+        /// <summary>
+        /// Gets or sets the last checkpoint RoyalMail checked for outstanding aggregate subscriptions
+        /// </summary>
+        public Option<long> Checkpoint { get; set; } = Option.None();
         public RoyalMail(IDbService dbservice, IReactorBucketFacade reactorBucketRouter, ILogger<RoyalMail> logger, IConfiguration config) {
             this._dbservice = dbservice;
             this._reactorBucketRouter = reactorBucketRouter;
@@ -46,7 +53,34 @@ namespace EventSaucing.Reactors {
             using (var con = _dbservice.GetConnection()) {
                 await con.OpenAsync();
 
+                // see if checkpoint needs to be defaulted or initialised from persisted value in db
+                if (Checkpoint.IsEmpty) {
+                    Checkpoint = 0L.ToSome(); //default to before start of commit store which begins at 1
+
+                    var results = con.Query<long>("SELECT LastCheckPointToken FROM dbo.ReactorsRoyalMailStatus WHERE Bucket = @Bucket", new { _bucket });
+
+                    results.ForEach(x => {
+                        Checkpoint = x.ToSome();
+                    });
+
+                    //initialise checkpoint in db if necessary, so there will always be a row after this point
+                    const string sqlUpdateCheckpoint = @"
+INSERT INTO [dbo].[ReactorsRoyalMailStatus]
+   ([Bucket]
+   ,[LastCheckpointToken])
+SELECT
+   @Bucket
+   ,@LastCheckpointToken
+WHERE NOT EXISTS(SELECT 1 FROM dbo.ReactorsRoyalMailStatus WHERE Bucket = @Bucket)";
+                    await con.ExecuteAsync(sqlUpdateCheckpoint,new {Bucket = _bucket, LastCheckpointToken = Checkpoint.Get()});
+                }
+
                 const string sqlAggregateSubscriptions = @"
+--determine the lastest CheckpointNumber, we will ignore commits made after this during this poll
+DECLARE @LatestCheckpointNumber bigint
+
+SELECT @LatestCheckpointNumber = MAX(CheckpointNumber) FROM dbo.Commits;
+
 SELECT TOP (@MaxSubscriptions) RS.ReactorId, RS.AggregateId, MAX(C.StreamRevision) StreamRevision
 FROM 
     [dbo].[ReactorAggregateSubscriptions] RS 
@@ -54,6 +88,11 @@ INNER JOIN dbo.Commits C
     ON RS.StreamId = C.StreamId
     AND C.StreamRevision > RS.StreamRevision
     AND C.BucketId='default'
+    --don't include commits we have already processed
+    AND C.CheckpointNumber > @CurrentCheckpoint
+    --look no further than LatestCheckpointNumber
+    AND C.CheckpointNumber <= @LatestCheckpointNumber
+    
 
 -- Without this lock hint, RoyalMail can deadlock with UoW's reactor persistence code.  It's safe to read dirty data here because we are only joining to get the Reactor Bucket and this never changes
 INNER JOIN dbo.Reactors R WITH(READUNCOMMITTED)
@@ -61,10 +100,16 @@ INNER JOIN dbo.Reactors R WITH(READUNCOMMITTED)
 WHERE
     R.Bucket = @Bucket
 GROUP BY
-   RS.ReactorId, RS.AggregateId;";
-                
+   RS.ReactorId, RS.AggregateId;
+
+SELECT @LatestCheckpointNumber;
+";
+                var aggregateSubscriptionsResults = await con.QueryMultipleAsync(sqlAggregateSubscriptions, new { bucket = _bucket, maxSubscriptions, CurrentCheckpoint = Checkpoint.Get() });
+
                 //Look for aggregate subscriptions that need to be updated in our bucket
-                var aggregateSubscriptionMessages = (await con.QueryAsync<PreSubscribedAggregateChanged>(sqlAggregateSubscriptions, new {bucket=_bucket, maxSubscriptions})).ToList();
+                // var aggregateSubscriptionMessages = (await con.QueryAsync<PreSubscribedAggregateChanged>(sqlAggregateSubscriptions, new {bucket=_bucket, maxSubscriptions})).ToList();
+                var aggregateSubscriptionMessages = (await aggregateSubscriptionsResults.ReadAsync<PreSubscribedAggregateChanged>()).ToList();
+
 
                 if (aggregateSubscriptionMessages.Any()) {
                     _logger.LogInformation($"Found {aggregateSubscriptionMessages.Count} aggregate subscriptions for bucket {_bucket}");
@@ -76,7 +121,11 @@ GROUP BY
                     _reactorBucketRouter.Tell(preMsg.ToMessage(_bucket));
                 }
 
-                
+                // update persisted checkpoint
+                Checkpoint = (await aggregateSubscriptionsResults.ReadAsync<long>()).First().ToSome();
+                await con.ExecuteAsync("UPDATE dbo.ReactorsRoyalMailStatus SET LastCheckpointToken = @CheckpointNumber WHERE Bucket=@Bucket", new {Bucket=_bucket, Checkpoint = Checkpoint.Get()});
+
+
                 //Look for article subscriptions that need to be updated
                 const string sqlReactorSubscriptions = @"
 SELECT TOP (@MaxSubscriptions) RP.Name,  RP.Id AS [PublicationId], RS.SubscribingReactorId, RS.Id as SubscriptionId, RP.PublishingReactorId, RP.VersionNumber, RP.ArticleSerialisationType, RP.ArticleSerialisation

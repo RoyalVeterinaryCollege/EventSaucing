@@ -265,6 +265,21 @@ CREATE TABLE [dbo].[ReactorPublicationDeliveries](
 END
 ;
 
+SET ANSI_NULLS ON;
+
+SET QUOTED_IDENTIFIER ON;
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[ReactorsRoyalMailStatus]') AND type in (N'U'))
+BEGIN
+CREATE TABLE [dbo].[ReactorsRoyalMailStatus](
+	[Bucket] [nvarchar](255) NOT NULL,
+	[LastCheckpointToken] [bigint] NOT NULL,
+ CONSTRAINT [PK_ReactorsRoyalMailStatus] PRIMARY KEY CLUSTERED 
+(
+	[Bucket] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+END;
+
 /****** Object:  Index [IX_ReactorSubscriptions]    Script Date: 20/11/2020 13:57:34 ******/
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[ReactorSubscriptions]') AND name = N'IX_ReactorSubscriptions')
 CREATE NONCLUSTERED INDEX [IX_ReactorSubscriptions] ON [dbo].[ReactorSubscriptions]
