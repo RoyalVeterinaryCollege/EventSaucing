@@ -1,9 +1,12 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Akka.Actor;
 using Akka.Event;
 using Dapper;
 using EventSaucing.NEventStore;
 using EventSaucing.Storage;
+using Microsoft.Extensions.Configuration;
 using NEventStore;
 using NEventStore.Persistence;
 using Scalesque;
@@ -11,7 +14,7 @@ using Scalesque;
 namespace EventSaucing.Projectors {
     public abstract class ProjectorBase : ReceiveActor {
         private readonly IPersistStreams _persistStreams;
-        private readonly IDbService _dbService;
+        private protected readonly IDbService _dbService;
 
         public int ProjectorId { get; }
 
@@ -20,17 +23,23 @@ namespace EventSaucing.Projectors {
         /// </summary>
         /// <param name="persistStreams">IPersistStreams Required for when the projector falls behind the head commit and needs to catchup</param>
         /// <param name="dbService"></param>
-        public ProjectorBase(IPersistStreams persistStreams, IDbService dbService) {
+        /// <param name="config"></param>
+        public ProjectorBase(IPersistStreams persistStreams, IDbService dbService, IConfiguration config) {
             _persistStreams = persistStreams;
             _dbService = dbService;
             ProjectorId = this.GetProjectorId();
-            Receive<CatchUpMessage>(msg => Received(msg));
-            Receive<OrderedCommitNotification>(msg => Received(msg));
+
+            var initialiseAtHead = config.GetSection("EventSaucing:Projectors:InitialiseAtHead").Get<string[]>();
+            this._initialiseAtHead = initialiseAtHead.Contains(GetType().FullName);
+
+            Receive<CatchUpMessage>(Received);
+            Receive<OrderedCommitNotification>(Received);
         }
 
-        private void Received(CatchUpMessage msg) {
-            Catchup();
-        }
+        /// <summary>
+        /// Should projector be set to the head checkpoint of the commit store on first ever instantiation.  If false, projector will run through all commits in the store.  If True, projector will start at the head of the commit and only process new commits 
+        /// </summary>
+        private readonly bool _initialiseAtHead;
 
         protected override void PreStart() {
             base.PreStart();
@@ -43,8 +52,15 @@ namespace EventSaucing.Projectors {
                 results.ForEach(x => {
                     Checkpoint = x.ToSome();
                 });
-                conn.Close();
+
+                // initialise at head if requested
+                if (Checkpoint.IsEmpty && _initialiseAtHead) {
+                    Checkpoint = conn.ExecuteScalar<long>("SELECT MAX(CheckpointNumber) FROM dbo.Commits").ToSome();
+                }
             }
+        }
+        private void Received(CatchUpMessage msg)  {
+            Catchup();
         }
 
         private void Received(OrderedCommitNotification msg) {
