@@ -11,6 +11,7 @@ namespace EventSaucing.NEventStore {
     /// <summary>
     /// This class hooks into the NEventStore pipeline and sends the commits to the LocalProjectionSupervisorActor in Akka
     /// </summary>
+    [Obsolete]
     public class AkkaCommitPipeline : PipelineHookBase {
         private readonly Func<ActorPaths> _getPaths;
         private readonly Func<ActorSystem> _getAkka;
@@ -55,7 +56,7 @@ namespace EventSaucing.NEventStore {
             // _actorSystem.ActorSelection(_pathToProjectionSupervisor).Tell(new CommitNotification(committed));
             var msg = new CommitNotification(committed);
             var mediator = DistributedPubSub.Get(_actorSystem).Mediator;
-            mediator.Tell(new Publish(CommitSerialiserActor.PubSubCommitNotificationTopic, msg));
+            mediator.Tell(new Publish(LocalEventStreamActor.PubSubCommitNotificationTopic, msg));
         }
     }
 }

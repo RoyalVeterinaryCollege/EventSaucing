@@ -4,8 +4,10 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
+using Akka.Cluster.Tools.PublishSubscribe;
 using Akka.DI.Core;
 using EventSaucing.DependencyInjection.Autofac;
+using EventSaucing.NEventStore;
 using EventSaucing.Projectors;
 using EventSaucing.Storage;
 using Microsoft.Extensions.Hosting;
@@ -19,7 +21,7 @@ namespace EventSaucing.HostedServices
     public class ProjectorPipeline : IHostedService {
         private readonly IDbService _dbService;
         private readonly ActorSystem _actorSystem;
-        private readonly ActorPaths _actorPaths;
+        private readonly PostCommitNotifierPipeline _commitNotifierPipeline;
         private readonly ILogger<ProjectorPipeline> _logger;
 
         /// <summary>
@@ -27,12 +29,12 @@ namespace EventSaucing.HostedServices
         /// </summary>
         /// <param name="dbService"></param>
         /// <param name="actorSystem"></param>
-        /// <param name="actorPaths"></param>
+        /// <param name="commitNotifierPipeline"></param>
         /// <param name="logger"></param>
-        public ProjectorPipeline(IDbService dbService, ActorSystem actorSystem, ActorPaths actorPaths, ILogger<ProjectorPipeline> logger) {
+        public ProjectorPipeline(IDbService dbService, ActorSystem actorSystem, PostCommitNotifierPipeline commitNotifierPipeline, ILogger<ProjectorPipeline> logger) {
             _dbService = dbService;
             _actorSystem = actorSystem;
-            _actorPaths = actorPaths;
+            _commitNotifierPipeline = commitNotifierPipeline;
             _logger = logger;
         }
 
@@ -47,12 +49,24 @@ namespace EventSaucing.HostedServices
             // Ensure the Projector Status is initialised.
             ProjectorHelper.InitialiseProjectorStatusStore(_dbService);
 
-            //create the commit serialiser actor and set its path
-            var commitSerialisor = _actorSystem.ActorOf(_actorSystem.DI().Props<CommitSerialiserActor>(), nameof(CommitSerialiserActor));
-            _actorPaths.LocalCommitSerialisor = commitSerialisor.Path;
+            // start the local event stream actor
+            var actor = _actorSystem.ActorOf(_actorSystem.DI().Props<LocalEventStreamActor>(), nameof(LocalEventStreamActor));
+
+            _commitNotifierPipeline.AfterCommit += CommitNotifierPipeline_AfterCommit;
+
             _logger.LogInformation("EventSaucing ProjectorPipeline started");
 
             return Task.CompletedTask;
+        }
+        /// <summary>
+        /// Publish all local commits to all nodes
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void CommitNotifierPipeline_AfterCommit(object sender, global::NEventStore.ICommit e) {
+            var msg = new CommitNotification(e);
+            var mediator = DistributedPubSub.Get(_actorSystem).Mediator;
+            mediator.Tell(new Publish(LocalEventStreamActor.PubSubCommitNotificationTopic, msg));
         }
 
         /// <summary>

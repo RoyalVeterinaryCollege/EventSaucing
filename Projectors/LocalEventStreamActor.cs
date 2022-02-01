@@ -13,7 +13,7 @@ namespace EventSaucing.Projectors {
     /// <summary>
     /// Actor which receives commits from the event store.  Its only job is to send commits in the correct order to the local projection supervisor
     /// </summary>
-    public class CommitSerialiserActor : ReceiveActor {
+    public class LocalEventStreamActor : ReceiveActor {
         /// <summary>
         /// The pub/sub topic where commit notifications are published to
         /// </summary>
@@ -42,7 +42,7 @@ namespace EventSaucing.Projectors {
         /// </summary>
         /// <param name="cache"></param>
         /// <param name="projectorTypeProvider">IProjectorTypeProvider a contract which returns Projectors to be wired up</param>
-        public CommitSerialiserActor(IInMemoryCommitSerialiserCache cache, IProjectorTypeProvider projectorTypeProvider) {
+        public LocalEventStreamActor(IInMemoryCommitSerialiserCache cache, IProjectorTypeProvider projectorTypeProvider) {
             _cache = cache;
             InitialiseProjectors(projectorTypeProvider);
 

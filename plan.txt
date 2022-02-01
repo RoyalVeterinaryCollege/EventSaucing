@@ -4,3 +4,7 @@ how will royal mail be supplemented with commit pusher?  use a projector??   com
 but a projector guarantees each commit will be sent at least once.  How does the projector know which bucket it is (config?) ?  whats going to happen when there are two app instances for a bucket??
 
 Royal mail could be more effecient if it kept track of the checkpoint in the commit store and only looked at commits > than the last time it ran, or if it looked at incremental ranges say.
+
+
+
+How will reactors work???

@@ -26,12 +26,12 @@ namespace EventSaucing.DependencyInjection.Autofac {
             this.useCommitPipeline = useCommitPipeline;
         }
         protected override void Load(ContainerBuilder builder) {
-            builder.RegisterType<AkkaCommitPipeline>().SingleInstance();
+            builder.RegisterType<PostCommitNotifierPipeline>().SingleInstance();
             builder.Register(c => {
                 var eventStoreLogger = c.Resolve<ILogger>();
 
                 Wireup wireup = useCommitPipeline ?
-                    Wireup.Init().HookIntoPipelineUsing(c.Resolve<AkkaCommitPipeline>(), c.ResolveOptional<ICustomPipelineHook>())
+                    Wireup.Init().HookIntoPipelineUsing(c.Resolve<PostCommitNotifierPipeline>(), c.ResolveOptional<CustomPipelineHook>())
                     : Wireup.Init();
 
                 var eventStore = wireup
