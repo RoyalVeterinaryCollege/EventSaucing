@@ -11,7 +11,7 @@ using Scalesque;
 
 namespace EventSaucing.Projectors {
     /// <summary>
-    /// Actor which receives commits from the event store.  Its only job is to send commits in the correct order to the local projection supervisor
+    /// Actor which creates a local serialised event stream
     /// </summary>
     public class LocalEventStreamActor : ReceiveActor {
         /// <summary>
