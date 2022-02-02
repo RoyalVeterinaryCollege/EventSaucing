@@ -63,22 +63,37 @@ namespace EventSaucing.Projectors {
             tx.Connection.Execute(SqlPersistProjectorState, sqlParams, tx);
         }
 
+
 		const string SqlInitialiseProjectorStatus = @"
-			IF (NOT EXISTS (SELECT * 
-                 FROM INFORMATION_SCHEMA.TABLES 
-                 WHERE TABLE_SCHEMA = 'dbo' 
-                 AND TABLE_NAME = 'ProjectorStatus'))
-			BEGIN
-				CREATE TABLE [dbo].[ProjectorStatus](
-					[ProjectorId] [int] NOT NULL,
-					[ProjectorName] [nvarchar](800) NOT NULL,
-					[LastCheckpointToken] [bigint] NULL,
-					CONSTRAINT [PK_ProjectorStatus] PRIMARY KEY CLUSTERED 
-					(
-						[ProjectorId] ASC
-					) ON [PRIMARY]
-				) ON [PRIMARY]
-			END";
+-- get an exclusive lock on creating this table. It's possible for multiple nodes to start up at the same time and each will try to create this table
+-- @result = 0 = we got the lock
+-- @result = 1 = we got the lock after someone released it
+-- @result < 0 = we didn't get the lock
+
+EXEC @result = sp_getapplock @resource='dbo.ProjectorStatus', @lockmode='Exclusive', @LockOwner='Session', @LockTimeout=0;
+
+IF (@result >=0 AND NOT EXISTS (SELECT * 
+     FROM INFORMATION_SCHEMA.TABLES 
+     WHERE TABLE_SCHEMA = 'dbo' 
+     AND TABLE_NAME = 'ProjectorStatus'))
+BEGIN
+	CREATE TABLE [dbo].[ProjectorStatus](
+		[ProjectorId] [int] NOT NULL,
+		[ProjectorName] [nvarchar](800) NOT NULL,
+		[LastCheckpointToken] [bigint] NULL,
+		CONSTRAINT [PK_ProjectorStatus] PRIMARY KEY CLUSTERED 
+		(
+			[ProjectorId] ASC
+		) ON [PRIMARY]
+	) ON [PRIMARY]
+END
+
+IF (@result >=0 )
+BEGIN
+    sp_releaseapplock @Resource = 'dbo.ProjectorStatus';
+END
+
+";
 
 		public static void InitialiseProjectorStatusStore(IDbService dbService) {
 			//get the head checkpoint (if there is one)

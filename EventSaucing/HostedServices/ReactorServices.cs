@@ -3,7 +3,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.DI.Core;
-using Autofac;
 using EventSaucing.Reactors;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -12,13 +11,12 @@ using Microsoft.Extensions.Logging;
 namespace EventSaucing.HostedServices
 {
     /// <summary>
-    /// Starts a local Reactor bucket which automatically connects to the main EventSaucing Reactor system.
-    /// Use this for secondary Reactor processes outside of the main webserver. Assumes you have already called RegisterEventSaucingModules.
+    /// Starts a local Reactor node using the bucket set in config
     /// </summary>
-    public class ReactorBucket  : IHostedService
+    public class ReactorServices  : IHostedService
     {
         private readonly ActorSystem _actorSystem;
-        private readonly ILogger<ReactorBucket> _logger;
+        private readonly ILogger<ReactorServices> _logger;
         private readonly IReactorRepository _reactorRepo;
         private readonly IConfiguration _config;
 
@@ -30,7 +28,7 @@ namespace EventSaucing.HostedServices
         /// <param name="logger"></param>
         /// <param name="reactorRepo"></param>
         /// <param name="config"></param>
-        public ReactorBucket(ActorSystem actorSystem, IDependencyResolver dependencyResolver, ILogger<ReactorBucket> logger, IReactorRepository reactorRepo, IConfiguration config){
+        public ReactorServices(ActorSystem actorSystem, IDependencyResolver dependencyResolver, ILogger<ReactorServices> logger, IReactorRepository reactorRepo, IConfiguration config){
             _actorSystem = actorSystem;
             _logger = logger;
             _reactorRepo = reactorRepo;
