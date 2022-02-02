@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Threading;
+﻿using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Cluster.Tools.PublishSubscribe;
 using Akka.DI.Core;
-using EventSaucing.DependencyInjection.Autofac;
 using EventSaucing.NEventStore;
 using EventSaucing.Projectors;
 using EventSaucing.Storage;
@@ -29,10 +25,11 @@ namespace EventSaucing.HostedServices
         /// Instantiates
         /// </summary>
         /// <param name="dbService"></param>
+        /// <param name="dependencyResolver">Required.  If you remove this, then autofac starts this class before the actor system is configured to use DI and actors cant be created</param>
         /// <param name="actorSystem"></param>
         /// <param name="commitNotifierPipeline"></param>
         /// <param name="logger"></param>
-        public SerialisedEventStreamServices(IDbService dbService, ActorSystem actorSystem, PostCommitNotifierPipeline commitNotifierPipeline, ILogger<SerialisedEventStreamServices> logger) {
+        public SerialisedEventStreamServices(IDbService dbService, IDependencyResolver dependencyResolver, ActorSystem actorSystem, PostCommitNotifierPipeline commitNotifierPipeline, ILogger<SerialisedEventStreamServices> logger) {
             _dbService = dbService;
             _actorSystem = actorSystem;
             _commitNotifierPipeline = commitNotifierPipeline;
@@ -46,10 +43,6 @@ namespace EventSaucing.HostedServices
         /// <returns></returns>
         public Task StartAsync(CancellationToken cancellationToken) {
             _logger.LogInformation($"EventSaucing {nameof(SerialisedEventStreamServices)} starting");
-
-            // Ensure the Projector Status is initialised.
-            //todo: move to projectorservices
-            ProjectorHelper.InitialiseProjectorStatusStore(_dbService);
 
             // start the local event stream actor
             _localEventStreamActor = _actorSystem.ActorOf(_actorSystem.DI().Props<LocalEventStreamActor>(), nameof(LocalEventStreamActor));
