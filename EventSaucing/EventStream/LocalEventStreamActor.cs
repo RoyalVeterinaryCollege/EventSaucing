@@ -6,12 +6,12 @@ using Akka.Cluster.Tools.PublishSubscribe;
 using Akka.DI.Core;
 using Akka.Event;
 using Akka.Routing;
-using EventSaucing.NEventStore;
+using EventSaucing.Projectors;
 using Scalesque;
 
-namespace EventSaucing.Projectors {
+namespace EventSaucing.EventStream {
     /// <summary>
-    /// Actor which creates a local serialised event stream
+    /// Actor which converts a distributed unordered stream of CommitNotification messages into a local stream of ordered OrderedCommitNotification messages 
     /// </summary>
     public class LocalEventStreamActor : ReceiveActor {
         /// <summary>
@@ -66,7 +66,7 @@ namespace EventSaucing.Projectors {
 
         protected override void PreStart() {
             base.PreStart();
-            //subscribe to commit notification messages
+            //subscribe to distributed commit notification messages
             var mediator = DistributedPubSub.Get(Context.System).Mediator;
             mediator.Tell(new Subscribe(PubSubCommitNotificationTopic, Self));
         }
@@ -78,7 +78,7 @@ namespace EventSaucing.Projectors {
         protected override void PostRestart(Exception reason) { }
 
         /// <summary>
-        /// This message is sent from NEventstore after a commit is created.  Commits might not be sent in the correct order however...
+        /// This message is sent from a node after a commit is created.  Commits can be received out of order.  
         /// </summary>
         /// <param name="msg"></param>
         private void Received(CommitNotification msg)   {

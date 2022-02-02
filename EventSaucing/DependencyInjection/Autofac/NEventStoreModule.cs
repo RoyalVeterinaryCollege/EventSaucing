@@ -1,5 +1,6 @@
 ﻿using Autofac;
 using EventSaucing.Aggregates;
+using EventSaucing.EventStream;
 using EventSaucing.NEventStore;
 using Microsoft.Extensions.Logging;
 using NEventStore;

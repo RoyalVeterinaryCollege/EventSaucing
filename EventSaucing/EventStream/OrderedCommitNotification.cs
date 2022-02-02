@@ -2,7 +2,7 @@
 using NEventStore;
 using Scalesque;
 
-namespace EventSaucing.Projectors {
+namespace EventSaucing.EventStream {
 	/// <summary>
 	/// A message containing a commit and also the previous checkpoint which allows the commit to be ordered correctly
 	/// </summary>

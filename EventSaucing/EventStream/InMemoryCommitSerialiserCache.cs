@@ -1,10 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using EventSaucing.Projectors;
 using NEventStore;
 using Scalesque;
 
-namespace EventSaucing.NEventStore {
+namespace EventSaucing.EventStream {
     public interface IInMemoryCommitSerialiserCache {
         /// <summary>
         /// Caches the commit in memory and trims the cache if it is too large

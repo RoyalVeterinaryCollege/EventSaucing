@@ -1,7 +1,7 @@
-﻿using EventSaucing.Projectors;
+﻿using EventSaucing.NEventStore;
 using Scalesque;
 
-namespace EventSaucing.NEventStore {
+namespace EventSaucing.EventStream {
     /// <summary>
     /// A simple convenience class for ordering commit messages
     /// </summary>

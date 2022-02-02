@@ -15,7 +15,7 @@ namespace EventSaucing.HostedServices {
     {
         private readonly IDbService _dbService;
         private readonly ActorSystem _actorSystem;
-        private readonly ILogger<SerialisedEventStreamServices> _logger;
+        private readonly ILogger<CoreServices> _logger;
         private IActorRef _localEventStreamActor;
 
         /// <summary>
@@ -25,7 +25,7 @@ namespace EventSaucing.HostedServices {
         /// <param name="actorSystem"></param>
         /// <param name="dependencyResolver">Required.  If you remove this, then autofac starts this class before the actor system is configured to use DI and actors cant be created</param>
         /// <param name="logger"></param>
-        public ProjectorServices(IDbService dbService, ActorSystem actorSystem, IDependencyResolver dependencyResolver,ILogger<SerialisedEventStreamServices> logger)
+        public ProjectorServices(IDbService dbService, ActorSystem actorSystem, IDependencyResolver dependencyResolver,ILogger<CoreServices> logger)
         {
             _dbService = dbService;
             _actorSystem = actorSystem;

@@ -4,6 +4,7 @@ using System.Linq;
 using Akka.Actor;
 using Akka.Event;
 using Dapper;
+using EventSaucing.EventStream;
 using EventSaucing.NEventStore;
 using EventSaucing.Storage;
 using Microsoft.Extensions.Configuration;

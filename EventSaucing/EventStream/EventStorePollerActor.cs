@@ -1,11 +1,12 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Akka.Actor;
+using EventSaucing.Projectors;
 using NEventStore;
 using NEventStore.Persistence;
 using Scalesque;
 
-namespace EventSaucing.Projectors {
+namespace EventSaucing.EventStream {
     /// <summary>
     ///     An actor which polls the eventstore to create ordered commit notifications
     /// </summary>

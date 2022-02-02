@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Cluster.Tools.PublishSubscribe;
 using Akka.DI.Core;
+using EventSaucing.EventStream;
 using EventSaucing.NEventStore;
 using EventSaucing.Projectors;
 using EventSaucing.Storage;
@@ -12,13 +13,15 @@ using Microsoft.Extensions.Logging;
 namespace EventSaucing.HostedServices
 {
     /// <summary>
+    /// Starts EventSaucing core services.  This is required for a node to participate in a cluster.
+    ///
     /// Starts <see cref="LocalEventStreamActor"/> which produces a stream of serialised (in-order) commits for local downstream usage
     /// </summary>
-    public class SerialisedEventStreamServices : IHostedService {
+    public class CoreServices : IHostedService {
         private readonly IDbService _dbService;
         private readonly ActorSystem _actorSystem;
         private readonly PostCommitNotifierPipeline _commitNotifierPipeline;
-        private readonly ILogger<SerialisedEventStreamServices> _logger;
+        private readonly ILogger<CoreServices> _logger;
         private IActorRef _localEventStreamActor;
 
         /// <summary>
@@ -29,7 +32,7 @@ namespace EventSaucing.HostedServices
         /// <param name="actorSystem"></param>
         /// <param name="commitNotifierPipeline"></param>
         /// <param name="logger"></param>
-        public SerialisedEventStreamServices(IDbService dbService, IDependencyResolver dependencyResolver, ActorSystem actorSystem, PostCommitNotifierPipeline commitNotifierPipeline, ILogger<SerialisedEventStreamServices> logger) {
+        public CoreServices(IDbService dbService, IDependencyResolver dependencyResolver, ActorSystem actorSystem, PostCommitNotifierPipeline commitNotifierPipeline, ILogger<CoreServices> logger) {
             _dbService = dbService;
             _actorSystem = actorSystem;
             _commitNotifierPipeline = commitNotifierPipeline;
@@ -42,14 +45,14 @@ namespace EventSaucing.HostedServices
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public Task StartAsync(CancellationToken cancellationToken) {
-            _logger.LogInformation($"EventSaucing {nameof(SerialisedEventStreamServices)} starting");
+            _logger.LogInformation($"EventSaucing {nameof(CoreServices)} starting");
 
             // start the local event stream actor
             _localEventStreamActor = _actorSystem.ActorOf(_actorSystem.DI().Props<LocalEventStreamActor>(), nameof(LocalEventStreamActor));
 
             _commitNotifierPipeline.AfterCommit += CommitNotifierPipeline_AfterCommit;
 
-            _logger.LogInformation($"EventSaucing {nameof(SerialisedEventStreamServices)} started");
+            _logger.LogInformation($"EventSaucing {nameof(CoreServices)} started");
 
             return Task.CompletedTask;
         }
@@ -65,12 +68,12 @@ namespace EventSaucing.HostedServices
         }
 
         /// <summary>
-        /// Stops the actor
+        /// Stops core services
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public Task StopAsync(CancellationToken cancellationToken) {
-            _logger.LogInformation($"EventSaucing {nameof(SerialisedEventStreamServices)} stop requested. Sending PoisonPill to {nameof(LocalEventStreamActor)} @ {_localEventStreamActor.Path}");
+            _logger.LogInformation($"EventSaucing {nameof(CoreServices)} stop requested. Sending PoisonPill to {nameof(LocalEventStreamActor)} @ {_localEventStreamActor.Path}");
             _localEventStreamActor.Tell(PoisonPill.Instance, ActorRefs.NoSender);
             return Task.CompletedTask;
         }
