@@ -15,7 +15,7 @@ namespace EventSaucing.HostedServices
     /// <summary>
     /// Starts EventSaucing core services.  This is required for a node to participate in a cluster.
     ///
-    /// Starts <see cref="LocalEventStreamActor"/> which produces a stream of serialised (in-order) commits for local downstream usage
+    /// Starts and stops <see cref="LocalEventStreamActor"/> which produces a stream of serialised (in-order) commits for local downstream usage
     /// </summary>
     public class CoreServices : IHostedService {
         private readonly IDbService _dbService;

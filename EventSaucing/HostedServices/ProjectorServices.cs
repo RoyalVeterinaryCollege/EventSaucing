@@ -8,15 +8,18 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace EventSaucing.HostedServices {
+
+    //todo check this all once the code is complete
+
     /// <summary>
-    /// Starts soemthing which does blah blah 
+    /// Starts and stops <see cref="ProjectorSupervisor"/> which supervises the dependency graph of projectors for this node.
     /// </summary>
     public class ProjectorServices : IHostedService
     {
         private readonly IDbService _dbService;
         private readonly ActorSystem _actorSystem;
-        private readonly ILogger<CoreServices> _logger;
-        private IActorRef _localEventStreamActor;
+        private readonly ILogger<ProjectorServices> _logger;
+        private IActorRef _localProjectorSupervisor;
 
         /// <summary>
         /// Instantiates
@@ -25,7 +28,7 @@ namespace EventSaucing.HostedServices {
         /// <param name="actorSystem"></param>
         /// <param name="dependencyResolver">Required.  If you remove this, then autofac starts this class before the actor system is configured to use DI and actors cant be created</param>
         /// <param name="logger"></param>
-        public ProjectorServices(IDbService dbService, ActorSystem actorSystem, IDependencyResolver dependencyResolver,ILogger<CoreServices> logger)
+        public ProjectorServices(IDbService dbService, ActorSystem actorSystem, IDependencyResolver dependencyResolver,ILogger<ProjectorServices> logger)
         {
             _dbService = dbService;
             _actorSystem = actorSystem;
@@ -43,27 +46,20 @@ namespace EventSaucing.HostedServices {
 
             // Ensure the Projector Status table is created.
             ProjectorHelper.InitialiseProjectorStatusStore(_dbService);
-
-            //todo: start the local projectors somehow
-            //_localEventStreamActor = _actorSystem.ActorOf(_actorSystem.DI().Props<LocalEventStreamActor>(), nameof(LocalEventStreamActor));
-
-
+            _localProjectorSupervisor = _actorSystem.ActorOf(_actorSystem.DI().Props<ProjectorSupervisor>(), nameof(ProjectorSupervisor));
             _logger.LogInformation($"EventSaucing {nameof(ProjectorServices)} started");
 
             return Task.CompletedTask;
         }
 
         /// <summary>
-        /// Stops the actor
+        /// Stops the local projector supervisor
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        public Task StopAsync(CancellationToken cancellationToken)
-        {
-            //_logger.LogInformation($"EventSaucing {nameof(ProjectorServices)} stop requested. Sending PoisonPill to todo @  todo path {_localEventStreamActor.Path}");
-            // todo: send poisonpill to local projectors
-            
-            //_localEventStreamActor.Tell(PoisonPill.Instance, ActorRefs.NoSender);
+        public Task StopAsync(CancellationToken cancellationToken){
+            _logger.LogInformation($"EventSaucing {nameof(ProjectorServices)} stop requested. Sending PoisonPill to {nameof(ProjectorSupervisor)} @ path {_localProjectorSupervisor.Path}");
+            _localProjectorSupervisor.Tell(PoisonPill.Instance, ActorRefs.NoSender);
             return Task.CompletedTask;
         }
     }
