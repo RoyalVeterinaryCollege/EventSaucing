@@ -16,13 +16,14 @@ using Microsoft.Extensions.Logging;
 namespace EventSaucing.HostedServices
 {
     /// <summary>
-    ///  Starts the EventSaucing projector pipeline.
+    /// Starts <see cref="LocalEventStreamActor"/> which produces a stream of serialised (in-order) commits for local downstream usage
     /// </summary>
-    public class ProjectorPipeline : IHostedService {
+    public class SerialisedEventStreamServices : IHostedService {
         private readonly IDbService _dbService;
         private readonly ActorSystem _actorSystem;
         private readonly PostCommitNotifierPipeline _commitNotifierPipeline;
-        private readonly ILogger<ProjectorPipeline> _logger;
+        private readonly ILogger<SerialisedEventStreamServices> _logger;
+        private IActorRef _localEventStreamActor;
 
         /// <summary>
         /// Instantiates
@@ -31,7 +32,7 @@ namespace EventSaucing.HostedServices
         /// <param name="actorSystem"></param>
         /// <param name="commitNotifierPipeline"></param>
         /// <param name="logger"></param>
-        public ProjectorPipeline(IDbService dbService, ActorSystem actorSystem, PostCommitNotifierPipeline commitNotifierPipeline, ILogger<ProjectorPipeline> logger) {
+        public SerialisedEventStreamServices(IDbService dbService, ActorSystem actorSystem, PostCommitNotifierPipeline commitNotifierPipeline, ILogger<SerialisedEventStreamServices> logger) {
             _dbService = dbService;
             _actorSystem = actorSystem;
             _commitNotifierPipeline = commitNotifierPipeline;
@@ -44,17 +45,18 @@ namespace EventSaucing.HostedServices
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public Task StartAsync(CancellationToken cancellationToken) {
-            _logger.LogInformation("EventSaucing ProjectorPipeline starting");
+            _logger.LogInformation($"EventSaucing {nameof(SerialisedEventStreamServices)} starting");
 
             // Ensure the Projector Status is initialised.
+            //todo: move to projectorservices
             ProjectorHelper.InitialiseProjectorStatusStore(_dbService);
 
             // start the local event stream actor
-            var actor = _actorSystem.ActorOf(_actorSystem.DI().Props<LocalEventStreamActor>(), nameof(LocalEventStreamActor));
+            _localEventStreamActor = _actorSystem.ActorOf(_actorSystem.DI().Props<LocalEventStreamActor>(), nameof(LocalEventStreamActor));
 
             _commitNotifierPipeline.AfterCommit += CommitNotifierPipeline_AfterCommit;
 
-            _logger.LogInformation("EventSaucing ProjectorPipeline started");
+            _logger.LogInformation($"EventSaucing {nameof(SerialisedEventStreamServices)} started");
 
             return Task.CompletedTask;
         }
@@ -70,12 +72,13 @@ namespace EventSaucing.HostedServices
         }
 
         /// <summary>
-        /// no-op
+        /// Stops the actor
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public Task StopAsync(CancellationToken cancellationToken) {
-            _logger.LogInformation("EventSaucing ProjectorPipeline stop requested");
+            _logger.LogInformation($"EventSaucing {nameof(SerialisedEventStreamServices)} stop requested. Sending PoisonPill to {nameof(LocalEventStreamActor)} @ {_localEventStreamActor.Path}");
+            _localEventStreamActor.Tell(PoisonPill.Instance, ActorRefs.NoSender);
             return Task.CompletedTask;
         }
     }
