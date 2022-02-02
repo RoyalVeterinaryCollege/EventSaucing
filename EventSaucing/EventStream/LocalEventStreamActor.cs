@@ -14,6 +14,8 @@ namespace EventSaucing.EventStream {
     /// Actor which converts a distributed unordered stream of CommitNotification messages into a local stream of ordered OrderedCommitNotification messages 
     /// </summary>
     public class LocalEventStreamActor : ReceiveActor {
+        //todo remove all the projector code and add publication of OrderedCommitNotifcation to local eventbus
+        
         /// <summary>
         /// The pub/sub topic where commit notifications are published to
         /// </summary>
