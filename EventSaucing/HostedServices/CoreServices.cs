@@ -40,7 +40,7 @@ namespace EventSaucing.HostedServices
         }
 
         /// <summary>
-        /// Starts the pipeline
+        /// Starts core services
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>

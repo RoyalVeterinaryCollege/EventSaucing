@@ -19,7 +19,7 @@ namespace EventSaucing.EventStream {
         /// <summary>
         /// The pub/sub topic where commit notifications are published to
         /// </summary>
-        public static string PubSubCommitNotificationTopic = "/eventsaucing/commitnotification/";
+        public static string PubSubCommitNotificationTopic = "/eventsaucing/coreservices/commitnotification/";
         private readonly IInMemoryCommitSerialiserCache _cache;
 
         /// <summary>
