@@ -20,6 +20,10 @@ namespace EventSaucing.EventStream {
         /// The pub/sub topic where commit notifications are published to
         /// </summary>
         public static string PubSubCommitNotificationTopic = "/eventsaucing/coreservices/commitnotification/";
+
+        /// <summary>
+        /// local in-mem cache of recent commits
+        /// </summary>
         private readonly IInMemoryCommitSerialiserCache _cache;
 
         /// <summary>
@@ -37,36 +41,20 @@ namespace EventSaucing.EventStream {
         /// </summary>
         private int _backlogCommitCount = 0;
 
-        private ActorPath _projectorsBroadCastRouter;
 
         /// <summary>
         /// Instantiates
         /// </summary>
         /// <param name="cache"></param>
-        /// <param name="projectorTypeProvider">IProjectorTypeProvider a contract which returns Projectors to be wired up</param>
-        public LocalEventStreamActor(IInMemoryCommitSerialiserCache cache, IProjectorTypeProvider projectorTypeProvider) {
+        public LocalEventStreamActor(IInMemoryCommitSerialiserCache cache) {
             _cache = cache;
-            InitialiseProjectors(projectorTypeProvider);
 
             Receive<CommitNotification>(Received);
             Receive<OrderedCommitNotification>(Received);
         }
 
-        private void InitialiseProjectors(IProjectorTypeProvider projectorTypeProvider)  {
-            //Reflect on assembly to identify projectors and have DI create them
-            var projectorsMetaData =
-                (from type in projectorTypeProvider.GetProjectorTypes()
-                    select new { Type = type, ActorRef = Context.ActorOf(Context.DI().Props(type), type.FullName), ProjectorId = type.GetProjectorId() }
-                ).ToList();
-
-            //put the projectors in a broadcast router
-            _projectorsBroadCastRouter = Context.ActorOf(Props.Empty.WithRouter(new BroadcastGroup(projectorsMetaData.Map(_ => _.ActorRef.Path.ToString()))), "ProjectionBroadcastRouter").Path;
-
-            //tell them to catchup, else they will sit and wait for the first user activity (from the first commit)
-            Context.ActorSelection(_projectorsBroadCastRouter).Tell(new CatchUpMessage());
-        }
-
         protected override void PreStart() {
+            //todo check this is the right place to subscribe
             base.PreStart();
             //subscribe to distributed commit notification messages
             var mediator = DistributedPubSub.Get(Context.System).Mediator;
@@ -77,10 +65,12 @@ namespace EventSaucing.EventStream {
         /// Overriding postRestart to disable the call to preStart() after restarts.  This means children are restarted, and we don't create extra instances each time
         /// </summary>
         /// <param name="reason"></param>
-        protected override void PostRestart(Exception reason) { }
+        protected override void PostRestart(Exception reason) {
+            //todo check this is correct to override
+        }
 
         /// <summary>
-        /// This message is sent from a node after a commit is created.  Commits can be received out of order.  
+        /// This message is sent from a node after a commit is created on any node.  Commits can be received out of order.  
         /// </summary>
         /// <param name="msg"></param>
         private void Received(CommitNotification msg)   {
@@ -115,20 +105,19 @@ namespace EventSaucing.EventStream {
             if (!IsPowerOfTwo((ulong)_backlogCommitCount))
                 return;
 
-            //log @warning.  Detected situation is entirely normal and expected, but should be rare.  
+            //log that we are going to db.  Situation is entirely normal and expected in distributed cluster
             var currentCheckpoint = _currentCheckpoint.Map(x => x.ToString()).GetOrElse("no currentcommit");
 
             Context.GetLogger()
-                   .Warning(
-                       "Received a commit notification (checkpoint {0}) whilst currentcheckpoint={1}.  Commit couldn't be serialised via the cache so polling with @backlog count={2}",
+                   .Debug(
+                       "Received a commit notification (checkpoint {0}) whilst currentcheckpoint={1}.  Commit couldn't be serialised via the cache so polling dbo.Commits with @backlog count={2}",
                        msg.Commit.CheckpointToken, currentCheckpoint, _backlogCommitCount);
 
             // this actor stops itself after it has processed the msg
             var eventStorePollerActor = MakeNewEventStorePollerActor();
 
             //ask the poller to get the commits directly from the store
-            Context.ActorSelection(eventStorePollerActor.Path)
-                   .Tell(new SendCommitAfterCurrentHeadCheckpointMessage(afterCheckpoint,_backlogCommitCount.ToSome()));
+            eventStorePollerActor.Tell(new SendCommitAfterCurrentHeadCheckpointMessage(afterCheckpoint,_backlogCommitCount.ToSome()));
         }
 
         /// <summary>
@@ -136,7 +125,7 @@ namespace EventSaucing.EventStream {
         /// </summary>
         /// <param name="msg"></param>
         private void Received(OrderedCommitNotification msg)  {
-            //guard against old messages being streamed from the poller, we can safely ignore them
+            // only send the next checkpoint
             if (_orderer.IsNextCheckpoint(_currentCheckpoint, msg)) {
                 SendCommitToProjectors(msg);
             }
@@ -151,7 +140,7 @@ namespace EventSaucing.EventStream {
             _currentCheckpoint = msg.Commit.CheckpointToken.ToSome(); //this commit is now considered the head
 
             //but tell the projectors to catchup, otherwise 1st commit is not projected
-            Context.ActorSelection(_projectorsBroadCastRouter).Tell(new CatchUpMessage()); //tell projectors to catch up
+            //Context.ActorSelection(_projectorsBroadCastRouter).Tell(new CatchUpMessage()); //tell projectors to catch up
         }
 
         private static IActorRef MakeNewEventStorePollerActor() {
@@ -174,7 +163,7 @@ namespace EventSaucing.EventStream {
         private void SendCommitToProjectors(OrderedCommitNotification msg) {
             _backlogCommitCount = 0; //reset the backlog counter
             _currentCheckpoint = msg.Commit.CheckpointToken.ToSome(); //update head pointer
-            Context.ActorSelection(_projectorsBroadCastRouter).Tell(msg); //pass message on for projection
+            //Context.ActorSelection(_projectorsBroadCastRouter).Tell(msg); //pass message on for projection
         }      
     }
 }

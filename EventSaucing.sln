@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventSaucing", "EventSaucin
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExampleApp", "ExampleApp\ExampleApp.csproj", "{A2F8FAA1-BDEB-4A66-81F5-64D617DF6382}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EventSaucing.Tests", "EventSaucing.Tests\EventSaucing.Tests.csproj", "{EA1ACFA2-757B-4A75-8A94-EF609CE79CEF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{A2F8FAA1-BDEB-4A66-81F5-64D617DF6382}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A2F8FAA1-BDEB-4A66-81F5-64D617DF6382}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A2F8FAA1-BDEB-4A66-81F5-64D617DF6382}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EA1ACFA2-757B-4A75-8A94-EF609CE79CEF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EA1ACFA2-757B-4A75-8A94-EF609CE79CEF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EA1ACFA2-757B-4A75-8A94-EF609CE79CEF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EA1ACFA2-757B-4A75-8A94-EF609CE79CEF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

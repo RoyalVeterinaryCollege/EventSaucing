@@ -29,7 +29,7 @@ namespace EventSaucing.EventStream {
         }
 
         /// <summary>
-        /// Caches the commit in memory and trims the cache if it is too ;arge
+        /// Caches the commit in memory and trims the cache if it is too large
         /// </summary>
         /// <param name="commit"></param>
         public void Cache(ICommit commit) {
