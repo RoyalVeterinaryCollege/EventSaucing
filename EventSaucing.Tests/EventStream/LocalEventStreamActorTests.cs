@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.TestKit;
 using Akka.TestKit.NUnit3;
+using EventSaucing.Projectors;
 using NUnit.Framework;
 
 namespace EventSaucing.EventStream
@@ -55,9 +56,6 @@ namespace EventSaucing.EventStream
 
         [Test] public void Should_not_stream_the_commit_because_it_cant_be_ordered_as_we_dont_know_the_earlier_commit() {
             _eventBusStoreProbe.ExpectNoMsg(TimeSpan.FromMilliseconds(100)); 
-            /*ExpectMsg<OrderedCommitNotification>(
-                x => x.Commit == _commit1
-                , TimeSpan.FromSeconds(1));*/
         }
 
         [Test]
@@ -65,16 +63,12 @@ namespace EventSaucing.EventStream
             _pollEventStoreProbe.ExpectNoMsg(TimeSpan.FromMilliseconds(100));
         }
     }
-    public class When_receives_second_commit_which_follows_first : LocalEventStreamActorTests
-    {
+    public class When_receives_second_commit_which_follows_first : LocalEventStreamActorTests {
         private FakeCommit _commit1;
         private FakeCommit _commit2;
-
-
-        protected override void Because()
-        {
-            _commit1 = new FakeCommit() { CheckpointToken = 10L };
-            _commit2 = new FakeCommit() { CheckpointToken = 11L };
+        protected override void Because()  {
+            _commit1 = new FakeCommit{ CheckpointToken = 10L };
+            _commit2 = new FakeCommit{ CheckpointToken = 11L };
 
             sut.Tell(new CommitNotification(_commit1), this.TestActor);
             sut.Tell(new CommitNotification(_commit2), this.TestActor);
@@ -83,15 +77,40 @@ namespace EventSaucing.EventStream
         [Test]
         public void Should_stream_second_commit() {
             _eventBusStoreProbe.ExpectMsg<OrderedCommitNotification> (x=>
-                x.Commit.CheckpointToken == _commit2.CheckpointToken && 
-                x.PreviousCheckpoint.Get()==_commit1.CheckpointToken,
-                TimeSpan.FromMilliseconds(1000)
+                x.Commit == _commit2 && // its the second commit
+                x.PreviousCheckpoint.Get()==_commit1.CheckpointToken, // and it has a pointer to the first commit
+                TimeSpan.FromMilliseconds(100)
                 );
         }
 
         [Test]
         public void Should_not_poll_the_event_store() {
             _pollEventStoreProbe.ExpectNoMsg(TimeSpan.FromMilliseconds(100));
+        }
+    }
+
+    public class When_receives_second_commit_which_doesn_not_follow_first : LocalEventStreamActorTests {
+        private FakeCommit _commit1;
+        private FakeCommit _commit2;
+        protected override void Because()
+        {
+            _commit1 = new FakeCommit { CheckpointToken = 10L };
+            _commit2 = new FakeCommit { CheckpointToken = 12L }; //note gap
+
+            sut.Tell(new CommitNotification(_commit1), this.TestActor);
+            sut.Tell(new CommitNotification(_commit2), this.TestActor);
+        }
+
+        [Test]
+        public void Should_not_stream_because_it_cant_order_because_of_the_gap() {
+            _eventBusStoreProbe.ExpectNoMsg(TimeSpan.FromMilliseconds(100));
+        }
+
+        [Test]
+        public void Should_poll_the_event_store() {
+            _pollEventStoreProbe.ExpectMsg<SendCommitAfterCurrentHeadCheckpointMessage>(
+                x=>x.CurrentHeadCheckpoint.Get()==_commit1.CheckpointToken,
+                TimeSpan.FromMilliseconds(100));
         }
     }
 }
