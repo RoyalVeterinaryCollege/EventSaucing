@@ -26,6 +26,8 @@ namespace EventSaucing.EventStream {
         /// </summary>
         private readonly IInMemoryCommitSerialiserCache _cache;
 
+        private readonly Func<IUntypedActorContext, IActorRef> _pollerMaker;
+
         /// <summary>
         /// Holds a pointer to the latest checkpoint that we have projected.  None = not projected anything yet
         /// </summary>
@@ -45,9 +47,11 @@ namespace EventSaucing.EventStream {
         /// <summary>
         /// Instantiates
         /// </summary>
-        /// <param name="cache"></param>
-        public LocalEventStreamActor(IInMemoryCommitSerialiserCache cache) {
+        /// <param name="cache">IInMemoryCommitSerialiserCache</param>
+        /// <param name="pollerMaker">Func to create <see cref="EventStorePollerActor"/> actor</param>
+        public LocalEventStreamActor(IInMemoryCommitSerialiserCache cache, Func<IUntypedActorContext, IActorRef> pollerMaker) {
             _cache = cache;
+            _pollerMaker = pollerMaker;
 
             Receive<CommitNotification>(Received);
             Receive<OrderedCommitNotification>(Received);
@@ -114,7 +118,7 @@ namespace EventSaucing.EventStream {
                        msg.Commit.CheckpointToken, currentCheckpoint, _backlogCommitCount);
 
             // this actor stops itself after it has processed the msg
-            var eventStorePollerActor = MakeNewEventStorePollerActor();
+            var eventStorePollerActor = _pollerMaker(Context);
 
             //ask the poller to get the commits directly from the store
             eventStorePollerActor.Tell(new SendCommitAfterCurrentHeadCheckpointMessage(afterCheckpoint,_backlogCommitCount.ToSome()));
@@ -142,7 +146,7 @@ namespace EventSaucing.EventStream {
             //but tell the projectors to catchup, otherwise 1st commit is not projected
             //Context.ActorSelection(_projectorsBroadCastRouter).Tell(new CatchUpMessage()); //tell projectors to catch up
         }
-
+        /*
         private static IActorRef MakeNewEventStorePollerActor() {
             var eventStorePollerActor =
                 Context.ActorOf(
@@ -150,7 +154,7 @@ namespace EventSaucing.EventStream {
                            .Props<EventStorePollerActor>()
                            .WithSupervisorStrategy(global::Akka.Actor.SupervisorStrategy.StoppingStrategy));
             return eventStorePollerActor;
-        }
+        }*/
 
         public class LastLocalCheckpoint {
             public long MaxCheckpointNumber { get; set; }

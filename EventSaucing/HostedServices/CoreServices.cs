@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Cluster.Tools.PublishSubscribe;
@@ -22,6 +23,7 @@ namespace EventSaucing.HostedServices
         private readonly ActorSystem _actorSystem;
         private readonly PostCommitNotifierPipeline _commitNotifierPipeline;
         private readonly ILogger<CoreServices> _logger;
+        private readonly IInMemoryCommitSerialiserCache _cache;
         private IActorRef _localEventStreamActor;
 
         /// <summary>
@@ -32,11 +34,13 @@ namespace EventSaucing.HostedServices
         /// <param name="actorSystem"></param>
         /// <param name="commitNotifierPipeline"></param>
         /// <param name="logger"></param>
-        public CoreServices(IDbService dbService, IDependencyResolver dependencyResolver, ActorSystem actorSystem, PostCommitNotifierPipeline commitNotifierPipeline, ILogger<CoreServices> logger) {
+        /// <param name="cache"></param>
+        public CoreServices(IDbService dbService, IDependencyResolver dependencyResolver, ActorSystem actorSystem, PostCommitNotifierPipeline commitNotifierPipeline, ILogger<CoreServices> logger, IInMemoryCommitSerialiserCache cache) {
             _dbService = dbService;
             _actorSystem = actorSystem;
             _commitNotifierPipeline = commitNotifierPipeline;
             _logger = logger;
+            _cache = cache;
         }
 
         /// <summary>
@@ -47,8 +51,17 @@ namespace EventSaucing.HostedServices
         public Task StartAsync(CancellationToken cancellationToken) {
             _logger.LogInformation($"EventSaucing {nameof(CoreServices)} starting");
 
+            // function to create the EventStorePollerActor, ctor dependency of LocalEventStreamActor
+            Func<IUntypedActorContext, IActorRef> pollerMaker = (ctx) => ctx.ActorOf(
+                ctx.DI()
+                    .Props<EventStorePollerActor>()
+                    .WithSupervisorStrategy(SupervisorStrategy.StoppingStrategy)
+                );
+
             // start the local event stream actor
-            _localEventStreamActor = _actorSystem.ActorOf(_actorSystem.DI().Props<LocalEventStreamActor>(), nameof(LocalEventStreamActor));
+            _localEventStreamActor = _actorSystem.ActorOf(
+                Props.Create<LocalEventStreamActor>(_cache, pollerMaker), nameof(LocalEventStreamActor)
+                );
 
             _commitNotifierPipeline.AfterCommit += CommitNotifierPipeline_AfterCommit;
 
