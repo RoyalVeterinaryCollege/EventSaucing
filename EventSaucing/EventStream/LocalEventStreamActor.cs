@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using Akka.Actor;
-using Akka.Cluster.Tools.PublishSubscribe;
 using Akka.Event;
 using EventSaucing.Projectors;
 using Scalesque;
