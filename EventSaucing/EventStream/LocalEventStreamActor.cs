@@ -70,11 +70,10 @@ namespace EventSaucing.EventStream {
             } else {
                 List<OrderedCommitNotification> cachedCommits = _cache.GetCommitsAfter(_lastStreamedCheckpoint.Get());
                 if (cachedCommits.Count > 0) {
-                    //local cache can order our commits, stream them
+                    //local cache can produce an ordered stream after the last streamed checkpoint. Stream them out.
                     cachedCommits.ForEach(StreamCommit);
-                    _backlogCommitCount = 0;
                 } else {
-                    //local cache can't ensure we have all the commits in order
+                    //local cache can't ensure we have all the commits in order, go to db
                     PollEventStoreWithExponentialBackoff(msg, _lastStreamedCheckpoint);
                 }
             }
@@ -111,7 +110,7 @@ namespace EventSaucing.EventStream {
         /// </summary>
         /// <param name="msg"></param>
         private void Received(OrderedCommitNotification msg)  {
-            // only send the next checkpoint
+            // only send the commit if it follows the last streamed checkpoint, else just ignore it
             if (_orderer.CommitFollowsCheckpoint(_lastStreamedCheckpoint, msg)) {
                 StreamCommit(msg);
             }

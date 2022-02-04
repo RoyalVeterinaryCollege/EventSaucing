@@ -8,6 +8,7 @@ using Akka.TestKit;
 using Akka.TestKit.NUnit3;
 using EventSaucing.Projectors;
 using NUnit.Framework;
+using Scalesque;
 
 namespace EventSaucing.EventStream
 {
@@ -114,8 +115,7 @@ namespace EventSaucing.EventStream
         }
     }
 
-    public class When_receives_three_commits_which_can_be_ordered : LocalEventStreamActorTests
-    {
+    public class When_receives_commits_out_of_order : LocalEventStreamActorTests {
         private FakeCommit _commit1;
         private FakeCommit _commit2;
         private FakeCommit _commit3;
@@ -124,7 +124,6 @@ namespace EventSaucing.EventStream
             _commit1 = new FakeCommit { CheckpointToken = 10L };
             _commit2 = new FakeCommit { CheckpointToken = 11L };
             _commit3 = new FakeCommit { CheckpointToken = 12L };
-
 
             sut.Tell(new CommitNotification(_commit1), this.TestActor);
             sut.Tell(new CommitNotification(_commit3), this.TestActor); //note sent out of order
@@ -151,6 +150,52 @@ namespace EventSaucing.EventStream
                     x.Commit == _commit3 && // it's the third commit
                     x.PreviousCheckpoint.Get() == _commit2.CheckpointToken // and it has a pointer to the second commit
                 ,TimeSpan.FromMilliseconds(100)
+            );
+        }
+    }
+
+    public class When_receives_messages_from_poller_which_do_not_follow_last_streamed_checkpoint : LocalEventStreamActorTests {
+        private FakeCommit _commit1;
+        private FakeCommit _commit2;
+        private FakeCommit _commit3;
+
+        protected override void Because()  {
+            _commit1 = new FakeCommit { CheckpointToken = 10L };
+            _commit2 = new FakeCommit { CheckpointToken = 11L };
+            _commit3 = new FakeCommit { CheckpointToken = 12L };
+
+            sut.Tell(new CommitNotification(_commit1), this.TestActor);
+            sut.Tell(new OrderedCommitNotification(_commit3, 11L.ToSome()), this.TestActor);
+        }
+
+        [Test]
+        public void Should_not_stream_anything()  {
+            _eventBusStoreProbe.ExpectNoMsg(TimeSpan.FromMilliseconds(100));
+        }
+    }
+
+    public class When_receives_messages_from_poller_which_follow_last_streamed_checkpoint : LocalEventStreamActorTests
+    {
+        private FakeCommit _commit1;
+        private FakeCommit _commit2;
+        private FakeCommit _commit3;
+
+        protected override void Because()
+        {
+            _commit1 = new FakeCommit { CheckpointToken = 10L };
+            _commit2 = new FakeCommit { CheckpointToken = 11L };
+            _commit3 = new FakeCommit { CheckpointToken = 12L };
+
+            sut.Tell(new CommitNotification(_commit1), this.TestActor);
+            sut.Tell(new OrderedCommitNotification(_commit2, _commit1.CheckpointToken.ToSome()), this.TestActor);
+        }
+
+        [Test]
+        public void Should_stream()  {
+            _eventBusStoreProbe.ExpectMsg<OrderedCommitNotification>(x =>
+                    x.Commit == _commit2 && // it's the second commit
+                    x.PreviousCheckpoint.Get() == _commit1.CheckpointToken // and it has a pointer to the first commit
+                , TimeSpan.FromMilliseconds(100)
             );
         }
     }
