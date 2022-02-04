@@ -113,4 +113,45 @@ namespace EventSaucing.EventStream
                 TimeSpan.FromMilliseconds(100));
         }
     }
+
+    public class When_receives_three_commits_which_can_be_ordered : LocalEventStreamActorTests
+    {
+        private FakeCommit _commit1;
+        private FakeCommit _commit2;
+        private FakeCommit _commit3;
+
+        protected override void Because() {
+            _commit1 = new FakeCommit { CheckpointToken = 10L };
+            _commit2 = new FakeCommit { CheckpointToken = 11L };
+            _commit3 = new FakeCommit { CheckpointToken = 12L };
+
+
+            sut.Tell(new CommitNotification(_commit1), this.TestActor);
+            sut.Tell(new CommitNotification(_commit3), this.TestActor); //note sent out of order
+            sut.Tell(new CommitNotification(_commit2), this.TestActor);
+        }
+
+        [Test]
+        public void Should_poll_the_event_store() {
+            _pollEventStoreProbe.ExpectMsg<SendCommitAfterCurrentHeadCheckpointMessage>(
+                x => x.CurrentHeadCheckpoint.Get() == _commit1.CheckpointToken,
+                TimeSpan.FromMilliseconds(100));
+        }
+
+        [Test]
+        public void Should_stream_two_then_three()  {
+            //order of these expectations is important.  it needs to send them in this order
+            _eventBusStoreProbe.ExpectMsg<OrderedCommitNotification>(x =>
+                    x.Commit == _commit2 && // it's the second commit
+                    x.PreviousCheckpoint.Get() == _commit1.CheckpointToken // and it has a pointer to the first commit
+                , TimeSpan.FromMilliseconds(100)
+            );
+
+            _eventBusStoreProbe.ExpectMsg<OrderedCommitNotification>(x =>
+                    x.Commit == _commit3 && // it's the third commit
+                    x.PreviousCheckpoint.Get() == _commit2.CheckpointToken // and it has a pointer to the second commit
+                ,TimeSpan.FromMilliseconds(100)
+            );
+        }
+    }
 }
