@@ -12,6 +12,8 @@ using NEventStore;
 using NEventStore.Persistence;
 using Scalesque;
 
+//todo: need to merge cris.hh ProjectorPollingClient into this
+
 namespace EventSaucing.Projectors {
     public abstract class ProjectorBase : ReceiveActor {
         private readonly IPersistStreams _persistStreams;
