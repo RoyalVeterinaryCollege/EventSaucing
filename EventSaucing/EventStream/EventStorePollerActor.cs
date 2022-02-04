@@ -15,11 +15,10 @@ namespace EventSaucing.EventStream {
 
         public EventStorePollerActor(IPersistStreams persistStreams) {
             _persistStreams = persistStreams;
-            Receive<SendCommitAfterCurrentHeadCheckpointMessage>(msg => Received(msg));
+            Receive<SendCommitAfterCurrentHeadCheckpointMessage>(Received);
         }
 
         private void Received(SendCommitAfterCurrentHeadCheckpointMessage msg) {
-
             Option<long> previousCheckpoint = msg.CurrentHeadCheckpoint;
             var commits = GetCommitsFromPersistentStore(msg);
 

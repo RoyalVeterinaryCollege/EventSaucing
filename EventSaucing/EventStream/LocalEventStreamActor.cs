@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using Akka.Actor;
 using Akka.Cluster.Tools.PublishSubscribe;
-using Akka.DI.Core;
 using Akka.Event;
-using Akka.Routing;
 using EventSaucing.Projectors;
 using Scalesque;
 
@@ -14,8 +11,6 @@ namespace EventSaucing.EventStream {
     /// Actor which converts a distributed unordered stream of CommitNotification messages into a local stream of ordered OrderedCommitNotification messages 
     /// </summary>
     public class LocalEventStreamActor : ReceiveActor {
-        //todo remove all the projector code and add publication of OrderedCommitNotifcation to local eventbus
-        
         /// <summary>
         /// The pub/sub topic where commit notifications are published to
         /// </summary>
@@ -26,12 +21,15 @@ namespace EventSaucing.EventStream {
         /// </summary>
         private readonly IInMemoryCommitSerialiserCache _cache;
 
+        /// <summary>
+        /// Function which creates <see cref="EventStorePollerActor"/>
+        /// </summary>
         private readonly Func<IUntypedActorContext, IActorRef> _pollerMaker;
 
         /// <summary>
-        /// Holds a pointer to the latest checkpoint that we have projected.  None = not projected anything yet
+        /// Holds a pointer to the latest checkpoint we streamed.  None = not projected anything yet
         /// </summary>
-        private Option<long> _currentCheckpoint = Option.None();
+        private Option<long> _lastStreamedCheckpoint = Option.None();
 
         /// <summary>
         /// A helper for determining which is the next commit we need
@@ -42,7 +40,6 @@ namespace EventSaucing.EventStream {
         /// This tracks the size of runs of commits which we receive from NEventStore, but couldn't project because the cache couldn't serialise them. 
         /// </summary>
         private int _backlogCommitCount = 0;
-
 
         /// <summary>
         /// Instantiates
@@ -57,22 +54,6 @@ namespace EventSaucing.EventStream {
             Receive<OrderedCommitNotification>(Received);
         }
 
-        protected override void PreStart() {
-            //todo check this is the right place to subscribe
-            base.PreStart();
-            //subscribe to distributed commit notification messages
-            var mediator = DistributedPubSub.Get(Context.System).Mediator;
-            mediator.Tell(new Subscribe(PubSubCommitNotificationTopic, Self));
-        }
-
-        /// <summary>
-        /// Overriding postRestart to disable the call to preStart() after restarts.  This means children are restarted, and we don't create extra instances each time
-        /// </summary>
-        /// <param name="reason"></param>
-        protected override void PostRestart(Exception reason) {
-            //todo check this is correct to override
-        }
-
         /// <summary>
         /// This message is sent from a node after a commit is created on any node.  Commits can be received out of order.  
         /// </summary>
@@ -81,17 +62,20 @@ namespace EventSaucing.EventStream {
             _cache.Cache(msg.Commit);
             _backlogCommitCount++;
 
-            if (!_currentCheckpoint.HasValue) HandleFirstCommitAfterStartup(msg);  
-            else {
-                List<OrderedCommitNotification> cachedCommits = _cache.GetCommitsAfter(_currentCheckpoint.Get());
+            if (!_lastStreamedCheckpoint.HasValue) {
+                // The first commit we receive can't be ordered by this actor because we don't know the Checkpoint number which proceeds it
+                // we simply store it and wait for the next commit.  If the next commit follows it, we can send them both out together. 
+                // if it doesn't we go to the commit store instead
+                _lastStreamedCheckpoint = msg.Commit.CheckpointToken.ToSome(); //this commit is now considered the head
+            } else {
+                List<OrderedCommitNotification> cachedCommits = _cache.GetCommitsAfter(_lastStreamedCheckpoint.Get());
                 if (cachedCommits.Count > 0) {
-                    //local cache can ensure we have all the commits in order: project them
-                    cachedCommits.ForEach(SendCommitToProjectors);
+                    //local cache can order our commits, stream them
+                    cachedCommits.ForEach(StreamCommit);
                     _backlogCommitCount = 0;
-                }
-                else {
+                } else {
                     //local cache can't ensure we have all the commits in order
-                    PollEventStoreWithExponentialBackoff(msg, _currentCheckpoint);
+                    PollEventStoreWithExponentialBackoff(msg, _lastStreamedCheckpoint);
                 }
             }
         }
@@ -110,12 +94,10 @@ namespace EventSaucing.EventStream {
                 return;
 
             //log that we are going to db.  Situation is entirely normal and expected in distributed cluster
-            var currentCheckpoint = _currentCheckpoint.Map(x => x.ToString()).GetOrElse("no currentcommit");
+            var currentCheckpoint = _lastStreamedCheckpoint.Map(x => x.ToString()).GetOrElse("no currentcommit");
 
             Context.GetLogger()
-                   .Debug(
-                       "Received a commit notification (checkpoint {0}) whilst currentcheckpoint={1}.  Commit couldn't be serialised via the cache so polling dbo.Commits with @backlog count={2}",
-                       msg.Commit.CheckpointToken, currentCheckpoint, _backlogCommitCount);
+                   .Debug($"Received a commit notification (checkpoint {msg.Commit.CheckpointToken}) whilst currentCheckpoint={currentCheckpoint}.  Commit couldn't be serialised via the cache so polling dbo.Commits with @backlog count={_backlogCommitCount}");
 
             // this actor stops itself after it has processed the msg
             var eventStorePollerActor = _pollerMaker(Context);
@@ -130,44 +112,19 @@ namespace EventSaucing.EventStream {
         /// <param name="msg"></param>
         private void Received(OrderedCommitNotification msg)  {
             // only send the next checkpoint
-            if (_orderer.IsNextCheckpoint(_currentCheckpoint, msg)) {
-                SendCommitToProjectors(msg);
+            if (_orderer.CommitFollowsCheckpoint(_lastStreamedCheckpoint, msg)) {
+                StreamCommit(msg);
             }
         }
 
         /// <summary>
-        /// The first commit we recieve can't be ordered by this actor.  
+        /// Streams the OrderedCommitNotification via the local EventBus
         /// </summary>
         /// <param name="msg"></param>
-        private void HandleFirstCommitAfterStartup(CommitNotification msg) {
-            //NEventStore doesn't allow the getting of a commit prior to a checkpoint. so we cant' create the ordered commit notification, instead we just treat this commit as the head
-            _currentCheckpoint = msg.Commit.CheckpointToken.ToSome(); //this commit is now considered the head
-
-            //but tell the projectors to catchup, otherwise 1st commit is not projected
-            //Context.ActorSelection(_projectorsBroadCastRouter).Tell(new CatchUpMessage()); //tell projectors to catch up
-        }
-        /*
-        private static IActorRef MakeNewEventStorePollerActor() {
-            var eventStorePollerActor =
-                Context.ActorOf(
-                    Context.DI()
-                           .Props<EventStorePollerActor>()
-                           .WithSupervisorStrategy(global::Akka.Actor.SupervisorStrategy.StoppingStrategy));
-            return eventStorePollerActor;
-        }*/
-
-        public class LastLocalCheckpoint {
-            public long MaxCheckpointNumber { get; set; }
-        }
-
-        /// <summary>
-        /// Sends the commit to the projectors for projection
-        /// </summary>
-        /// <param name="msg"></param>
-        private void SendCommitToProjectors(OrderedCommitNotification msg) {
+        private void StreamCommit(OrderedCommitNotification msg) {
             _backlogCommitCount = 0; //reset the backlog counter
-            _currentCheckpoint = msg.Commit.CheckpointToken.ToSome(); //update head pointer
-            //Context.ActorSelection(_projectorsBroadCastRouter).Tell(msg); //pass message on for projection
-        }      
+            _lastStreamedCheckpoint = msg.Commit.CheckpointToken.ToSome(); //update head pointer
+            Context.System.EventStream.Publish(msg);
+        }
     }
 }

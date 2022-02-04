@@ -23,7 +23,7 @@ namespace EventSaucing.EventStream
         /// <summary>
         /// Test Probe which is subscribed to OrderedCommitNotification messages on the EventBus 
         /// </summary>
-        private TestProbe _eventBusStoreProbe;
+        protected TestProbe _eventBusStoreProbe;
 
         public LocalEventStreamActorTests() {
             // create a subscription for OrderedCommitNotification
@@ -44,23 +44,54 @@ namespace EventSaucing.EventStream
 
     }
 
-    public class When_parp  : LocalEventStreamActorTests
+    public class When_receives_first_commit  : LocalEventStreamActorTests
     {
         private FakeCommit _commit1;
 
         protected override void Because() {
-
-
             _commit1 = new FakeCommit() { CheckpointToken = 10L };
             sut.Tell(new CommitNotification(_commit1), this.TestActor);
         }
 
-        [Test]
-        public void When_() {
-            _pollEventStoreProbe.ExpectMsg<OrderedCommitNotification>(
+        [Test] public void Should_not_stream_the_commit_because_it_cant_be_ordered_as_we_dont_know_the_earlier_commit() {
+            _eventBusStoreProbe.ExpectNoMsg(TimeSpan.FromMilliseconds(100)); 
+            /*ExpectMsg<OrderedCommitNotification>(
                 x => x.Commit == _commit1
-                , TimeSpan.FromSeconds(1));
+                , TimeSpan.FromSeconds(1));*/
         }
 
+        [Test]
+        public void Should_not_poll_the_event_store(){
+            _pollEventStoreProbe.ExpectNoMsg(TimeSpan.FromMilliseconds(100));
+        }
+    }
+    public class When_receives_second_commit_which_follows_first : LocalEventStreamActorTests
+    {
+        private FakeCommit _commit1;
+        private FakeCommit _commit2;
+
+
+        protected override void Because()
+        {
+            _commit1 = new FakeCommit() { CheckpointToken = 10L };
+            _commit2 = new FakeCommit() { CheckpointToken = 11L };
+
+            sut.Tell(new CommitNotification(_commit1), this.TestActor);
+            sut.Tell(new CommitNotification(_commit2), this.TestActor);
+        }
+
+        [Test]
+        public void Should_stream_second_commit() {
+            _eventBusStoreProbe.ExpectMsg<OrderedCommitNotification> (x=>
+                x.Commit.CheckpointToken == _commit2.CheckpointToken && 
+                x.PreviousCheckpoint.Get()==_commit1.CheckpointToken,
+                TimeSpan.FromMilliseconds(1000)
+                );
+        }
+
+        [Test]
+        public void Should_not_poll_the_event_store() {
+            _pollEventStoreProbe.ExpectNoMsg(TimeSpan.FromMilliseconds(100));
+        }
     }
 }

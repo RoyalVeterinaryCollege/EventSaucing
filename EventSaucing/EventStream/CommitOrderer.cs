@@ -14,7 +14,7 @@ namespace EventSaucing.EventStream {
         /// <param name="currentCheckpoint"></param>
         /// <param name="msg"></param>
         /// <returns></returns>
-        public bool IsNextCheckpoint(Option<long> currentCheckpoint, OrderedCommitNotification msg) {
+        public bool CommitFollowsCheckpoint(Option<long> currentCheckpoint, OrderedCommitNotification msg) {
             return _comparer.Compare(currentCheckpoint, msg.PreviousCheckpoint) == 0;
         }
     }

@@ -63,6 +63,10 @@ namespace EventSaucing.HostedServices
                 Props.Create<LocalEventStreamActor>(_cache, pollerMaker), nameof(LocalEventStreamActor)
                 );
 
+            //subscribe actor to distributed commit notification messages
+            var mediator = DistributedPubSub.Get(_actorSystem).Mediator;
+            mediator.Tell(new Subscribe(LocalEventStreamActor.PubSubCommitNotificationTopic, _localEventStreamActor));
+
             _commitNotifierPipeline.AfterCommit += CommitNotifierPipeline_AfterCommit;
 
             _logger.LogInformation($"EventSaucing {nameof(CoreServices)} started");
