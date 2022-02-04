@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using Akka.Actor;
-using Akka.DI.Core;
 using Akka.Routing;
 using EventSaucing.EventStream;
 using Scalesque;
@@ -30,21 +28,13 @@ namespace EventSaucing.Projectors {
         }
 
         private void InitialiseProjectors(Func<IUntypedActorContext, IEnumerable<IActorRef>> projectorMaker) {
-            /*
-            //Reflect on assembly to identify projectors and have DI create them
-            var projectorsMetaData =
-                (from type in projectorTypeProvider.GetProjectorTypes()
-                 select new { Type = type, ActorRef = Context.ActorOf(Context.DI().Props(type), type.FullName), ProjectorId = type.GetProjectorId() }
-                ).ToList();
-            *?
-             */
             IEnumerable<IActorRef> projectors = projectorMaker(Context);
 
             //put the projectors in a broadcast router
             _projectorsBroadCastRouter = Context.ActorOf(Props.Empty.WithRouter(new BroadcastGroup(projectors.Map(_ => _.Path.ToString()))), "ProjectionBroadcastRouter");
 
             //tell them to catchup, else they will sit and wait for user activity 
-            _projectorsBroadCastRouter.Tell(new CatchUpMessage(), Self);
+            _projectorsBroadCastRouter.Tell(CatchUpMessage.Message, Self);
         }
     }
 }

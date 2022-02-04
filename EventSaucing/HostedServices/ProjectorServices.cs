@@ -5,7 +5,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.DI.Core;
-using EventSaucing.EventStream;
 using EventSaucing.Projectors;
 using EventSaucing.Storage;
 using Microsoft.Extensions.Hosting;
@@ -40,7 +39,7 @@ namespace EventSaucing.HostedServices {
         }
 
         /// <summary>
-        /// Starts the pipeline
+        /// Starts <see cref="ProjectorSupervisor"/>
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
@@ -50,7 +49,7 @@ namespace EventSaucing.HostedServices {
             // Ensure the Projector Status table is created.
             ProjectorHelper.InitialiseProjectorStatusStore(_dbService);
 
-            // function to create the projectors, ctor dependency of LocalEventStreamActor
+            // function to create the projectors, ctor dependency of ProjectorSupervisor
             Func<IUntypedActorContext, IEnumerable<IActorRef>> pollerMaker = (ctx) => {
                 var props= _projectorTypeProvider.GetProjectorTypes().Select(type => ctx.DI().Props(type));
                 return props.Select(prop => ctx.ActorOf(prop));
@@ -65,7 +64,7 @@ namespace EventSaucing.HostedServices {
         }
 
         /// <summary>
-        /// Stops the local projector supervisor
+        /// Stops <see cref="ProjectorSupervisor"/>
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
