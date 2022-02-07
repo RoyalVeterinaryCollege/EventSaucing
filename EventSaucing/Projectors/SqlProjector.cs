@@ -1,14 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-using Akka.Actor;
+using Akka.Event;
 using Dapper;
 using EventSaucing.EventStream;
 using EventSaucing.NEventStore;
 using NEventStore;
+using Scalesque;
 using Serilog;
 
 namespace EventSaucing.Projectors
@@ -66,11 +65,34 @@ namespace EventSaucing.Projectors
         public virtual string Name { get; } 
 
         public abstract DbConnection GetProjectionDb();
-        protected override Task ReceivedAsync(OrderedCommitNotification msg) {
-            throw new NotImplementedException();
+        protected override Task ReceivedAsync(CatchUpMessage arg) {
+            return CatchUp();
+        }
+        protected override async Task ReceivedAsync(OrderedCommitNotification msg) {
+            //if their previous matches our current, project
+            //if their previous is less than our current, ignore
+            //if their previous is > our current, catchup
+            var comparer = new CheckpointComparer();
+            var comparision = comparer.Compare(LastCheckpoint.ToSome(), msg.PreviousCheckpoint);
+            if (comparision == 0) {
+                await Project(msg.Commit); //order matched, project
+            }
+            else if (comparision > 0) {
+                //we are ahead of this commit so no-op, this is a bit odd, so log it
+                Context.GetLogger()
+                    .Info($"Projector {Name} received a commit notification  (checkpoint {msg.Commit.CheckpointToken} behind our checkpoint {LastCheckpoint}");
+            } else {
+                //we are behind the head, should catch up
+                var checkpointAtStartup = LastCheckpoint;
+                Context.GetLogger()
+                    .Info($"Projector {Name} catchup started from checkpoint {checkpointAtStartup} after receiving out-of-sequence commit with checkpoint {msg.Commit.CheckpointToken} and previous checkpoint {msg.PreviousCheckpoint}");
+                await CatchUp();
+                Context.GetLogger()
+                    .Info($"Projector {Name} catchup finished from {checkpointAtStartup} to checkpoint {LastCheckpoint} after receiving commit with checkpoint {msg.Commit.CheckpointToken}");
+            }
         }
 
-        protected override Task ReceivedAsync(CatchUpMessage arg) {
+        private Task CatchUp() {
             throw new NotImplementedException();
         }
     }
