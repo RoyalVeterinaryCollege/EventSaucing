@@ -12,11 +12,11 @@ namespace EventSaucing.Projectors {
         /// <summary>
         ///     Gets the uniqueprojectorId of a projector
         /// </summary>
-        /// <param name="projector"></param>
+        /// <param name="projectorBase"></param>
         /// <exception cref="ArgumentException">Thrown if the attribute is mssing</exception>
         /// <returns></returns>
-        public static int GetProjectorId(this ProjectorBase projector) {
-            return GetProjectorId(projector.GetType());
+        public static int GetProjectorId(this ProjectorBase projectorBase) {
+            return GetProjectorId(projectorBase.GetType());
         }
 
         /// <summary>

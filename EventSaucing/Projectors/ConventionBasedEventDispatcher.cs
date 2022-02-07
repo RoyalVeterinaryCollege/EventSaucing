@@ -1,110 +1,79 @@
-﻿using System;
+﻿using NEventStore;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using NEventStore;
-using Scalesque;
+using System.Reflection;
+using System.Threading.Tasks;
 
-namespace EventSaucing.Projectors {
+//public delegate void ProjectionMethod(IDbTransaction tx, ICommit commit, object @event);
+
+
+namespace EventSaucing.Projectors
+{
+
     /// <summary>
-    /// A convention based way of dispatching events to methods which project those events
+    /// Binds conventional projectors to commits.
+    /// 
+    /// Looks for methods which start with 'On' and are assignable to the ConventionalProjectionMethod delegate.
     /// </summary>
     public class ConventionBasedEventDispatcher {
-        private readonly Action<long> _setProjectorCheckpoint;
-		private readonly Action<ICommit> _nullEventMessageHandler;
-
-		/// <summary>
-		/// This is a c sharp implementation of partial functions which are functions which can only operate on some subset of the input parameters  
-		/// </summary>
-		private class PartialFunction {
-            /// <summary>
-            /// Test if the Function can apply to the parameter object.  Returns true iif the Function can apply to the parameter
-            /// </summary>
-            public Func<object,bool> IsDefined { get; set; }
-            /// <summary>
-            /// The function which will be invoked if the partial function applies to the parameter
-            /// </summary>
-            public Action<IDbTransaction,ICommit, object> Function { get; set; }
-        }
-
-        readonly List<PartialFunction> _orderedPartialFunctions = new List<PartialFunction>();
-
         /// <summary>
-        /// An optional predicate which determines if a commit can be projected
+        /// Typeof event -> to method which can project that event
         /// </summary>
-        private Option<Func<ICommit, Boolean>> _canProjectPredicate = Option.None();
+        Dictionary<Type, ConventionalProjectionMethodAsync> _dispatchTable;
 
-        /// <summary>
-        /// Instantiates the convent-based event projector
-        /// </summary>
-        /// <param name="setProjectorCheckpoint">An action to update the projector's checkpoint</param>
-        /// <param name="nullEventMessageHandler">Action called when a null event is found in a commit</param>
-        public ConventionBasedEventDispatcher(Action<long> setProjectorCheckpoint, Action<ICommit> nullEventMessageHandler = null) {
-            _setProjectorCheckpoint = setProjectorCheckpoint;
-			_nullEventMessageHandler = nullEventMessageHandler ?? NullEventMessageHandlerNoop;
-		}
-
-        private static void NullEventMessageHandlerNoop(ICommit commit) { }
-
-        public ConventionBasedEventDispatcher FirstProject<T>(Action<IDbTransaction, ICommit, T> a) {
-            return AddPartialFunction(a);
+        public ConventionBasedEventDispatcher(object projector)  {
+            BuildDispatchTable(projector);
         }
 
         /// <summary>
-        /// Set an optional predicate to determine if a commit can be projected.  This predicate is tested before the the routing table is checked.
+        /// Determines if a method meets the convention for the dispatcher.  Method must start with 'On', have 3 parameters (1st = IDbTransaction, 2nd ICommit) and return Task.
         /// </summary>
-        /// <param name="f"></param>
-        /// <returns></returns>
-        public ConventionBasedEventDispatcher SetCanCommitPredicate(Func<ICommit, Boolean> f) {
-            this._canProjectPredicate = f.ToSome();
-            return this;
+        /// <param name="method">MethodInfo</param>
+        /// <returns>bool true if the methos</returns>
+        public static bool IsProjectionMethod(MethodInfo method)  {
+            if (!method.Name.StartsWith("On")) return false;
+            if (method.ReturnType != typeof(Task)) return false;
+            var parameters = method.GetParameters();
+            if (parameters.Length != 3) return false;
+            if (parameters[0].ParameterType != typeof(IDbTransaction)) return false;
+            if (parameters[1].ParameterType != typeof(ICommit)) return false;
+            return true;
         }
 
-        private ConventionBasedEventDispatcher AddPartialFunction<T>(Action<IDbTransaction, ICommit, T> a) {
-            _orderedPartialFunctions.Add(new PartialFunction {
-                IsDefined = o => o.GetType() == typeof (T),
-                Function = (tx, commit, @event) => a(tx, commit, (T) @event)
-            });
-
-            return this;
+        private ConventionalProjectionMethodAsync MakeAsyncInvocation(object projector, MethodInfo method) {
+            return new ConventionalProjectionMethodAsync(
+                (IDbTransaction tx, ICommit commit, object @event) => {
+                   return (Task)method.Invoke(projector, new[] { tx, commit, @event });
+                });
         }
 
-        public ConventionBasedEventDispatcher ThenProject<T>(Action<IDbTransaction, ICommit, T> a){
-            return AddPartialFunction(a);
+        public void BuildDispatchTable(object projector)  {
+            _dispatchTable = (from method in projector.GetType().GetMethods()
+                             where IsProjectionMethod(method)
+                             select new {
+                                 EventType = method.GetParameters().Last().ParameterType //last parameter is the event
+                                 , InvocationMethod = MakeAsyncInvocation(projector, method)
+                              })
+                         .ToDictionary(x => x.EventType, x => x.InvocationMethod);
         }
 
-        /// <summary>
-        /// Are there any events in this commit which can be projected by this projector?
-        /// </summary>
-        /// <param name="commit"></param>
-        /// <returns>bool</returns>
-        public bool CanProject(ICommit commit) =>
-            _canProjectPredicate.Map(f=>f(commit)).GetOrElse(true) && commit.Events.Any(eventMessage => eventMessage != null &&
-                _orderedPartialFunctions.Any(pf => pf.IsDefined(eventMessage.Body)));
+        public IEnumerable<(ConventionalProjectionMethodAsync, object)> GetProjectionMethods(ICommit commit) {
+            //see if we project any of these events
+            var projectedEvents = (from events in commit.Events
+                where events != null && _dispatchTable.ContainsKey(events.Body.GetType())
+                select events.Body).ToList();
 
-        /// <summary>
-        /// Dispatchs the projectable events to the projection methods then updates the projector checkpoint
-        /// </summary>
-        /// <param name="tx"></param>
-        /// <param name="commit"></param>
-        public void Project(IDbTransaction tx, ICommit commit) {
-            foreach (var eventMessage in commit.Events) {
-                //  guard null events in the commit.  Not sure at this point how null events get into a commit, bug in neventstore??
-                if (eventMessage == null) {
-					_nullEventMessageHandler(commit);
-                    continue;
-				}
-				
-				foreach (var partialFunction in _orderedPartialFunctions) {
-					if (partialFunction.IsDefined(eventMessage.Body))
-						partialFunction.Function(tx, commit, eventMessage.Body);
-				}
+            // guard none
+            if (!projectedEvents.Any())
+                yield break;
+
+            // get the projection method from the dispatch table
+            foreach (var eventMessage in projectedEvents) {
+                Type eventType = eventMessage.GetType();
+                yield return (_dispatchTable[eventType], eventMessage);
             }
-            AdvanceProjectorCheckpoint(commit);
-        }
-
-        public void AdvanceProjectorCheckpoint(ICommit commit) {
-            _setProjectorCheckpoint(commit.CheckpointToken);
         }
     }
 }

@@ -51,4 +51,7 @@
       <PackagePath></PackagePath>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Projectors\NewFolder\" />
+  </ItemGroup>
 </Project>

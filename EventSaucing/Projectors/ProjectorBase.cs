@@ -15,6 +15,8 @@ using Scalesque;
 //todo: need to merge cris.hh ProjectorPollingClient into this
 
 namespace EventSaucing.Projectors {
+
+    [Obsolete]
     public abstract class ProjectorBase : ReceiveActor {
         private readonly IPersistStreams _persistStreams;
         private protected readonly IDbService _dbService;
@@ -50,11 +52,12 @@ namespace EventSaucing.Projectors {
             using (var conn = _dbService.GetConnection()) {
                 conn.Open();
 
-                var results = conn.Query<long>("SELECT LastCheckPointToken FROM dbo.ProjectorStatus WHERE ProjectorId = @ProjectorId", new { this.ProjectorId });
+                var results =
+                    conn.Query<long>(
+                        "SELECT LastCheckPointToken FROM dbo.ProjectorStatus WHERE ProjectorId = @ProjectorId",
+                        new { this.ProjectorId });
 
-                results.ForEach(x => {
-                    Checkpoint = x.ToSome();
-                });
+                results.ForEach(x => { Checkpoint = x.ToSome(); });
 
                 // initialise at head if requested
                 if (Checkpoint.IsEmpty && _initialiseAtHead) {
@@ -62,7 +65,8 @@ namespace EventSaucing.Projectors {
                 }
             }
         }
-        private void Received(CatchUpMessage msg)  {
+
+        private void Received(CatchUpMessage msg) {
             Catchup();
         }
 
@@ -77,14 +81,22 @@ namespace EventSaucing.Projectors {
             }
             else if (comparision > 0) {
                 //we are ahead of this commit so no-op, this is a bit odd, so log it
-                Context.GetLogger().Debug("Received a commit notification  (checkpoint {0}) behind our checkpoint ({1})", msg.Commit.CheckpointToken, Checkpoint.Get());
+                Context.GetLogger()
+                    .Debug("Received a commit notification  (checkpoint {0}) behind our checkpoint ({1})",
+                        msg.Commit.CheckpointToken, Checkpoint.Get());
             }
             else {
                 //we are behind the head, should catch up
                 var fromPoint = Checkpoint.Map(x => x.ToString()).GetOrElse("beginning of time");
-                Context.GetLogger().Info("Catchup started from checkpoint {0} after receiving out-of-sequence commit with checkpoint {1} and previous checkpoint {2}", fromPoint, msg.Commit.CheckpointToken, msg.PreviousCheckpoint);
+                Context.GetLogger()
+                    .Info(
+                        "Catchup started from checkpoint {0} after receiving out-of-sequence commit with checkpoint {1} and previous checkpoint {2}",
+                        fromPoint, msg.Commit.CheckpointToken, msg.PreviousCheckpoint);
                 Catchup();
-                Context.GetLogger().Info("Catchup finished from {0} to checkpoint {1} after receiving commit with checkpoint {2}", fromPoint, Checkpoint.Map(x => x.ToString()).GetOrElse("beginning of time"), msg.Commit.CheckpointToken);
+                Context.GetLogger()
+                    .Info("Catchup finished from {0} to checkpoint {1} after receiving commit with checkpoint {2}",
+                        fromPoint, Checkpoint.Map(x => x.ToString()).GetOrElse("beginning of time"),
+                        msg.Commit.CheckpointToken);
             }
         }
 
@@ -93,12 +105,15 @@ namespace EventSaucing.Projectors {
         /// </summary>
         protected virtual void Catchup() {
             var comparer = new CheckpointComparer();
-            IEnumerable<ICommit> commits = _persistStreams.GetFrom(Checkpoint.GetOrElse(() => 0)); //load all commits after our current checkpoint from db
+            IEnumerable<ICommit>
+                commits = _persistStreams.GetFrom(Checkpoint.GetOrElse(() =>
+                    0)); //load all commits after our current checkpoint from db
             foreach (var commit in commits) {
                 Project(commit);
                 if (comparer.Compare(Checkpoint, commit.CheckpointToken.ToSome()) != 0) {
                     //something went wrong, we couldn't project
-                    Context.GetLogger().Warning("Stopped catchup! was unable to project the commit at checkpoint {0}", commit.CheckpointToken);
+                    Context.GetLogger().Warning("Stopped catchup! was unable to project the commit at checkpoint {0}",
+                        commit.CheckpointToken);
                     break;
                 }
             }
@@ -114,5 +129,8 @@ namespace EventSaucing.Projectors {
         /// </summary>
         /// <param name="commit"></param>
         public abstract void Project(ICommit commit);
+
     }
+
+ 
 }
