@@ -7,7 +7,7 @@ using FluentAssertions;
 namespace EventSaucing.EventStream
 {
     [TestFixture]
-    public class InMemoryCommitSerialiserCacheTests {
+    public abstract class InMemoryCommitSerialiserCacheTests {
         protected InMemoryCommitSerialiserCache sut = new InMemoryCommitSerialiserCache(5);
 
         protected virtual void Because(){}
