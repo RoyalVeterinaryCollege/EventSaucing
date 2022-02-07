@@ -12,7 +12,7 @@ namespace EventSaucing.Reactors {
     /// <summary>
     /// A projector that sends SubscribedAggregateChanged messages to Reactors who have subscribed to those aggregates
     /// </summary>
-    public class ReactorAggregateSubscriptionProjector : ProjectorBase  {
+    public class ReactorAggregateSubscriptionProjector : LegacyProjector  {
         private readonly IReactorBucketFacade _reactorBucketRouter;
         private readonly string _bucket;
 

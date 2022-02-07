@@ -1,6 +1,4 @@
-﻿using CRIS.Hawkshead.Projectors;
-using CRIS.Hawkshead.Services;
-using Dapper;
+﻿using Dapper;
 using NEventStore.Persistence;
 using Serilog;
 using System;
@@ -9,6 +7,7 @@ using System.Threading.Tasks;
 
 namespace CRIS.Hawkshead.NEventStore
 {
+    /*
     /// <summary>
     /// An implementation of an NEventStore polling client which works with async projection. 
     /// </summary>
@@ -127,5 +126,5 @@ namespace CRIS.Hawkshead.NEventStore
 
             PollingTask = Task.Run(()=> PollAndProjectAsync(dispatcher, delayMilliseconds));
         }
-    }
+    }*/
 }

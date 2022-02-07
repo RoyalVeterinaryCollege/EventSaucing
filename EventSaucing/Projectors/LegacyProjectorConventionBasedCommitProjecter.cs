@@ -4,15 +4,15 @@ using NEventStore;
 
 namespace EventSaucing.Projectors {
     /// <summary>
-    /// A conventional way of projecting commits.  This handles ACIDic projection of all projectable events in the commit.
+    /// A conventional way of projecting commits for the legacy <see cref="LegacyProjector"/>.  This handles ACIDic projection of all projectable events in the commit.
     /// </summary>
-    public class ConventionBasedCommitProjecter {
-        private readonly ProjectorBase _projector;
+    public class LegacyProjectorConventionBasedCommitProjecter {
+        private readonly LegacyProjector _projector;
         private readonly IDbService _dbService;
-        private readonly ConventionBasedEventDispatcher _dispatcher;
+        private readonly LegacyConventionBasedEventDispatcher _dispatcher;
         private readonly Random _rnd;
 
-        public ConventionBasedCommitProjecter(ProjectorBase projector, IDbService dbService, ConventionBasedEventDispatcher dispatcher) {
+        public LegacyProjectorConventionBasedCommitProjecter(LegacyProjector projector, IDbService dbService, LegacyConventionBasedEventDispatcher dispatcher) {
             _projector = projector;
             _dbService = dbService;
             _dispatcher = dispatcher;

@@ -33,7 +33,7 @@ namespace EventSaucing.DependencyInjection.Autofac {
             builder.RegisterType<Akka.AkkaStartStop>().As<IStartable>();
 
 			
-			builder.RegisterAssemblyTypes(Assembly.GetEntryAssembly()).AssignableTo<ProjectorBase>(); // Get the assembly that kicks the show off, this should have projectors in it.
+			builder.RegisterAssemblyTypes(Assembly.GetEntryAssembly()).AssignableTo<LegacyProjector>(); // Get the assembly that kicks the show off, this should have projectors in it.
             builder.RegisterAssemblyTypes(Assembly.GetExecutingAssembly()).AssignableTo<ReceiveActor>(); // This assembly, which has infrastructure actors.
             builder.Register(x => new ActorPaths()).SingleInstance();
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Event;
 using Dapper;
@@ -12,12 +13,13 @@ using NEventStore;
 using NEventStore.Persistence;
 using Scalesque;
 
-//todo: need to merge cris.hh ProjectorPollingClient into this
-
 namespace EventSaucing.Projectors {
 
-    [Obsolete]
-    public abstract class ProjectorBase : ReceiveActor {
+    /// <summary>
+    /// Obsolete replacement for ProjectorBase.  Provided for backwards compatibility only.  Prefer <see cref="SqlProjector"/> for future usage.
+    /// </summary>
+    [Obsolete("Provided for backwards compatibility only.  Prefer SqlProjector for future usage")]
+    public abstract class LegacyProjector : Projector {
         private readonly IPersistStreams _persistStreams;
         private protected readonly IDbService _dbService;
 
@@ -29,7 +31,7 @@ namespace EventSaucing.Projectors {
         /// <param name="persistStreams">IPersistStreams Required for when the projector falls behind the head commit and needs to catchup</param>
         /// <param name="dbService"></param>
         /// <param name="config"></param>
-        public ProjectorBase(IPersistStreams persistStreams, IDbService dbService, IConfiguration config) {
+        public LegacyProjector(IPersistStreams persistStreams, IDbService dbService, IConfiguration config) {
             _persistStreams = persistStreams;
             _dbService = dbService;
             ProjectorId = this.GetProjectorId();
@@ -130,6 +132,15 @@ namespace EventSaucing.Projectors {
         /// <param name="commit"></param>
         public abstract void Project(ICommit commit);
 
+        protected override Task ReceivedAsync(OrderedCommitNotification msg) {
+            Received(msg);
+            return Task.CompletedTask;
+        }
+
+        protected override Task ReceivedAsync(CatchUpMessage msg) {
+            Received(msg);
+            return Task.CompletedTask;
+        }
     }
 
  

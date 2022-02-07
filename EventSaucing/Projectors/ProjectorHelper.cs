@@ -15,7 +15,7 @@ namespace EventSaucing.Projectors {
         /// <param name="projectorBase"></param>
         /// <exception cref="ArgumentException">Thrown if the attribute is mssing</exception>
         /// <returns></returns>
-        public static int GetProjectorId(this ProjectorBase projectorBase) {
+        public static int GetProjectorId(this LegacyProjector projectorBase) {
             return GetProjectorId(projectorBase.GetType());
         }
 
@@ -58,7 +58,7 @@ namespace EventSaucing.Projectors {
         /// </summary>
         /// <param name="projector"></param>
         /// <param name="tx"></param>
-        public static void PersistProjectorCheckpoint(this ProjectorBase projector, IDbTransaction tx) {
+        public static void PersistProjectorCheckpoint(this LegacyProjector projector, IDbTransaction tx) {
             var sqlParams = GetProjectorParams(projector);
             tx.Connection.Execute(SqlPersistProjectorState, sqlParams, tx);
         }
@@ -103,7 +103,7 @@ END
 			}
 		}
 
-        private static object GetProjectorParams(ProjectorBase projector) {
+        private static object GetProjectorParams(LegacyProjector projector) {
             return new {
                 ProjectorId = projector.ProjectorId,
                 ProjectorName = projector.GetType().Name,
@@ -116,7 +116,7 @@ END
         /// </summary>
         /// <param name="projector"></param>
         /// <param name="conn"></param>
-        public static void PersistProjectorCheckpoint(this ProjectorBase projector, IDbConnection conn) {
+        public static void PersistProjectorCheckpoint(this LegacyProjector projector, IDbConnection conn) {
             var sqlParams = GetProjectorParams(projector);
             conn.Execute(SqlPersistProjectorState, sqlParams);
         }
