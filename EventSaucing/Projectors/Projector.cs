@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using Akka.Actor;
 using EventSaucing.EventStream;
 using Microsoft.Extensions.Configuration;
@@ -9,36 +10,85 @@ using NEventStore;
 using Scalesque;
 
 namespace EventSaucing.Projectors {
-    public abstract class Projector : ReceiveActor {
+    public abstract class Projector : ReceiveActor, IWithTimers {
+
+        public static class Messages {
+            /// <summary>
+            /// Tell Projector to catch up by going to commit store to stream unprojected commits
+            /// </summary>
+            public class CatchUpMessage {
+                static CatchUpMessage() {
+                    Message = new CatchUpMessage();
+                }
+                private CatchUpMessage()  {
+
+                }
+                public static CatchUpMessage Message  {
+                    get;
+                }
+            }
+            /// <summary>
+            /// Tell projector to persist its checkpoint state to db
+            /// </summary>
+            public class PersistCheckpoint{
+                static PersistCheckpoint() {
+                    Message = new PersistCheckpoint();
+                }
+                private PersistCheckpoint() { }
+                public static PersistCheckpoint Message
+                {
+                    get;
+                }
+            }
+        }
         /// <summary>
         /// Should projector be set to the head checkpoint of the commit store on first ever instantiation.  If false, projector will run through all commits in the store.  If True, projector will start at the head of the commit and only process new commits 
         /// </summary>
         protected bool _initialiseAtHead;
 
-        public Projector(IConfiguration config) {
+        /// <summary>
+        /// Holds the timer which periodically tells projector to persist its checkpoint
+        /// </summary>
+        public ITimerScheduler Timers { get; set; }
 
-            ReceiveAsync<CatchUpMessage>(ReceivedAsync);
+        public Projector(IConfiguration config) {
+            ReceiveAsync<Messages.CatchUpMessage>(msg => CatchUpAsync());
             ReceiveAsync<OrderedCommitNotification>(ReceivedAsync);
+            ReceiveAsync<Messages.PersistCheckpoint>(msg => PersistCheckpointAsync());
 
             var initialiseAtHead = config.GetSection("EventSaucing:Projectors:InitialiseAtHead").Get<string[]>();
             _initialiseAtHead = initialiseAtHead.Contains(GetType().FullName);
         }
 
+        protected override void PreStart()  {
+            //start timer to periodically persist checkpoint to db
+            Timers.StartPeriodicTimer("persist_checkpoint", Messages.PersistCheckpoint.Message, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(5));
+        }
+
         /// <summary>
-        /// Derived class is responsible for updating this field after processing the new commit message
+        /// Tells projector to project unprojected commits from the commit store
         /// </summary>
-        public Option<long> Checkpoint { get; protected set; } = Option.None();
+        /// <returns></returns>
+        protected abstract Task CatchUpAsync();
+
+        /// <summary>
+        /// Persist checkpoint to db
+        /// </summary>
+        /// <returns></returns>
+        protected abstract Task PersistCheckpointAsync();
+
         /// <summary>
         /// Projects the commit
         /// </summary>
         /// <param name="commit"></param>
         /// <returns>Task</returns>
         public abstract Task ProjectAsync(ICommit commit);
+
         /// <summary>
-        /// Tells projector to project unprojected commits from the commit store
+        /// Derived class is responsible for updating this field after processing the new commit message
         /// </summary>
-        /// <returns>Task</returns>
-        public abstract Task CatchUpAsync();
+        public Option<long> Checkpoint { get; protected set; } = Option.None();
+
         protected virtual async Task ReceivedAsync(OrderedCommitNotification msg) {
             //if their previous matches our current, project
             //if their previous is less than our current, ignore
@@ -70,10 +120,6 @@ namespace EventSaucing.Projectors {
                         fromPoint, Checkpoint.Map(x => x.ToString()).GetOrElse("beginning of time"),
                         msg.Commit.CheckpointToken);
             }
-        }
-
-        protected virtual Task ReceivedAsync(CatchUpMessage msg) {
-            return CatchUpAsync();
         }
     }
 }

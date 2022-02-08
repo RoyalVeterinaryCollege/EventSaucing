@@ -26,37 +26,49 @@ namespace EventSaucing.Projectors
             var projectionMethods = _dispatcher.GetProjectionMethods(commit).ToList();
 
             if (!projectionMethods.Any()) {
-                //todo occasionally persist checkpoint state
-            } else {
-                using (var con = GetProjectionDb())
-                {
-                    await con.OpenAsync();
-                    // silently truncate strings larger than the destination field, otherwise we would need to LEFT every string to avoid this problem
-                    // https://docs.microsoft.com/en-us/sql/t-sql/statements/set-ansi-warnings-transact-sql?view=sql-server-ver15
+                Checkpoint = commit.CheckpointToken.ToSome();
+                return;
+            }
+            using (var con = GetProjectionDb()) {
+                await con.OpenAsync();
+                // silently truncate strings larger than the destination field, otherwise we would need to LEFT every string to avoid this problem
+                // https://docs.microsoft.com/en-us/sql/t-sql/statements/set-ansi-warnings-transact-sql?view=sql-server-ver15
 
-                    await con.ExecuteAsync("SET ANSI_WARNINGS OFF");
-                    using (var tx = con.BeginTransaction())  {
-                        foreach (var (projectionMethod, @evt) in projectionMethods)  {
-                            try   {
-                                await projectionMethod(tx, commit, @evt);
-                            }
-                            catch (Exception error) {
-                                _logger.Error(error.InnerException, $"{Name} caught exception when trying to project event {@evt.GetType()} in commit {commit.CommitId} at checkpoint {commit.CheckpointToken} for aggregate {commit.AggregateId()}");
-                                throw; 
-                            }
+                await con.ExecuteAsync("SET ANSI_WARNINGS OFF");
+                using (var tx = con.BeginTransaction())  {
+                    foreach (var (projectionMethod, @evt) in projectionMethods)  {
+                        try   {
+                            await projectionMethod(tx, commit, @evt);
                         }
-
-                        // persist new checkpoint
-                        await tx.Connection.ExecuteAsync(
-                            "UPDATE [dbo].[ProjectorStatus] SET [Checkpoint] = @LastCheckpoint WHERE ProjectorName=@Name",
-                            new { Name, commit.CheckpointToken });
-
-                        tx.Commit();
+                        catch (Exception error) {
+                            _logger.Error(error.InnerException, $"{Name} caught exception when trying to project event {@evt.GetType()} in commit {commit.CommitId} at checkpoint {commit.CheckpointToken} for aggregate {commit.AggregateId()}");
+                            throw; 
+                        }
                     }
+
+                    await PersistCheckpointAsync(commit.CheckpointToken, tx);
+
+                    tx.Commit();
                 }
             }
 
             Checkpoint = commit.CheckpointToken.ToSome();
+        }
+
+        protected override async Task PersistCheckpointAsync() {
+            using (var con = GetProjectionDb()) {
+                await con.OpenAsync();
+
+                await con.ExecuteAsync(
+                    "UPDATE [dbo].[ProjectorStatus] SET [Checkpoint] = @Checkpoint WHERE ProjectorName=@Name",
+                    new { Name, Checkpoint=Checkpoint.Get() });
+            }
+        }
+
+        protected Task PersistCheckpointAsync(long checkpoint, DbTransaction tx) {
+            return tx.Connection.ExecuteAsync(
+                "UPDATE [dbo].[ProjectorStatus] SET [Checkpoint] = @Checkpoint WHERE ProjectorName=@Name",
+                new { Name, checkpoint });
         }
 
         /// <summary>

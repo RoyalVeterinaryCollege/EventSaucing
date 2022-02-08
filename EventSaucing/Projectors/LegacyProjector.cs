@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Threading.Tasks;
 using Akka.Event;
 using Dapper;
@@ -54,6 +55,13 @@ namespace EventSaucing.Projectors {
             }
         }
 
+        protected override async Task PersistCheckpointAsync()  {
+            using (var conn = _dbService.GetConnection()) {
+                await conn.OpenAsync();
+                this.PersistProjectorCheckpoint(conn);
+            }
+        }
+
         /// <summary>
         /// Projects the commit by delegating it to the synchronous Project method
         /// </summary>
@@ -74,26 +82,19 @@ namespace EventSaucing.Projectors {
         /// Tells projector to project unprojected commits from the commit store
         /// </summary>
         /// <returns>Task</returns>
-        public override Task CatchUpAsync() {
-            CatchUp();
-            return Task.CompletedTask;
-        }
-
-        /// <summary>
-        /// Catches-up the projector if it has fallen behind the head
-        /// </summary>
-        protected virtual void CatchUp() {
+        protected override Task CatchUpAsync() {
             var comparer = new CheckpointOrder();
             //load all commits after our current checkpoint from db
-            IEnumerable<ICommit>commits = _persistStreams.GetFrom(Checkpoint.GetOrElse(() =>0)); 
+            IEnumerable<ICommit> commits = _persistStreams.GetFrom(Checkpoint.GetOrElse(() => 0));
             foreach (var commit in commits) {
                 Project(commit);
                 if (comparer.Compare(Checkpoint, commit.CheckpointToken.ToSome()) != 0) {
                     //something went wrong, we couldn't project
-                    Context.GetLogger().Warning("Stopped catchup! was unable to project the commit at checkpoint {0}",commit.CheckpointToken);
+                    Context.GetLogger().Warning("Stopped catchup! was unable to project the commit at checkpoint {0}", commit.CheckpointToken);
                     break;
                 }
             }
+            return Task.CompletedTask;
         }
     }
 }

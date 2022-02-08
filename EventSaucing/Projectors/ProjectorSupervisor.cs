@@ -40,7 +40,7 @@ namespace EventSaucing.Projectors {
                     "ProjectionBroadcastRouter");
 
             //tell them to catchup, else they will sit and wait for user activity 
-            _projectorsBroadCastRouter.Tell(CatchUpMessage.Message, Self);
+            _projectorsBroadCastRouter.Tell(Projector.Messages.CatchUpMessage.Message, Self);
         }
     }
 }

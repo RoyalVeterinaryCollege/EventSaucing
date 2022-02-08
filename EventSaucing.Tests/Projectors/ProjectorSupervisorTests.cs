@@ -38,8 +38,8 @@ namespace EventSaucing.Projectors
     public class When_started : ProjectorSupervisorTests {
         [Test]
         public void Should_send_catchup() {
-            _projector1.ExpectMsg<CatchUpMessage>(TimeSpan.FromMilliseconds(100));
-            _projector2.ExpectMsg<CatchUpMessage>(TimeSpan.FromMilliseconds(100));
+            _projector1.ExpectMsg<Projector.Messages.CatchUpMessage>(TimeSpan.FromMilliseconds(100));
+            _projector2.ExpectMsg<Projector.Messages.CatchUpMessage>(TimeSpan.FromMilliseconds(100));
         }
     }
 
@@ -53,8 +53,8 @@ namespace EventSaucing.Projectors
             sut.Tell(_msg);
 
             //ignore these ones for this test
-            _projector1.ExpectMsg<CatchUpMessage>();//TimeSpan.FromMilliseconds(100));
-            _projector2.ExpectMsg<CatchUpMessage>(); //TimeSpan.FromMilliseconds(100));
+            _projector1.ExpectMsg<Projector.Messages.CatchUpMessage>();//TimeSpan.FromMilliseconds(100));
+            _projector2.ExpectMsg<Projector.Messages.CatchUpMessage>(); //TimeSpan.FromMilliseconds(100));
         }
 
         [Test]
