@@ -6,6 +6,7 @@ using Akka.Event;
 using Dapper;
 using EventSaucing.EventStream;
 using EventSaucing.NEventStore;
+using EventSaucing.Storage;
 using Microsoft.Extensions.Configuration;
 using NEventStore;
 using Scalesque;
@@ -16,13 +17,36 @@ namespace EventSaucing.Projectors
     public abstract class SqlProjector : Projector  {
         readonly ConventionBasedEventDispatcher _dispatcher;
         protected readonly ILogger _logger;
+        private readonly IDbService _dbService;
 
-        public SqlProjector(ILogger logger, IConfiguration config) : base(config) {
+        public SqlProjector(ILogger logger, IConfiguration config, IDbService dbService) : base(config) {
             _logger = logger;
+            _dbService = dbService;
             _dispatcher = new ConventionBasedEventDispatcher(this);
             Name = GetType().FullName;
         }
-        public virtual async Task Project(ICommit commit) {
+
+        protected override void PreStart() {
+            base.PreStart();
+
+            // restore checkpoint status from db, and initialise if no state found
+            using (var conn = _dbService.GetConnection()) {
+                conn.Open();
+
+                var results =
+                    conn.Query<long>(
+                        "SELECT LastCheckPointToken FROM dbo.ProjectorStatus WHERE ProjectorId = @Name",
+                        new { this.Name });
+
+                results.ForEach(x => { Checkpoint = x.ToSome(); });
+
+                // initialise at head if requested
+                if (Checkpoint.IsEmpty && _initialiseAtHead) {
+                    Checkpoint = conn.ExecuteScalar<long>("SELECT MAX(CheckpointNumber) FROM dbo.Commits").ToSome();
+                }
+            }
+        }
+        public override async Task ProjectAsync(ICommit commit) {
             var projectionMethods = _dispatcher.GetProjectionMethods(commit).ToList();
 
             if (!projectionMethods.Any()) {
