@@ -72,8 +72,8 @@ namespace EventSaucing.Projectors
             //if their previous matches our current, project
             //if their previous is less than our current, ignore
             //if their previous is > our current, catchup
-            var comparer = new CheckpointComparer();
-            var comparision = comparer.Compare(LastCheckpoint.ToSome(), msg.PreviousCheckpoint);
+            var order = new CheckpointOrder();
+            var comparision = order.Compare(LastCheckpoint.ToSome(), msg.PreviousCheckpoint);
             if (comparision == 0) {
                 await Project(msg.Commit); //order matched, project
             }

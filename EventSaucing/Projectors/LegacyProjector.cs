@@ -76,8 +76,8 @@ namespace EventSaucing.Projectors {
             //if their previous matches our current, project
             //if their previous is less than our current, ignore
             //if their previous is > our current, catchup
-            var comparer = new CheckpointComparer();
-            var comparision = comparer.Compare(Checkpoint, msg.PreviousCheckpoint);
+            var order = new CheckpointOrder();
+            var comparision = order.Compare(Checkpoint, msg.PreviousCheckpoint);
             if (comparision == 0) {
                 Project(msg.Commit); //order matched, project
             }
@@ -106,7 +106,7 @@ namespace EventSaucing.Projectors {
         /// Catches-up the projector if it has fallen behind the head
         /// </summary>
         protected virtual void Catchup() {
-            var comparer = new CheckpointComparer();
+            var comparer = new CheckpointOrder();
             IEnumerable<ICommit>
                 commits = _persistStreams.GetFrom(Checkpoint.GetOrElse(() =>
                     0)); //load all commits after our current checkpoint from db

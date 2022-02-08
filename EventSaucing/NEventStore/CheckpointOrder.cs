@@ -3,9 +3,9 @@ using Scalesque;
 
 namespace EventSaucing.NEventStore {
     /// <summary>
-    /// Comparers checkpoints.  None is less then any checkpoint except another None and in this case they are equal
+    /// Orders checkpoints.  None is less then any checkpoint except another None and in this case they are equal
     /// </summary>
-    class CheckpointComparer : IComparer<Option<long>> {
+    public class CheckpointOrder : IComparer<Option<long>> {
         /// <summary>
         /// Is x less than or equal to y
         /// </summary>
