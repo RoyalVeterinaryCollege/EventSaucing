@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Data.Common;
 using System.Threading.Tasks;
 using Akka.Event;
 using Dapper;
@@ -73,7 +72,7 @@ namespace EventSaucing.Projectors {
         }
 
         /// <summary>
-        /// Projects the commit
+        /// Projects the commit.  Implementors are responsible for updating Checkpoint property
         /// </summary>
         /// <param name="commit"></param>
         public abstract void Project(ICommit commit);
