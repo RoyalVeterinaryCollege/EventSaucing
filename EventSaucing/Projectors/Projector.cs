@@ -11,6 +11,7 @@ using Scalesque;
 
 namespace EventSaucing.Projectors {
     public abstract class Projector : ReceiveActor, IWithTimers {
+        private const string TimerName = "persist_checkpoint";
 
         public static class Messages {
             /// <summary>
@@ -52,17 +53,29 @@ namespace EventSaucing.Projectors {
         public ITimerScheduler Timers { get; set; }
 
         public Projector(IConfiguration config) {
-            ReceiveAsync<Messages.CatchUpMessage>(msg => CatchUpAsync());
+            ReceiveAsync<Messages.CatchUpMessage>(ReceivedAsync);
             ReceiveAsync<OrderedCommitNotification>(ReceivedAsync);
             ReceiveAsync<Messages.PersistCheckpoint>(msg => PersistCheckpointAsync());
 
             var initialiseAtHead = config.GetSection("EventSaucing:Projectors:InitialiseAtHead").Get<string[]>();
             _initialiseAtHead = initialiseAtHead.Contains(GetType().FullName);
         }
+        protected override void PreStart(){
+            StartTimer();
+        }
 
-        protected override void PreStart()  {
+        private async Task ReceivedAsync(Messages.CatchUpMessage arg) {
+            //stop timer whilst we catch up else lots of superfluous messages might pile up in mailbox
+            if(Timers.IsTimerActive(TimerName)) Timers.Cancel(TimerName);
+            await CatchUpAsync();
+            await PersistCheckpointAsync();
+            StartTimer();
+        }
+
+        private void StartTimer() {
             //start timer to periodically persist checkpoint to db
-            Timers.StartPeriodicTimer("persist_checkpoint", Messages.PersistCheckpoint.Message, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(5));
+            Timers.StartPeriodicTimer(TimerName, Messages.PersistCheckpoint.Message, TimeSpan.FromSeconds(10),
+                TimeSpan.FromSeconds(5));
         }
 
         /// <summary>
