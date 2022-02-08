@@ -1,11 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
-using Akka.Actor;
 using Akka.Event;
 using Dapper;
-using EventSaucing.EventStream;
 using EventSaucing.NEventStore;
 using EventSaucing.Storage;
 using Microsoft.Extensions.Configuration;
@@ -26,27 +23,16 @@ namespace EventSaucing.Projectors {
         public int ProjectorId { get; }
 
         /// <summary>
-        /// 
+        /// Instantiates
         /// </summary>
         /// <param name="persistStreams">IPersistStreams Required for when the projector falls behind the head commit and needs to catchup</param>
         /// <param name="dbService"></param>
         /// <param name="config"></param>
-        public LegacyProjector(IPersistStreams persistStreams, IDbService dbService, IConfiguration config) {
+        public LegacyProjector(IPersistStreams persistStreams, IDbService dbService, IConfiguration config):base(config) {
             _persistStreams = persistStreams;
             _dbService = dbService;
             ProjectorId = this.GetProjectorId();
-
-            var initialiseAtHead = config.GetSection("EventSaucing:Projectors:InitialiseAtHead").Get<string[]>();
-            this._initialiseAtHead = initialiseAtHead.Contains(GetType().FullName);
-
-            Receive<CatchUpMessage>(Received);
-            Receive<OrderedCommitNotification>(Received);
         }
-
-        /// <summary>
-        /// Should projector be set to the head checkpoint of the commit store on first ever instantiation.  If false, projector will run through all commits in the store.  If True, projector will start at the head of the commit and only process new commits 
-        /// </summary>
-        private readonly bool _initialiseAtHead;
 
         protected override void PreStart() {
             base.PreStart();
@@ -68,80 +54,46 @@ namespace EventSaucing.Projectors {
             }
         }
 
-        private void Received(CatchUpMessage msg) {
-            Catchup();
+        /// <summary>
+        /// Projects the commit by delegating it to the synchronous Project method
+        /// </summary>
+        /// <param name="commit"></param>
+        /// <returns>Task</returns>
+        public override Task ProjectAsync(ICommit commit) {
+            Project(commit);
+            return Task.CompletedTask;
         }
 
-        private void Received(OrderedCommitNotification msg) {
-            //if their previous matches our current, project
-            //if their previous is less than our current, ignore
-            //if their previous is > our current, catchup
-            var order = new CheckpointOrder();
-            var comparision = order.Compare(Checkpoint, msg.PreviousCheckpoint);
-            if (comparision == 0) {
-                Project(msg.Commit); //order matched, project
-            }
-            else if (comparision > 0) {
-                //we are ahead of this commit so no-op, this is a bit odd, so log it
-                Context.GetLogger()
-                    .Debug("Received a commit notification  (checkpoint {0}) behind our checkpoint ({1})",
-                        msg.Commit.CheckpointToken, Checkpoint.Get());
-            }
-            else {
-                //we are behind the head, should catch up
-                var fromPoint = Checkpoint.Map(x => x.ToString()).GetOrElse("beginning of time");
-                Context.GetLogger()
-                    .Info(
-                        "Catchup started from checkpoint {0} after receiving out-of-sequence commit with checkpoint {1} and previous checkpoint {2}",
-                        fromPoint, msg.Commit.CheckpointToken, msg.PreviousCheckpoint);
-                Catchup();
-                Context.GetLogger()
-                    .Info("Catchup finished from {0} to checkpoint {1} after receiving commit with checkpoint {2}",
-                        fromPoint, Checkpoint.Map(x => x.ToString()).GetOrElse("beginning of time"),
-                        msg.Commit.CheckpointToken);
-            }
+        /// <summary>
+        /// Projects the commit
+        /// </summary>
+        /// <param name="commit"></param>
+        public abstract void Project(ICommit commit);
+
+        /// <summary>
+        /// Tells projector to project unprojected commits from the commit store
+        /// </summary>
+        /// <returns>Task</returns>
+        public override Task CatchUpAsync() {
+            CatchUp();
+            return Task.CompletedTask;
         }
 
         /// <summary>
         /// Catches-up the projector if it has fallen behind the head
         /// </summary>
-        protected virtual void Catchup() {
+        protected virtual void CatchUp() {
             var comparer = new CheckpointOrder();
-            IEnumerable<ICommit>
-                commits = _persistStreams.GetFrom(Checkpoint.GetOrElse(() =>
-                    0)); //load all commits after our current checkpoint from db
+            //load all commits after our current checkpoint from db
+            IEnumerable<ICommit>commits = _persistStreams.GetFrom(Checkpoint.GetOrElse(() =>0)); 
             foreach (var commit in commits) {
                 Project(commit);
                 if (comparer.Compare(Checkpoint, commit.CheckpointToken.ToSome()) != 0) {
                     //something went wrong, we couldn't project
-                    Context.GetLogger().Warning("Stopped catchup! was unable to project the commit at checkpoint {0}",
-                        commit.CheckpointToken);
+                    Context.GetLogger().Warning("Stopped catchup! was unable to project the commit at checkpoint {0}",commit.CheckpointToken);
                     break;
                 }
             }
         }
-
-        /// <summary>
-        /// Derived class is responsible for updating this field after processing the new commit message
-        /// </summary>
-        public Option<long> Checkpoint { get; protected set; } = Option.None();
-
-        /// <summary>
-        /// Projects the commit.  The implementor MUST update the base.Checkpoint value if the commit was successful
-        /// </summary>
-        /// <param name="commit"></param>
-        public abstract void Project(ICommit commit);
-
-        protected override Task ReceivedAsync(OrderedCommitNotification msg) {
-            Received(msg);
-            return Task.CompletedTask;
-        }
-
-        protected override Task ReceivedAsync(CatchUpMessage msg) {
-            Received(msg);
-            return Task.CompletedTask;
-        }
     }
-
- 
 }
