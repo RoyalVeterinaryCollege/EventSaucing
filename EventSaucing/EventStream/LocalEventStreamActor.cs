@@ -101,7 +101,7 @@ namespace EventSaucing.EventStream {
             var eventStorePollerActor = _pollerMaker(Context);
 
             //ask the poller to get the commits directly from the store
-            eventStorePollerActor.Tell(new SendCommitAfterCurrentHeadCheckpointMessage(afterCheckpoint,_backlogCommitCount.ToSome()));
+            eventStorePollerActor.Tell(new EventStorePollerActor.Messages.SendCommitAfterCurrentHeadCheckpointMessage(afterCheckpoint,_backlogCommitCount.ToSome()));
         }
 
         /// <summary>

@@ -105,7 +105,7 @@ namespace EventSaucing.EventStream
 
         [Test]
         public void Should_poll_the_event_store() {
-            _pollEventStoreProbe.ExpectMsg<SendCommitAfterCurrentHeadCheckpointMessage>(
+            _pollEventStoreProbe.ExpectMsg<EventStorePollerActor.Messages.SendCommitAfterCurrentHeadCheckpointMessage>(
                 x=>x.CurrentHeadCheckpoint.Get()==_commit1.CheckpointToken,
                 TimeSpan.FromMilliseconds(100));
         }
@@ -128,7 +128,7 @@ namespace EventSaucing.EventStream
 
         [Test]
         public void Should_poll_the_event_store() {
-            _pollEventStoreProbe.ExpectMsg<SendCommitAfterCurrentHeadCheckpointMessage>(
+            _pollEventStoreProbe.ExpectMsg<EventStorePollerActor.Messages.SendCommitAfterCurrentHeadCheckpointMessage>(
                 x => x.CurrentHeadCheckpoint.Get() == _commit1.CheckpointToken,
                 TimeSpan.FromMilliseconds(100));
         }
