@@ -19,7 +19,7 @@ namespace EventSaucing.Projectors {
 
         protected abstract void Because();
 
-        protected virtual Projector.Messages.DependUponProjectors Dummy<T>(params Type[] dependedOnProjectors) {
+        protected virtual Projector.Messages.DependUponProjectors Dummy<T>(params Type[] dependedOnProjectors) where T: {
             return new Projector.Messages.DependUponProjectors(typeof(T), new ReadOnlyCollection<Type>(dependedOnProjectors));
         }
 
@@ -32,7 +32,7 @@ namespace EventSaucing.Projectors {
 
         [Test]
         public void Should_blah() {
-            _sut.Graph.
+            _sut.Graph.Send
         }
     }
 }

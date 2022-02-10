@@ -55,15 +55,17 @@ namespace EventSaucing.Projectors {
                 /// The Type of the projector that depends on the Projectors listed
                 /// </summary>
                 public Type MyType { get; }
+
+                public IActorRef MyRef { get; }
                 /// <summary>
                 /// A list of Types of projectors upon which this projector depends. If list is empty, this projector depends on no other projectors.
                 /// </summary>
-                public IReadOnlyList<Type> Projectors { get; }
-
-                public DependUponProjectors(Type myType, IReadOnlyList<Type> projectors) {
+                public IReadOnlyList<Type> Projectors { get; init; }
+/*
+                public DependUponProjectors(Type myType, IActorIReadOnlyList<Type> projectors) {
                     MyType = myType;
                     Projectors = projectors;
-                }
+                }*/
             }
         }
 
@@ -86,7 +88,7 @@ namespace EventSaucing.Projectors {
             ReceiveAsync<OrderedCommitNotification>(ReceivedAsync);
             ReceiveAsync<Messages.PersistCheckpoint>(msg => PersistCheckpointAsync());
             Receive<Messages.SendDependUponProjectors>(msg =>
-                Context.Sender.Tell(new Messages.DependUponProjectors(GetType(), DependedOnProjectors.AsReadOnly()))
+                Context.Sender.Tell(new Messages.DependUponProjectors(){Projectors = DependedOnProjectors.AsReadOnly(), )
             );
 
             var initialiseAtHead = config.GetSection("EventSaucing:Projectors:InitialiseAtHead").Get<string[]>();
