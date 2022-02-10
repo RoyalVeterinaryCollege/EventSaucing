@@ -45,11 +45,12 @@ namespace EventSaucing.Projectors {
                         "SELECT LastCheckPointToken FROM dbo.ProjectorStatus WHERE ProjectorId = @ProjectorId",
                         new { this.ProjectorId });
 
-                results.ForEach(x => { Checkpoint = x.ToSome(); });
+                // if we have a checkpoint, set it
+                results.ForEach(SetCheckpoint);
 
                 // initialise at head if requested
                 if (Checkpoint.IsEmpty && _initialiseAtHead) {
-                    Checkpoint = conn.ExecuteScalar<long>("SELECT MAX(CheckpointNumber) FROM dbo.Commits").ToSome();
+                    SetCheckpoint(conn.ExecuteScalar<long>("SELECT MAX(CheckpointNumber) FROM dbo.Commits"));
                 }
             }
         }

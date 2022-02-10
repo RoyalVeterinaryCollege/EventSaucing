@@ -38,11 +38,12 @@ namespace EventSaucing.Projectors
                         "SELECT LastCheckPointToken FROM dbo.ProjectorStatus WHERE ProjectorId = @Name",
                         new { this.Name });
 
-                results.ForEach(x => { Checkpoint = x.ToSome(); });
+                //if we have a checkpoint, set it
+                results.ForEach(SetCheckpoint);
 
                 // initialise at head if requested
                 if (Checkpoint.IsEmpty && _initialiseAtHead) {
-                    Checkpoint = conn.ExecuteScalar<long>("SELECT MAX(CheckpointNumber) FROM dbo.Commits").ToSome();
+                    SetCheckpoint(conn.ExecuteScalar<long>("SELECT MAX(CheckpointNumber) FROM dbo.Commits"));
                 }
             }
         }
@@ -50,7 +51,7 @@ namespace EventSaucing.Projectors
             var projectionMethods = _dispatcher.GetProjectionMethods(commit).ToList();
 
             if (!projectionMethods.Any()) {
-                Checkpoint = commit.CheckpointToken.ToSome();
+                SetCheckpoint(commit.CheckpointToken);
                 return;
             }
             using (var con = GetProjectionDb()) {
@@ -76,7 +77,7 @@ namespace EventSaucing.Projectors
                 }
             }
 
-            Checkpoint = commit.CheckpointToken.ToSome();
+            SetCheckpoint(commit.CheckpointToken);
         }
 
         protected override async Task PersistCheckpointAsync() {
