@@ -21,6 +21,7 @@ using Scalesque;
 namespace EventSaucing.Projectors {
     public class ProbingProjector : Projector {
         protected override void PreStart() {
+            //dont call base, else it starts the timer which is confusing when debugging
             SetCheckpoint(10L);
         }
 
@@ -67,7 +68,7 @@ namespace EventSaucing.Projectors {
             //both initialised at checkpoint 10
             _independentProjector = Sys.ActorOf<IndependentProjector>(nameof(IndependentProjector));
             _dependentProjector = Sys.ActorOf<DependentProjector>(nameof(DependentProjector));
-          
+
             //push independent to 11L
             _independentProjector.Tell(new OrderedCommitNotification(new FakeCommit { CheckpointToken = 11L },
                 previousCheckpoint: 10L.ToSome()));
@@ -157,7 +158,8 @@ namespace EventSaucing.Projectors {
         private IActorRef _independentProjector;
         private IActorRef _dependentProjector;
         private TestProbe _probe;
-        private IEnumerable<Projector.Messages.AfterProjectorCheckpointStatusChanged> _publishedMessages;
+        private Projector.Messages.CurrentCheckpoint _dependentCurrentCheckpoint;
+        private Projector.Messages.CurrentCheckpoint _independentCurrentCheckpoint;
 
         protected override void Because() {
             _probe = CreateTestProbe();
@@ -168,41 +170,31 @@ namespace EventSaucing.Projectors {
             _dependentProjector = Sys.ActorOf<DependentProjector>(nameof(DependentProjector));
 
             //push dependent to 11L, it's now ahead of dependent
-            _dependentProjector.Tell(new OrderedCommitNotification(new FakeCommit { CheckpointToken = 11L },
-                previousCheckpoint: 10L.ToSome()));
+            var newCommit = new OrderedCommitNotification(
+                new FakeCommit { CheckpointToken = 11L },
+                previousCheckpoint: 10L.ToSome());
 
-            _publishedMessages = _probe.ReceiveN(2)
-                .Select(x => (Projector.Messages.AfterProjectorCheckpointStatusChanged)x)
-                .ToList();
-            
-        }
+            //send commit only to the dependent
+            _dependentProjector.Tell(newCommit);
 
-        [Test]
-        public void Independent_should_have_started_at_10() {
-            _publishedMessages
-                .Should().ContainSingle(x => x.Checkpoint == 10L && x.MyType == typeof(IndependentProjector));
-        }
-
-        [Test]
-        public void Dependent_should_have_started_at_10() {
-            _publishedMessages
-                .Should().ContainSingle(x => x.Checkpoint == 10L && x.MyType == typeof(DependentProjector));
-        }
-
-        [Test]
-        public void Independent_should_be_on_10_as_it_hasnt_received_11_yet() {
-            var checkpoint = _independentProjector
+            var checkpointDep = _dependentProjector
                 .Ask<Projector.Messages.CurrentCheckpoint>(Projector.Messages.SendCurrentCheckpoint.Message);
-            checkpoint.Wait();
-            checkpoint.Result.Checkpoint.Get().Should().Be(10L);
+            var checkpointInd = _independentProjector
+                .Ask<Projector.Messages.CurrentCheckpoint>(Projector.Messages.SendCurrentCheckpoint.Message);
+
+            Task.WaitAll(checkpointInd, checkpointDep);
+            _dependentCurrentCheckpoint = checkpointDep.Result;
+            _independentCurrentCheckpoint = checkpointInd.Result;
         }
 
         [Test]
         public void Dependent_should_not_have_advanced_to_11_because_it_is_dependent_on_the_other_projector_advancing_first() {
-            var checkpoint = _dependentProjector
-                .Ask<Projector.Messages.CurrentCheckpoint>(Projector.Messages.SendCurrentCheckpoint.Message);
-            checkpoint.Wait();
-            checkpoint.Result.Checkpoint.Get().Should().Be(10L);
+            _dependentCurrentCheckpoint.Checkpoint.Get().Should().Be(10L);
+        }
+
+        [Test]
+        public void Independent_should_be_on_10_as_it_hasnt_received_11_yet() {
+            _independentCurrentCheckpoint.Checkpoint.Get().Should().Be(10L);
         }
     }
 }
