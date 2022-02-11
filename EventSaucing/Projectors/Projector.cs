@@ -8,7 +8,9 @@ using Scalesque;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
+using Failure = Akka.Actor.Failure;
 
 namespace EventSaucing.Projectors {
     public abstract class Projector : ReceiveActor, IWithTimers {
@@ -50,6 +52,7 @@ namespace EventSaucing.Projectors {
                 private SendDependUponProjectors() { }
                 public static SendDependUponProjectors Message { get; }
             }
+
             /// <summary>
             /// Asks projector to send its current checkpoint. Replies with <see cref="CurrentCheckpoint"/>
             /// </summary>
@@ -61,6 +64,7 @@ namespace EventSaucing.Projectors {
                 private SendCurrentCheckpoint() { }
                 public static SendCurrentCheckpoint Message { get; }
             }
+
             /// <summary>
             /// A reply to the <see cref="CurrentCheckpoint"/> message
             /// </summary>
@@ -122,13 +126,19 @@ namespace EventSaucing.Projectors {
             ReceiveAsync<OrderedCommitNotification>(ReceivedAsync);
             ReceiveAsync<Messages.PersistCheckpoint>(msg => PersistCheckpointAsync());
             Receive<Messages.SendDependUponProjectors>(msg =>
-                Context.Sender.Tell(new Messages.DependUponProjectors(GetType(), Context.Self,
-                    DependedOnProjectors.AsReadOnly()))
+                Sender.Tell(
+                    new Messages.DependUponProjectors(GetType(), Context.Self, DependedOnProjectors.AsReadOnly()), Self)
             );
 
-            Receive<Messages.SendCurrentCheckpoint>(msg =>
-                Context.Sender.Tell(new Messages.CurrentCheckpoint(Checkpoint))
-                );
+
+            Receive<Messages.SendCurrentCheckpoint>(msg => {
+                try {
+                    Sender.Tell(new Messages.CurrentCheckpoint(Checkpoint), Self);
+                }
+                catch (Exception e) {
+                    Sender.Tell(new Failure { Exception = e }, Self);
+                }
+            });
         }
 
         protected override void PreStart() {

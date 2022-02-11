@@ -44,15 +44,8 @@ namespace EventSaucing.Projectors {
 
     [TestFixture]
     public abstract class DependentProjectorTests : TestKit {
-        /// <summary>
-        /// the normal amount of time to wait for messages to be sent
-        /// </summary>
-        protected TimeSpan _standardWait;
-
         public DependentProjectorTests() {
             Because();
-
-            _standardWait = TimeSpan.FromSeconds(100);
         }
 
         protected abstract void Because();
@@ -68,18 +61,18 @@ namespace EventSaucing.Projectors {
         private IEnumerable<Projector.Messages.AfterProjectorCheckpointStatusChanged> _publishedMessages;
 
         protected override void Because() {
-            //both initialised at checkpoint 10
-            _independentProjector = Sys.ActorOf<IndependentProjector>(nameof(IndependentProjector));
-            _dependentProjector = Sys.ActorOf<DependentProjector>(nameof(DependentProjector));
-
             _probe = CreateTestProbe();
             Sys.EventStream.Subscribe(_probe, typeof(Projector.Messages.AfterProjectorCheckpointStatusChanged));
 
+            //both initialised at checkpoint 10
+            _independentProjector = Sys.ActorOf<IndependentProjector>(nameof(IndependentProjector));
+            _dependentProjector = Sys.ActorOf<DependentProjector>(nameof(DependentProjector));
+          
             //push independent to 11L
             _independentProjector.Tell(new OrderedCommitNotification(new FakeCommit { CheckpointToken = 11L },
                 previousCheckpoint: 10L.ToSome()));
 
-            _publishedMessages = _probe.ReceiveN(3, _standardWait)
+            _publishedMessages = _probe.ReceiveN(3)
                 .Select(x => (Projector.Messages.AfterProjectorCheckpointStatusChanged)x)
                 .ToList();
         }
@@ -113,23 +106,21 @@ namespace EventSaucing.Projectors {
         private IEnumerable<Projector.Messages.AfterProjectorCheckpointStatusChanged> _publishedMessages;
 
         protected override void Because() {
+            _probe = CreateTestProbe();
+            Sys.EventStream.Subscribe(_probe, typeof(Projector.Messages.AfterProjectorCheckpointStatusChanged));
+
             //both initialised at checkpoint 10
             _independentProjector = Sys.ActorOf<IndependentProjector>(nameof(IndependentProjector));
             _dependentProjector = Sys.ActorOf<DependentProjector>(nameof(DependentProjector));
 
-            _probe = CreateTestProbe();
-            Sys.EventStream.Subscribe(_probe, typeof(Projector.Messages.AfterProjectorCheckpointStatusChanged));
-
+            //push commit to both in the natural order
             var orderedCommitNotification = new OrderedCommitNotification(
                 new FakeCommit { CheckpointToken = 11L },
                 previousCheckpoint: 10L.ToSome());
-
-
-            //push commit to both in the natural order
             _independentProjector.Tell(orderedCommitNotification);
             _dependentProjector.Tell(orderedCommitNotification);
 
-            _publishedMessages = _probe.ReceiveN(4, _standardWait)
+            _publishedMessages = _probe.ReceiveN(4)
                 .Select(x => (Projector.Messages.AfterProjectorCheckpointStatusChanged)x)
                 .ToList();
         }
@@ -169,21 +160,21 @@ namespace EventSaucing.Projectors {
         private IEnumerable<Projector.Messages.AfterProjectorCheckpointStatusChanged> _publishedMessages;
 
         protected override void Because() {
+            _probe = CreateTestProbe();
+            Sys.EventStream.Subscribe(_probe, typeof(Projector.Messages.AfterProjectorCheckpointStatusChanged));
+
             //both initialised at checkpoint 10
             _independentProjector = Sys.ActorOf<IndependentProjector>(nameof(IndependentProjector));
             _dependentProjector = Sys.ActorOf<DependentProjector>(nameof(DependentProjector));
-
-            _probe = CreateTestProbe();
-            Sys.EventStream.Subscribe(_probe, typeof(Projector.Messages.AfterProjectorCheckpointStatusChanged));
 
             //push dependent to 11L, it's now ahead of dependent
             _dependentProjector.Tell(new OrderedCommitNotification(new FakeCommit { CheckpointToken = 11L },
                 previousCheckpoint: 10L.ToSome()));
 
-
-            _publishedMessages = _probe.ReceiveN(2, _standardWait)
+            _publishedMessages = _probe.ReceiveN(2)
                 .Select(x => (Projector.Messages.AfterProjectorCheckpointStatusChanged)x)
                 .ToList();
+            
         }
 
         [Test]
@@ -201,18 +192,15 @@ namespace EventSaucing.Projectors {
         [Test]
         public void Independent_should_be_on_10_as_it_hasnt_received_11_yet() {
             var checkpoint = _independentProjector
-                .Ask<Projector.Messages.CurrentCheckpoint>(Projector.Messages.SendCurrentCheckpoint.Message,
-                    _standardWait);
+                .Ask<Projector.Messages.CurrentCheckpoint>(Projector.Messages.SendCurrentCheckpoint.Message);
             checkpoint.Wait();
             checkpoint.Result.Checkpoint.Get().Should().Be(10L);
         }
 
         [Test]
-        public void
-            Dependent_should_not_have_advanced_to_11_because_it_is_dependent_on_the_other_projector_advancing_first() {
+        public void Dependent_should_not_have_advanced_to_11_because_it_is_dependent_on_the_other_projector_advancing_first() {
             var checkpoint = _dependentProjector
-                .Ask<Projector.Messages.CurrentCheckpoint>(Projector.Messages.SendCurrentCheckpoint.Message,
-                    _standardWait);
+                .Ask<Projector.Messages.CurrentCheckpoint>(Projector.Messages.SendCurrentCheckpoint.Message);
             checkpoint.Wait();
             checkpoint.Result.Checkpoint.Get().Should().Be(10L);
         }
