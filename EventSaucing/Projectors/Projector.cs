@@ -14,6 +14,7 @@ using Failure = Akka.Actor.Failure;
 
 namespace EventSaucing.Projectors {
     public abstract class Projector : ReceiveActor, IWithTimers {
+
         public static class Messages {
             /// <summary>
             ///     Tell Projector to catch up by going to commit store to stream unprojected commits
@@ -39,18 +40,6 @@ namespace EventSaucing.Projectors {
                 private PersistCheckpoint() { }
 
                 public static PersistCheckpoint Message { get; }
-            }
-
-            /// <summary>
-            /// Ask projector for a list of projectors it depends on
-            /// </summary>
-            public class SendDependUponProjectors {
-                static SendDependUponProjectors() {
-                    Message = new SendDependUponProjectors();
-                }
-
-                private SendDependUponProjectors() { }
-                public static SendDependUponProjectors Message { get; }
             }
 
             /// <summary>
@@ -102,11 +91,11 @@ namespace EventSaucing.Projectors {
             /// <summary>
             /// Message published on EventStream after the projector's checkpoint changes
             /// </summary>
-            public class AfterProjectorCheckpointStatusChanged {
+            public class AfterProjectorCheckpointStatusSet {
                 public Type MyType { get; }
                 public long Checkpoint { get; }
 
-                public AfterProjectorCheckpointStatusChanged(Type myType, long checkpoint) {
+                public AfterProjectorCheckpointStatusSet(Type myType, long checkpoint) {
                     MyType = myType;
                     Checkpoint = checkpoint;
                 }
@@ -114,23 +103,22 @@ namespace EventSaucing.Projectors {
         }
 
         private const string TimerName = "persist_checkpoint";
+        
+        /// <summary>
+        /// A cache of commits this projector has received.  Used by following projectors to cache commit notifications until proceeding projectors have projected it
+        /// </summary>
+        readonly InMemoryCommitSerialiserCache _commitCache = new InMemoryCommitSerialiserCache(10);
 
 
         /// <summary>
-        /// A  list of projectors upon which this projector is dependent
+        /// Our proceeding projectors.  Projector type -> last known checkpoint for that projector
         /// </summary>
-        public List<Type> DependedOnProjectors { get; } = new List<Type>();
+        public Dictionary<Type, Option<long>> PreceedingProjectors { get; } = new Dictionary<Type, Option<long>>();
 
         public Projector() {
             ReceiveAsync<Messages.CatchUp>(ReceivedAsync);
             ReceiveAsync<OrderedCommitNotification>(ReceivedAsync);
             ReceiveAsync<Messages.PersistCheckpoint>(msg => PersistCheckpointAsync());
-            Receive<Messages.SendDependUponProjectors>(msg =>
-                Sender.Tell(
-                    new Messages.DependUponProjectors(GetType(), Context.Self, DependedOnProjectors.AsReadOnly()), Self)
-            );
-
-
             Receive<Messages.SendCurrentCheckpoint>(msg => {
                 try {
                     Sender.Tell(new Messages.CurrentCheckpoint(Checkpoint), Self);
@@ -139,6 +127,32 @@ namespace EventSaucing.Projectors {
                     Sender.Tell(new Failure { Exception = e }, Self);
                 }
             });
+            ReceiveAsync<Messages.AfterProjectorCheckpointStatusSet>  (async msg => {
+                if (PreceedingProjectors.ContainsKey(msg.MyType))
+                    PreceedingProjectors[msg.MyType] = msg.Checkpoint.ToSome();
+                
+                // are all proceeding projectors now ahead of us?
+                while(AllProceedingProjectorsAhead()) {
+                    //yes
+                    var cachedCommits = _commitCache.GetCommitsAfter(Checkpoint.GetOrElse(0L));
+                    if (!cachedCommits.Any()) {
+                        // don't have the commits we need 
+                        await CatchUpAsync();
+                    } else {
+                        await ProjectAsync(cachedCommits.First().Commit);
+                    }
+                }
+            });
+        }
+        /// <summary>
+        /// Checks if all proceeding projectors are ahead of us
+        /// </summary>
+        /// <returns>bool True if all proceeding projectors have a higher checkpoint than us</returns>
+        protected bool AllProceedingProjectorsAhead() {
+            var order = new CheckpointOrder();
+            return PreceedingProjectors
+                .Values
+                .All(proceedingCheckpoint => order.Compare(Checkpoint, proceedingCheckpoint) < 0);
         }
 
         protected override void PreStart() {
@@ -146,14 +160,14 @@ namespace EventSaucing.Projectors {
         }
 
         /// <summary>
-        /// Turn this projector into a dependent projector.  This projector's Checkpoint will never be greater than the depended upon projector.
+        /// Turns this projector into a sequenced projector. This projector's Checkpoint will never be greater than the proceeding projector.
         ///
-        /// This means it's safe for this projector to load the other's readmodels
+        /// This means it's safe for this projector to access the other's readmodels
         /// </summary>
         /// <typeparam name="T"></typeparam>
-        protected void DependOn<T>() where T : Projector {
+        protected void PreceededBy<T>() where T : Projector {
             var type = typeof(T);
-            if (!DependedOnProjectors.Contains(type)) DependedOnProjectors.Add(type);
+            if (!PreceedingProjectors.ContainsKey(type)) PreceedingProjectors[type] = Option.None();
         }
 
         /// <summary>
@@ -168,7 +182,7 @@ namespace EventSaucing.Projectors {
         public void SetCheckpoint(long checkpoint) {
             Checkpoint = checkpoint.ToSome();
             Context.System.EventStream.Publish(
-                new Messages.AfterProjectorCheckpointStatusChanged(GetType(), checkpoint));
+                new Messages.AfterProjectorCheckpointStatusSet(GetType(), checkpoint));
         }
 
         /// <summary>
@@ -210,6 +224,11 @@ namespace EventSaucing.Projectors {
         public abstract Task ProjectAsync(ICommit commit);
 
         protected virtual async Task ReceivedAsync(OrderedCommitNotification msg) {
+            if (!AllProceedingProjectorsAhead()) {
+                _commitCache.Cache(msg.Commit);
+                return;
+            }
+
             //if their previous matches our current, project
             //if their previous is less than our current, ignore
             //if their previous is > our current, catchup
