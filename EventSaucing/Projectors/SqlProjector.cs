@@ -19,11 +19,22 @@ namespace EventSaucing.Projectors
         protected readonly ILogger _logger;
         private readonly IDbService _dbService;
 
-        public SqlProjector(ILogger logger, IConfiguration config, IDbService dbService) : base(config) {
+
+        /// <summary>
+        ///     Should projector be set to the head checkpoint of the commit store on first ever instantiation.  If false,
+        ///     projector will run through all commits in the store.  If True, projector will start at the head of the commit and
+        ///     only process new commits
+        /// </summary>
+        private bool _initialiseAtHead;
+
+        public SqlProjector(ILogger logger, IConfiguration config, IDbService dbService){
             _logger = logger;
             _dbService = dbService;
             _dispatcher = new ConventionBasedEventDispatcher(this);
             Name = GetType().FullName;
+
+            var initialiseAtHead = config.GetSection("EventSaucing:Projectors:InitialiseAtHead").Get<string[]>();
+            _initialiseAtHead = initialiseAtHead.Contains(GetType().FullName);
         }
 
         protected override void PreStart() {

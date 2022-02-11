@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using NEventStore;
 using NEventStore.Persistence;
 using Scalesque;
+using System.Linq;
 
 namespace EventSaucing.Projectors {
 
@@ -23,15 +24,25 @@ namespace EventSaucing.Projectors {
         public int ProjectorId { get; }
 
         /// <summary>
+        ///     Should projector be set to the head checkpoint of the commit store on first ever instantiation.  If false,
+        ///     projector will run through all commits in the store.  If True, projector will start at the head of the commit and
+        ///     only process new commits
+        /// </summary>
+        private bool _initialiseAtHead;
+
+        /// <summary>
         /// Instantiates
         /// </summary>
         /// <param name="persistStreams">IPersistStreams Required for when the projector falls behind the head commit and needs to catchup</param>
         /// <param name="dbService"></param>
         /// <param name="config"></param>
-        public LegacyProjector(IPersistStreams persistStreams, IDbService dbService, IConfiguration config):base(config) {
+        public LegacyProjector(IPersistStreams persistStreams, IDbService dbService, IConfiguration config) {
             _persistStreams = persistStreams;
             _dbService = dbService;
             ProjectorId = this.GetProjectorId();
+
+            var initialiseAtHead = config.GetSection("EventSaucing:Projectors:InitialiseAtHead").Get<string[]>();
+            _initialiseAtHead = initialiseAtHead.Contains(GetType().FullName);
         }
 
         protected override void PreStart() {

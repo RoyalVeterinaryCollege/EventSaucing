@@ -16,14 +16,14 @@ namespace EventSaucing.Projectors {
             /// <summary>
             ///     Tell Projector to catch up by going to commit store to stream unprojected commits
             /// </summary>
-            public class CatchUpMessage {
-                static CatchUpMessage() {
-                    Message = new CatchUpMessage();
+            public class CatchUp {
+                static CatchUp() {
+                    Message = new CatchUp();
                 }
 
-                private CatchUpMessage() { }
+                private CatchUp() { }
 
-                public static CatchUpMessage Message { get; }
+                public static CatchUp Message { get; }
             }
 
             /// <summary>
@@ -38,10 +38,11 @@ namespace EventSaucing.Projectors {
 
                 public static PersistCheckpoint Message { get; }
             }
+
             /// <summary>
             /// Ask projector for a list of projectors it depends on
             /// </summary>
-            public class SendDependUponProjectors  {
+            public class SendDependUponProjectors {
                 static SendDependUponProjectors() {
                     Message = new SendDependUponProjectors();
                 }
@@ -49,20 +50,43 @@ namespace EventSaucing.Projectors {
                 private SendDependUponProjectors() { }
                 public static SendDependUponProjectors Message { get; }
             }
+            /// <summary>
+            /// Asks projector to send its current checkpoint. Replies with <see cref="CurrentCheckpoint"/>
+            /// </summary>
+            public class SendCurrentCheckpoint {
+                static SendCurrentCheckpoint() {
+                    Message = new SendCurrentCheckpoint();
+                }
+
+                private SendCurrentCheckpoint() { }
+                public static SendCurrentCheckpoint Message { get; }
+            }
+            /// <summary>
+            /// A reply to the <see cref="CurrentCheckpoint"/> message
+            /// </summary>
+            public class CurrentCheckpoint {
+                public Option<long> Checkpoint { get; }
+
+                public CurrentCheckpoint(Option<long> checkpoint) {
+                    Checkpoint = checkpoint;
+                }
+            }
 
             public class DependUponProjectors {
                 /// <summary>
                 /// The Type of the projector that depends on the Projectors listed
                 /// </summary>
-                public Type MyType { get;}
+                public Type MyType { get; }
+
                 /// <summary>
                 /// Reference to the projector
                 /// </summary>
                 public IActorRef MyRef { get; }
+
                 /// <summary>
                 /// A list of Types of projectors upon which this projector depends. If list is empty, this projector depends on no other projectors.
                 /// </summary>
-                public IReadOnlyList<Type> Projectors { get;  }
+                public IReadOnlyList<Type> Projectors { get; }
 
                 public DependUponProjectors(Type myType, IActorRef myRef, IReadOnlyList<Type> projectors) {
                     MyType = myType;
@@ -70,13 +94,15 @@ namespace EventSaucing.Projectors {
                     Projectors = projectors;
                 }
             }
+
             /// <summary>
             /// Message published on EventStream after the projector's checkpoint changes
             /// </summary>
-            public class ProjectorCheckpointStatusChanged {
+            public class AfterProjectorCheckpointStatusChanged {
                 public Type MyType { get; }
-                public long Checkpoint { get;}
-                public ProjectorCheckpointStatusChanged(Type myType, long checkpoint) {
+                public long Checkpoint { get; }
+
+                public AfterProjectorCheckpointStatusChanged(Type myType, long checkpoint) {
                     MyType = myType;
                     Checkpoint = checkpoint;
                 }
@@ -85,31 +111,27 @@ namespace EventSaucing.Projectors {
 
         private const string TimerName = "persist_checkpoint";
 
-        /// <summary>
-        ///     Should projector be set to the head checkpoint of the commit store on first ever instantiation.  If false,
-        ///     projector will run through all commits in the store.  If True, projector will start at the head of the commit and
-        ///     only process new commits
-        /// </summary>
-        protected bool _initialiseAtHead;
 
         /// <summary>
         /// A  list of projectors upon which this projector is dependent
         /// </summary>
         public List<Type> DependedOnProjectors { get; } = new List<Type>();
 
-        public Projector(IConfiguration config) {
-            ReceiveAsync<Messages.CatchUpMessage>(ReceivedAsync);
+        public Projector() {
+            ReceiveAsync<Messages.CatchUp>(ReceivedAsync);
             ReceiveAsync<OrderedCommitNotification>(ReceivedAsync);
             ReceiveAsync<Messages.PersistCheckpoint>(msg => PersistCheckpointAsync());
             Receive<Messages.SendDependUponProjectors>(msg =>
                 Context.Sender.Tell(new Messages.DependUponProjectors(GetType(), Context.Self,
                     DependedOnProjectors.AsReadOnly()))
-                );
+            );
 
-            var initialiseAtHead = config.GetSection("EventSaucing:Projectors:InitialiseAtHead").Get<string[]>();
-            _initialiseAtHead = initialiseAtHead.Contains(GetType().FullName);
+            Receive<Messages.SendCurrentCheckpoint>(msg =>
+                Context.Sender.Tell(new Messages.CurrentCheckpoint(Checkpoint))
+                );
         }
-        protected override void PreStart()   {
+
+        protected override void PreStart() {
             StartTimer();
         }
 
@@ -121,11 +143,11 @@ namespace EventSaucing.Projectors {
         /// <typeparam name="T"></typeparam>
         protected void DependOn<T>() where T : Projector {
             var type = typeof(T);
-            if(!DependedOnProjectors.Contains(type))  DependedOnProjectors.Add(type);
-        } 
+            if (!DependedOnProjectors.Contains(type)) DependedOnProjectors.Add(type);
+        }
 
         /// <summary>
-        ///     Derived class is responsible for updating this field after processing the new commit message
+        ///     Derived class is responsible for updating this field after processing the new commit message by called SetCheckpoint method
         /// </summary>
         public Option<long> Checkpoint { get; private set; } = Option.None();
 
@@ -135,7 +157,8 @@ namespace EventSaucing.Projectors {
         /// <param name="checkpoint"></param>
         public void SetCheckpoint(long checkpoint) {
             Checkpoint = checkpoint.ToSome();
-            Context.System.EventStream.Publish(new Messages.ProjectorCheckpointStatusChanged(GetType(),checkpoint));
+            Context.System.EventStream.Publish(
+                new Messages.AfterProjectorCheckpointStatusChanged(GetType(), checkpoint));
         }
 
         /// <summary>
@@ -143,7 +166,7 @@ namespace EventSaucing.Projectors {
         /// </summary>
         public ITimerScheduler Timers { get; set; }
 
-        private async Task ReceivedAsync(Messages.CatchUpMessage arg) {
+        private async Task ReceivedAsync(Messages.CatchUp arg) {
             //stop timer whilst we catch up else lots of superfluous messages might pile up in mailbox
             if (Timers.IsTimerActive(TimerName)) Timers.Cancel(TimerName);
             await CatchUpAsync();
