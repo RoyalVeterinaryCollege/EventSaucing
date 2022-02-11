@@ -35,7 +35,7 @@ namespace EventSaucing.Projectors
         protected virtual void Because() { }
     }
 
-    public class When_started : ProjectorSupervisorTests {
+    public class When_ProjectorSupervisor_starts : ProjectorSupervisorTests {
         [Test]
         public void Should_send_catchup() {
             _projector1.ExpectMsg<Projector.Messages.CatchUp>(TimeSpan.FromMilliseconds(100));
@@ -43,7 +43,7 @@ namespace EventSaucing.Projectors
         }
     }
 
-    public class When_ordered_commit_published_on_event_bus : ProjectorSupervisorTests  {
+    public class When_ordered_commit_published_on_event_bus_ProjectorSupervisor : ProjectorSupervisorTests  {
         private OrderedCommitNotification _msg;
 
         protected override void Because() {

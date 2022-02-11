@@ -55,7 +55,7 @@ namespace EventSaucing.Projectors {
     /// <summary>
     /// Independent + dependent start at 10, and Independent receives 11
     /// </summary>
-    public class When_commit_is_received_in_order_1 : DependentProjectorTests {
+    public class When_commit_is_sent_to_independent_projector_only : DependentProjectorTests {
         private IActorRef _independentProjector;
         private IActorRef _dependentProjector;
         private TestProbe _probe;
@@ -100,7 +100,7 @@ namespace EventSaucing.Projectors {
     /// <summary>
     ///  Independent + dependent start at 10, and Independent receives 11, then dependent receives 11
     /// </summary>
-    public class When_commit_is_received_in_order_2 : DependentProjectorTests {
+    public class When_commit_is_sent_in_order_to_projectors_with_a_dependency : DependentProjectorTests {
         private IActorRef _independentProjector;
         private IActorRef _dependentProjector;
         private TestProbe _probe;
@@ -154,7 +154,7 @@ namespace EventSaucing.Projectors {
     /// <summary>
     ///  Independent + dependent start at 10, and dependent receives 11
     /// </summary>
-    public class When_commit_is_received_out_of_order_1 : DependentProjectorTests {
+    public class When_commit_is_sent_only_to_dependent_projector : DependentProjectorTests {
         private IActorRef _independentProjector;
         private IActorRef _dependentProjector;
         private TestProbe _probe;
