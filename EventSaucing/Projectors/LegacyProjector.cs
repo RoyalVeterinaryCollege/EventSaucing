@@ -88,24 +88,5 @@ namespace EventSaucing.Projectors {
         /// </summary>
         /// <param name="commit"></param>
         public abstract void Project(ICommit commit);
-
-        /// <summary>
-        /// Tells projector to project unprojected commits from the commit store
-        /// </summary>
-        /// <returns>Task</returns>
-        protected override Task CatchUpAsync() {
-            var comparer = new CheckpointOrder();
-            //load all commits after our current checkpoint from db
-            IEnumerable<ICommit> commits = _persistStreams.GetFrom(Checkpoint.GetOrElse(() => 0));
-            foreach (var commit in commits) {
-                Project(commit);
-                if (comparer.Compare(Checkpoint, commit.CheckpointToken.ToSome()) != 0) {
-                    //something went wrong, we couldn't project
-                    Context.GetLogger().Warning("Stopped catchup! was unable to project the commit at checkpoint {0}", commit.CheckpointToken);
-                    break;
-                }
-            }
-            return Task.CompletedTask;
-        }
     }
 }
