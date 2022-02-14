@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using NEventStore.Persistence;
 using Failure = Akka.Actor.Failure;
@@ -55,6 +56,8 @@ namespace EventSaucing.Projectors {
      */
     public abstract class Projector : ReceiveActor, IWithTimers {
         private readonly IPersistStreams _persistStreams;
+        private bool _isCatchingUp;
+        private IEnumerator<ICommit> _catchupCommitStream;
 
         public static class Messages {
             /// <summary>
@@ -144,12 +147,6 @@ namespace EventSaucing.Projectors {
         }
 
         private const string TimerName = "persist_checkpoint";
-        
-        /// <summary>
-        /// A cache of commits this projector has received.  Used by following projectors to cache commit notifications until proceeding projectors have projected it
-        /// </summary>
-        readonly InMemoryCommitSerialiserCache _commitCache = new InMemoryCommitSerialiserCache(10);
-
 
         /// <summary>
         /// Our proceeding projectors.  Projector type -> last known checkpoint for that projector
@@ -169,28 +166,18 @@ namespace EventSaucing.Projectors {
                     Sender.Tell(new Failure { Exception = e }, Self);
                 }
             });
-            ReceiveAsync<Messages.AfterProjectorCheckpointStatusSet>  (async msg => {
+            Receive<Messages.AfterProjectorCheckpointStatusSet> ((msg) => {
                 if (PreceedingProjectors.ContainsKey(msg.MyType))
                     PreceedingProjectors[msg.MyType] = msg.Checkpoint.ToSome();
-                
-                // are all proceeding projectors now ahead of us?
-                while(AllProceedingProjectorsAhead()) {
-                    //yes
-                    var cachedCommits = _commitCache.GetCommitsAfter(Checkpoint.GetOrElse(0L));
-                    if (!cachedCommits.Any()) {
-                        // don't have the commits we need 
-                        await CatchUpAsync();
-                    } else {
-                        await ProjectAsync(cachedCommits.First().Commit);
-                    }
-                }
             });
         }
         /// <summary>
         /// Checks if all proceeding projectors are ahead of us
         /// </summary>
-        /// <returns>bool True if all proceeding projectors have a higher checkpoint than us</returns>
+        /// <returns>bool True if we have no proceeding projectors or all proceeding projectors have a higher checkpoint than us</returns>
         protected bool AllProceedingProjectorsAhead() {
+            if (!PreceedingProjectors.Any()) return true;
+
             var order = new CheckpointOrder();
             return PreceedingProjectors
                 .Values
@@ -251,19 +238,24 @@ namespace EventSaucing.Projectors {
         /// </summary>
         /// <returns></returns>
         protected virtual async Task CatchUpAsync() {
-            //todo catchup violates projector sequence
-            var comparer = new CheckpointOrder();
+            _isCatchingUp = true;
+
             //load all commits after our current checkpoint from db
             IEnumerable<ICommit> commits = _persistStreams.GetFrom(Checkpoint.GetOrElse(() => 0));
-            foreach (var commit in commits)
-            {
-                await ProjectAsync(commit);
-                if (comparer.Compare(Checkpoint, commit.CheckpointToken.ToSome()) != 0)
-                {
-                    //something went wrong, we couldn't project
-                    Context.GetLogger().Warning("Stopped catchup! was unable to project the commit at checkpoint {0}", commit.CheckpointToken);
-                    break;
-                }
+            _catchupCommitStream = commits.GetEnumerator();
+
+            await CatchUpNextCommitAsync();
+        }
+
+        private async Task CatchUpNextCommitAsync() {
+            if (_catchupCommitStream.MoveNext()) {
+                //await ProjectAsync(_catchupCommitStream.Current);
+                //Context.Self.Tell(new OrderedCommitNotification(_catchupCommitStream.Current,));
+            }
+            else {
+                // commit stream empty.  catchup has completed
+                _isCatchingUp = false;
+                _catchupCommitStream = null;
             }
         }
 
@@ -281,18 +273,24 @@ namespace EventSaucing.Projectors {
         public abstract Task ProjectAsync(ICommit commit);
 
         protected virtual async Task ReceivedAsync(OrderedCommitNotification msg) {
+            var order = new CheckpointOrder();
+
             // never go ahead of a proceeding projector
             if (!AllProceedingProjectorsAhead()) {
-
-                //todo cache the commit, or send to ourselves again in 500ms?
-                _commitCache.Cache(msg.Commit);
+                if (order.Compare(Checkpoint, msg.PreviousCheckpoint) <= 0) {
+                    // this is a commit we want.  
+                    // schedule commit to be resent to us in the future
+                    Timers.StartSingleTimer(key: $"commitid:{msg.Commit.CommitId}", msg, TimeSpan.FromMilliseconds(500));
+                }
                 return;
             }
+
+            // We are behind our proceeding projectors, or we aren't a sequenced projector.
+            // We are allowed to try to project this commit if we need to.
 
             //if their previous matches our current, project
             //if their previous is less than our current, ignore
             //if their previous is > our current, catchup
-            var order = new CheckpointOrder();
             var comparision = order.Compare(Checkpoint, msg.PreviousCheckpoint);
             if (comparision == 0) {
                 await ProjectAsync(msg.Commit); //order matched, project
