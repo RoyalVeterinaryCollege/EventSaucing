@@ -10,10 +10,51 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
+using NEventStore.Persistence;
 using Failure = Akka.Actor.Failure;
 
 namespace EventSaucing.Projectors {
+
+    /*
+     *catchup is currently triggered under 3 circumstances
+       
+       we receive catchup message
+       we receive AfterProjectorCheckpointStatusSet and local cache cant order the commits we need
+       we receive OrderedCommitNotification which is not the next commit after our current checkpoint
+       
+       
+       current implementation: all three ignore projector sequencing logic
+       also, cache logic is wrong. it only works with ICommit, not OrderedCommitNotification which has better 
+       easier to order
+       
+       problem:  how to receive AfterProjectorCheckpointStatusSet whilst we are 
+       catching up.  following projectors need that message to be able to advance
+       their own checkpoint. there doesnt seem to be a 'yield'
+       
+       Option 1: send orderedcommit to myself.  this seems the most obvious thing to do.  
+       it will auto interleave with AfterProjectorCheckpointStatusSet. if i cache the message, or stash??
+       problem: how to send it to myself and process it at the same time.  i will fill up my mailbox with messages
+    b4 a single one is processed.  - could have a child send the message.
+       what to do if i can't process one?  currently we stop processing. with a child it will simply keep on sending them..
+
+       option 2: create a child to listen to AfterProjectorCheckpointStatusSet. repeatedly ask it for the checkpoint state.
+
+    option 3: store the IEnumerable stream of messages private state.  i can then pull one and send it to myself each time i process.
+    when i receive orderedcommit, it gets processed, and then i check if we are in catchup mode.  if i am, i pull another commit and send it to myself.
+    if processing fails, i leave catch up. if waiting on AfterProjectorCheckpointStatusSet, i simply dont pull another one.  
+     when we reach the end of the stream i close it down and leave catchup mode. when receive AfterProjectorCheckpointStatusSet 
+    i check for catch up mode, and pull and send next commit.
+       
+
+    do i need the cache? do i need to upgrade it to handle orderedcommits?
+       
+       
+       
+     *
+     *
+     */
     public abstract class Projector : ReceiveActor, IWithTimers {
+        private readonly IPersistStreams _persistStreams;
 
         public static class Messages {
             /// <summary>
@@ -115,7 +156,8 @@ namespace EventSaucing.Projectors {
         /// </summary>
         public Dictionary<Type, Option<long>> PreceedingProjectors { get; } = new Dictionary<Type, Option<long>>();
 
-        public Projector() {
+        public Projector(IPersistStreams persistStreams) {
+            _persistStreams = persistStreams;
             ReceiveAsync<Messages.CatchUp>(ReceivedAsync);
             ReceiveAsync<OrderedCommitNotification>(ReceivedAsync);
             ReceiveAsync<Messages.PersistCheckpoint>(msg => PersistCheckpointAsync());
@@ -208,15 +250,14 @@ namespace EventSaucing.Projectors {
         ///     Tells projector to project unprojected commits from the commit store
         /// </summary>
         /// <returns></returns>
-        protected Task CatchUpAsync() {
-
+        protected virtual async Task CatchUpAsync() {
             //todo catchup violates projector sequence
             var comparer = new CheckpointOrder();
             //load all commits after our current checkpoint from db
             IEnumerable<ICommit> commits = _persistStreams.GetFrom(Checkpoint.GetOrElse(() => 0));
             foreach (var commit in commits)
             {
-                Project(commit);
+                await ProjectAsync(commit);
                 if (comparer.Compare(Checkpoint, commit.CheckpointToken.ToSome()) != 0)
                 {
                     //something went wrong, we couldn't project
@@ -224,7 +265,6 @@ namespace EventSaucing.Projectors {
                     break;
                 }
             }
-            return Task.CompletedTask;
         }
 
         /// <summary>
@@ -241,6 +281,7 @@ namespace EventSaucing.Projectors {
         public abstract Task ProjectAsync(ICommit commit);
 
         protected virtual async Task ReceivedAsync(OrderedCommitNotification msg) {
+            // never go ahead of a proceeding projector
             if (!AllProceedingProjectorsAhead()) {
                 _commitCache.Cache(msg.Commit);
                 return;
