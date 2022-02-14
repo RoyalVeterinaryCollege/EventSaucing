@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Akka.Actor;
@@ -8,11 +7,17 @@ using Akka.TestKit.NUnit3;
 using EventSaucing.EventStream;
 using FluentAssertions;
 using NEventStore;
+using NEventStore.Persistence;
 using NUnit.Framework;
 using Scalesque;
 
 namespace EventSaucing.Projectors {
     public class ProbingProjector : Projector {
+
+        public ProbingProjector() : base(new FakePersistStreams())
+        {
+            
+        }
         protected override void PreStart() {
             //dont call base, else it starts the timer which is confusing when debugging
             SetCheckpoint(10L);
@@ -246,7 +251,7 @@ namespace EventSaucing.Projectors {
 
         [Test]
         public void Following_should_have_advanced_to_11_because_proceeding_has_also_received_11() {
-            _followingCurrentCheckpoint.Checkpoint.Get().Should().Be(11L);
+            _followingCurrentCheckpoint.Checkpoint.Get().Should().Be(11L,because: "proceeding_has_also_received_11");
         }
     }
 }

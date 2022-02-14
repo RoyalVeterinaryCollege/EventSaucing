@@ -9,6 +9,7 @@ using EventSaucing.NEventStore;
 using EventSaucing.Storage;
 using Microsoft.Extensions.Configuration;
 using NEventStore;
+using NEventStore.Persistence;
 using Scalesque;
 using Serilog;
 
@@ -27,7 +28,7 @@ namespace EventSaucing.Projectors
         /// </summary>
         private bool _initialiseAtHead;
 
-        public SqlProjector(ILogger logger, IConfiguration config, IDbService dbService){
+        public SqlProjector(IPersistStreams persistStreams, ILogger logger, IConfiguration config, IDbService dbService):base(persistStreams){
             _logger = logger;
             _dbService = dbService;
             _dispatcher = new ConventionBasedEventDispatcher(this);

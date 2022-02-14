@@ -36,7 +36,7 @@ namespace EventSaucing.Projectors {
         /// <param name="persistStreams">IPersistStreams Required for when the projector falls behind the head commit and needs to catchup</param>
         /// <param name="dbService"></param>
         /// <param name="config"></param>
-        public LegacyProjector(IPersistStreams persistStreams, IDbService dbService, IConfiguration config) {
+        public LegacyProjector(IPersistStreams persistStreams, IDbService dbService, IConfiguration config):base(persistStreams) {
             _persistStreams = persistStreams;
             _dbService = dbService;
             ProjectorId = this.GetProjectorId();

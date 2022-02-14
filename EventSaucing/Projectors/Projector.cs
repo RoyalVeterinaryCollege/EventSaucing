@@ -283,6 +283,8 @@ namespace EventSaucing.Projectors {
         protected virtual async Task ReceivedAsync(OrderedCommitNotification msg) {
             // never go ahead of a proceeding projector
             if (!AllProceedingProjectorsAhead()) {
+
+                //todo cache the commit, or send to ourselves again in 500ms?
                 _commitCache.Cache(msg.Commit);
                 return;
             }
