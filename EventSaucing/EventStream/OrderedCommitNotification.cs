@@ -8,7 +8,7 @@ namespace EventSaucing.EventStream {
 	/// </summary>
 	public class OrderedCommitNotification {
 		[DebuggerStepThrough]
-		public OrderedCommitNotification(ICommit commit, Option<long> previousCheckpoint) {
+		public OrderedCommitNotification(ICommit commit, long previousCheckpoint) {
 			Commit = commit;
 			PreviousCheckpoint = previousCheckpoint;
 		}
@@ -17,6 +17,6 @@ namespace EventSaucing.EventStream {
 		/// <summary>
 		/// Gets the checkpoint immediately previous to the attached commit
 		/// </summary>
-		public Option<long> PreviousCheckpoint { get; }
+		public long PreviousCheckpoint { get; }
 	}
 }

@@ -61,9 +61,9 @@ namespace EventSaucing.Projectors {
             /// A reply to the <see cref="CurrentCheckpoint"/> message
             /// </summary>
             public class CurrentCheckpoint {
-                public Option<long> Checkpoint { get; }
+                public long Checkpoint { get; }
 
-                public CurrentCheckpoint(Option<long> checkpoint) {
+                public CurrentCheckpoint(long checkpoint) {
                     Checkpoint = checkpoint;
                 }
             }
@@ -110,7 +110,7 @@ namespace EventSaucing.Projectors {
         /// <summary>
         /// Our proceeding projectors.  Projector type -> last known checkpoint for that projector
         /// </summary>
-        public Dictionary<Type, Option<long>> PreceedingProjectors { get; } = new Dictionary<Type, Option<long>>();
+        public Dictionary<Type,long> PreceedingProjectors { get; } = new Dictionary<Type, long>();
 
         public Projector(IPersistStreams persistStreams) {
             _persistStreams = persistStreams;
@@ -127,7 +127,7 @@ namespace EventSaucing.Projectors {
             });
             Receive<Messages.AfterProjectorCheckpointStatusSet> ((msg) => {
                 if (PreceedingProjectors.ContainsKey(msg.MyType))
-                    PreceedingProjectors[msg.MyType] = msg.Checkpoint.ToSome();
+                    PreceedingProjectors[msg.MyType] = msg.Checkpoint;
             });
         }
         /// <summary>
@@ -137,13 +137,12 @@ namespace EventSaucing.Projectors {
         protected bool AllProceedingProjectorsAhead() {
             if (!PreceedingProjectors.Any()) return true;
 
-            var order = new CheckpointOrder();
             return PreceedingProjectors
                 .Values
-                .All(proceedingCheckpoint => order.Compare(Checkpoint, proceedingCheckpoint) < 0);
+                .All(proceedingCheckpoint => proceedingCheckpoint > Checkpoint);
         }
 
-        public Option<long> Checkpoint { get; private set; } = Option.None();
+        public long Checkpoint { get; private set; }
 
         public Option<long> InitialCheckpoint { get; protected set; }
 
@@ -164,7 +163,7 @@ namespace EventSaucing.Projectors {
         /// <typeparam name="T"></typeparam>
         protected void PreceededBy<T>() where T : Projector {
             var type = typeof(T);
-            if (!PreceedingProjectors.ContainsKey(type)) PreceedingProjectors[type] = Option.None();
+            if (!PreceedingProjectors.ContainsKey(type)) PreceedingProjectors[type] = 0L;
         }
 
         /// <summary>
@@ -172,7 +171,7 @@ namespace EventSaucing.Projectors {
         /// </summary>
         /// <param name="checkpoint"></param>
         private void SetCheckpoint(long checkpoint) {
-            Checkpoint = checkpoint.ToSome();
+            Checkpoint = checkpoint;
             Context.System.EventStream.Publish(new Messages.AfterProjectorCheckpointStatusSet(GetType(), checkpoint));
         }
 
@@ -200,7 +199,7 @@ namespace EventSaucing.Projectors {
             _isCatchingUp = true;
 
             //load all commits after our current checkpoint from db
-            var startingCheckpoint = Checkpoint.GetOrElse(() => 0L);
+            var startingCheckpoint = Checkpoint;
             _catchupCommitStream = new OrderedEventStreamer(startingCheckpoint, _persistStreams.GetFrom(startingCheckpoint));
             await SendNextCatchUpMessageAsync();
             Context.GetLogger()
@@ -219,7 +218,7 @@ namespace EventSaucing.Projectors {
                 await PersistCheckpointAsync();
 
                 Context.GetLogger()
-                    .Info($"Catchup finished at {Checkpoint.Get()}");
+                    .Info($"Catchup finished at {Checkpoint}");
             } else {
                 Context.Self.Tell(_catchupCommitStream.Next());
             }
@@ -239,11 +238,9 @@ namespace EventSaucing.Projectors {
         public abstract Task ProjectAsync(ICommit commit);
 
         protected virtual async Task ReceivedAsync(OrderedCommitNotification msg) {
-            var order = new CheckpointOrder();
-
             // never go ahead of a proceeding projector
             if (!AllProceedingProjectorsAhead()) {
-                if (order.Compare(Checkpoint, msg.PreviousCheckpoint) <= 0) {
+                if (Checkpoint <= msg.PreviousCheckpoint) {
                     // this is a commit we want but we can't project it yet as we need proceeding projector(s) to project it first
                     // schedule this commit to be resent to us in the future, hopefully in the meantime all proceeding projectors will have 
                     // projected it
@@ -258,25 +255,25 @@ namespace EventSaucing.Projectors {
             // however, we might not need to project this commit
 
             //if commit's previous checkpoint matches our current, project
-            //if their previous is less than our current, ignore
-            //if their previous is > our current, catchup
-            var comparision = order.Compare(Checkpoint, msg.PreviousCheckpoint);
-            if (comparision == 0) {
+            //if commit's previous is less than our current, ignore
+            //if commit's previous is > our current, catchup
+
+
+            if (Checkpoint == msg.PreviousCheckpoint) {
 
                 //todo projection error handling
                 // this is the next commit for us to project
                 await ProjectAsync(msg.Commit); 
                 SetCheckpoint(msg.Commit.CheckpointToken);
             }
-            else if (comparision > 0) {
+            else if (Checkpoint > msg.PreviousCheckpoint) {
                 // we are ahead of this commit, just drop it
                 Context.GetLogger()
                     .Debug("Received a commit notification  (checkpoint {0}) behind our checkpoint ({1})",
-                        msg.Commit.CheckpointToken, Checkpoint.Get());
+                        msg.Commit.CheckpointToken, Checkpoint);
             }
             else {
                 // this commit is too far ahead to project it. We have fallen behind, catch up
-
                 if (_isCatchingUp) {
                     // we already in catch up mode
                     // drop this commit, we will eventually be sent it during catch up process anyway

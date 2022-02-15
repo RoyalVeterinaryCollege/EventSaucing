@@ -75,7 +75,7 @@ namespace EventSaucing.EventStream
         public void Should_stream_second_commit() {
             _eventBusStoreProbe.ExpectMsg<OrderedCommitNotification> (x=>
                 x.Commit == _commit2 && // its the second commit
-                x.PreviousCheckpoint.Get()==_commit1.CheckpointToken, // and it has a pointer to the first commit
+                x.PreviousCheckpoint==_commit1.CheckpointToken, // and it has a pointer to the first commit
                 TimeSpan.FromMilliseconds(100)
                 );
         }
@@ -106,7 +106,7 @@ namespace EventSaucing.EventStream
         [Test]
         public void Should_poll_the_event_store() {
             _pollEventStoreProbe.ExpectMsg<EventStorePollerActor.Messages.SendCommitAfterCurrentHeadCheckpointMessage>(
-                x=>x.CurrentHeadCheckpoint.Get()==_commit1.CheckpointToken,
+                x=>x.CurrentHeadCheckpoint==_commit1.CheckpointToken,
                 TimeSpan.FromMilliseconds(100));
         }
     }
@@ -129,7 +129,7 @@ namespace EventSaucing.EventStream
         [Test]
         public void Should_poll_the_event_store() {
             _pollEventStoreProbe.ExpectMsg<EventStorePollerActor.Messages.SendCommitAfterCurrentHeadCheckpointMessage>(
-                x => x.CurrentHeadCheckpoint.Get() == _commit1.CheckpointToken,
+                x => x.CurrentHeadCheckpoint == _commit1.CheckpointToken,
                 TimeSpan.FromMilliseconds(100));
         }
 
@@ -138,13 +138,13 @@ namespace EventSaucing.EventStream
             //order of these expectations is important.  it needs to send them in this order
             _eventBusStoreProbe.ExpectMsg<OrderedCommitNotification>(x =>
                     x.Commit == _commit2 && // it's the second commit
-                    x.PreviousCheckpoint.Get() == _commit1.CheckpointToken // and it has a pointer to the first commit
+                    x.PreviousCheckpoint == _commit1.CheckpointToken // and it has a pointer to the first commit
                 , TimeSpan.FromMilliseconds(100)
             );
 
             _eventBusStoreProbe.ExpectMsg<OrderedCommitNotification>(x =>
                     x.Commit == _commit3 && // it's the third commit
-                    x.PreviousCheckpoint.Get() == _commit2.CheckpointToken // and it has a pointer to the second commit
+                    x.PreviousCheckpoint == _commit2.CheckpointToken // and it has a pointer to the second commit
                 ,TimeSpan.FromMilliseconds(100)
             );
         }
@@ -161,7 +161,7 @@ namespace EventSaucing.EventStream
             _commit3 = new FakeCommit { CheckpointToken = 12L };
 
             sut.Tell(new CommitNotification(_commit1), this.TestActor);
-            sut.Tell(new OrderedCommitNotification(_commit3, 11L.ToSome()), this.TestActor);
+            sut.Tell(new OrderedCommitNotification(_commit3, 11L), this.TestActor);
         }
 
         [Test]
@@ -183,14 +183,14 @@ namespace EventSaucing.EventStream
             _commit3 = new FakeCommit { CheckpointToken = 12L };
 
             sut.Tell(new CommitNotification(_commit1), this.TestActor);
-            sut.Tell(new OrderedCommitNotification(_commit2, _commit1.CheckpointToken.ToSome()), this.TestActor);
+            sut.Tell(new OrderedCommitNotification(_commit2, _commit1.CheckpointToken), this.TestActor);
         }
 
         [Test]
         public void Should_stream()  {
             _eventBusStoreProbe.ExpectMsg<OrderedCommitNotification>(x =>
                     x.Commit == _commit2 && // it's the second commit
-                    x.PreviousCheckpoint.Get() == _commit1.CheckpointToken // and it has a pointer to the first commit
+                    x.PreviousCheckpoint == _commit1.CheckpointToken // and it has a pointer to the first commit
                 , TimeSpan.FromMilliseconds(100)
             );
         }

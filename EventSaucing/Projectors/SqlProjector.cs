@@ -52,9 +52,9 @@ namespace EventSaucing.Projectors
 
                 //if we have a checkpoint, set it
                 results.ForEach(x => InitialCheckpoint = x.ToSome());
-
+                //todo this is bugged, use Legacy Projector impl and also the table needs s new name + create script
                 // initialise at head if requested
-                if (Checkpoint.IsEmpty && _initialiseAtHead) {
+                if (InitialCheckpoint.IsEmpty && _initialiseAtHead) {
                     InitialCheckpoint = conn.ExecuteScalar<long>("SELECT MAX(CheckpointNumber) FROM dbo.Commits").ToSome();
 
                 }
@@ -96,7 +96,7 @@ namespace EventSaucing.Projectors
 
                 await con.ExecuteAsync(
                     "UPDATE [dbo].[ProjectorStatus] SET [Checkpoint] = @Checkpoint WHERE ProjectorName=@Name",
-                    new { Name, Checkpoint=Checkpoint.Get() });
+                    new { Name, Checkpoint=Checkpoint });
             }
         }
 

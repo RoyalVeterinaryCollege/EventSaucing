@@ -22,4 +22,8 @@
     <ProjectReference Include="..\EventSaucing\EventSaucing.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="NEventStore\" />
+  </ItemGroup>
+
 </Project>

@@ -48,7 +48,7 @@ namespace EventSaucing.Projectors
 
         protected override void Because() {
             var commit = new FakeCommit() { CheckpointToken = 99L };
-            _msg = new OrderedCommitNotification(commit, 98L.ToSome());
+            _msg = new OrderedCommitNotification(commit, 98L);
 
             sut.Tell(_msg);
 

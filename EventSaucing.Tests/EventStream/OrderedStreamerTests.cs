@@ -42,7 +42,7 @@ namespace EventSaucing.EventStream {
 
         [Test]
         public void First_commit_should_follow_10() {
-            _firstCommit.PreviousCheckpoint.Get().Should().Be(10L);
+            _firstCommit.PreviousCheckpoint.Should().Be(10L);
         }
     }
 
@@ -68,7 +68,7 @@ namespace EventSaucing.EventStream {
 
         [Test]
         public void First_commit_should_follow_10() {
-            _firstCommit.PreviousCheckpoint.Get().Should().Be(10L);
+            _firstCommit.PreviousCheckpoint.Should().Be(10L);
         }
     }
 
@@ -96,7 +96,7 @@ namespace EventSaucing.EventStream {
 
         [Test]
         public void Last_commit_should_follow_12() {
-            _last.PreviousCheckpoint.Get().Should().Be(12L);
+            _last.PreviousCheckpoint.Should().Be(12L);
         }
     }
 }

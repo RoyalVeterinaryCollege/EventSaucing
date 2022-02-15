@@ -59,7 +59,7 @@ namespace EventSaucing.EventStream {
         private Option<OrderedCommitNotification> RetrieveNextFromCache(long checkpoint) {
             return _commits
                     .Get(checkpoint + 1) //get next checkpoint's commit
-                    .Map(commit => new OrderedCommitNotification(commit, checkpoint.ToSome())); //and create the order
+                    .Map(commit => new OrderedCommitNotification(commit, checkpoint)); //and create the order
         }
 
         /// <summary>

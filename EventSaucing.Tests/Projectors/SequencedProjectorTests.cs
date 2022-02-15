@@ -83,8 +83,7 @@ namespace EventSaucing.Projectors {
             _proceedingProjector = InitialiseProjector<ProceedingProjector>();
 
             //push proceeding to 11L
-            _proceedingProjector.Tell(new OrderedCommitNotification(new FakeCommit { CheckpointToken = 11L },
-                10L.ToSome()));
+            _proceedingProjector.Tell(new OrderedCommitNotification(new FakeCommit { CheckpointToken = 11L },10L));
 
             _publishedMessages = _probe.ReceiveN(3)
                 .Select(x => (Projector.Messages.AfterProjectorCheckpointStatusSet)x)
@@ -132,8 +131,7 @@ namespace EventSaucing.Projectors {
 
             //push commit to both in the natural order
             var orderedCommitNotification = new OrderedCommitNotification(
-                new FakeCommit { CheckpointToken = 11L },
-                10L.ToSome());
+                new FakeCommit { CheckpointToken = 11L }, 10L);
             _proceedingProjector.Tell(orderedCommitNotification);
             _followingProjector.Tell(orderedCommitNotification);
 
@@ -184,8 +182,7 @@ namespace EventSaucing.Projectors {
 
 
             var newCommit = new OrderedCommitNotification(
-                new FakeCommit { CheckpointToken = 11L },
-                10L.ToSome());
+                new FakeCommit { CheckpointToken = 11L }, 10L);
 
             //push following to 11L, it's now ahead of Proceeding
             //send commit only to following
@@ -203,13 +200,13 @@ namespace EventSaucing.Projectors {
 
         [Test]
         public void Proceeding_should_be_on_10_as_it_hasnt_received_11_yet() {
-            _proceedingCurrentCheckpoint.Checkpoint.Get().Should().Be(10L);
+            _proceedingCurrentCheckpoint.Checkpoint.Should().Be(10L);
         }
 
         [Test]
         public void
             Following_should_not_have_advanced_to_11_because_proceeding_is_still_on_10() {
-            _followingCurrentCheckpoint.Checkpoint.Get().Should().Be(10L);
+            _followingCurrentCheckpoint.Checkpoint.Should().Be(10L);
         }
     }
 
@@ -229,8 +226,7 @@ namespace EventSaucing.Projectors {
             _proceedingProjector = InitialiseProjector<ProceedingProjector>();
 
             var newCommit = new OrderedCommitNotification(
-                new FakeCommit { CheckpointToken = 11L },
-                10L.ToSome());
+                new FakeCommit { CheckpointToken = 11L }, 10L);
 
             // send to Following, then Proceeding, in that order
             _followingProjector.Tell(newCommit);
@@ -251,12 +247,12 @@ namespace EventSaucing.Projectors {
 
         [Test]
         public void Proceeding_should_be_on_11() {
-            _proceedingCurrentCheckpoint.Checkpoint.Get().Should().Be(11L);
+            _proceedingCurrentCheckpoint.Checkpoint.Should().Be(11L);
         }
 
         [Test]
         public void Following_should_have_advanced_to_11_because_proceeding_has_also_received_11() {
-            _followingCurrentCheckpoint.Checkpoint.Get().Should().Be(11L,because: "proceeding_has_also_received_11");
+            _followingCurrentCheckpoint.Checkpoint.Should().Be(11L,because: "proceeding_has_also_received_11");
         }
     }
 }

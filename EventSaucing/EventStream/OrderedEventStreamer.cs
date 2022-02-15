@@ -27,7 +27,7 @@ namespace EventSaucing.EventStream {
             var previous = _previousCheckpoint;
             var commit = _enumerator.Current;
             _previousCheckpoint = commit.CheckpointToken;
-            var result = new OrderedCommitNotification(commit, previous.ToSome());
+            var result = new OrderedCommitNotification(commit, previous);
             IsFinished = !_enumerator.MoveNext();
             return result;
         }

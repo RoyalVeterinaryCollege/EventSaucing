@@ -107,7 +107,7 @@ END
             return new {
                 ProjectorId = projector.ProjectorId,
                 ProjectorName = projector.GetType().Name,
-                LastCheckpointToken = projector.Checkpoint.Get()
+                LastCheckpointToken = projector.Checkpoint
             };
         }
 

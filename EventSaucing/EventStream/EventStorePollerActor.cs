@@ -18,11 +18,11 @@ namespace EventSaucing.EventStream {
             /// </summary>
             public class SendCommitAfterCurrentHeadCheckpointMessage  {
 
-                public Option<long> CurrentHeadCheckpoint { get; }
+                public long CurrentHeadCheckpoint { get; }
                 public Option<int> NumberOfCommitsToSend { get; }
 
                 [DebuggerStepThrough]
-                public SendCommitAfterCurrentHeadCheckpointMessage(Option<long> currentHeadCheckpoint, Option<int> numberOfCommitsToSend)
+                public SendCommitAfterCurrentHeadCheckpointMessage(long currentHeadCheckpoint, Option<int> numberOfCommitsToSend)
                 {
                     CurrentHeadCheckpoint = currentHeadCheckpoint;
                     NumberOfCommitsToSend = numberOfCommitsToSend;
@@ -37,20 +37,20 @@ namespace EventSaucing.EventStream {
         }
 
         private void Received(Messages.SendCommitAfterCurrentHeadCheckpointMessage msg) {
-            Option<long> previousCheckpoint = msg.CurrentHeadCheckpoint;
+            long previousCheckpoint = msg.CurrentHeadCheckpoint;
             var commits = GetCommitsFromPersistentStore(msg);
 
             foreach (var commit in commits)
             {
                 Context.Sender.Tell(new OrderedCommitNotification(commit, previousCheckpoint));
-                previousCheckpoint = commit.CheckpointToken.ToSome();
+                previousCheckpoint = commit.CheckpointToken;
             }
 
             Context.Stop(Self);
         }
 
         private IEnumerable<ICommit> GetCommitsFromPersistentStore(Messages.SendCommitAfterCurrentHeadCheckpointMessage msg) {
-            IEnumerable<ICommit> commits =_persistStreams.GetFrom(msg.CurrentHeadCheckpoint.GetOrElse(() => 0)); //load all commits after checkpoint from db
+            IEnumerable<ICommit> commits =_persistStreams.GetFrom(msg.CurrentHeadCheckpoint); //load all commits after checkpoint from db
             if (!msg.NumberOfCommitsToSend.HasValue)
                 return commits;
 

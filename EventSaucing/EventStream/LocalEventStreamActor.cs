@@ -31,11 +31,6 @@ namespace EventSaucing.EventStream {
         private Option<long> _lastStreamedCheckpoint = Option.None();
 
         /// <summary>
-        /// A helper for determining which is the next commit we need
-        /// </summary>
-        readonly CommitOrderer _orderer  = new CommitOrderer();
-
-        /// <summary>
         /// This tracks the size of runs of commits which we receive from NEventStore, but couldn't project because the cache couldn't serialise them. 
         /// </summary>
         private int _backlogCommitCount = 0;
@@ -73,7 +68,7 @@ namespace EventSaucing.EventStream {
                     cachedCommits.ForEach(StreamCommit);
                 } else {
                     //local cache can't ensure we have all the commits in order, go to db
-                    PollEventStoreWithExponentialBackoff(msg, _lastStreamedCheckpoint);
+                    PollEventStoreWithExponentialBackoff(msg, _lastStreamedCheckpoint.Get());
                 }
             }
         }
@@ -86,7 +81,7 @@ namespace EventSaucing.EventStream {
         /// <remarks>https://stackoverflow.com/questions/600293/how-to-check-if-a-number-is-a-power-of-2</remarks>
         bool IsPowerOfTwo(ulong x) => (x & (x - 1)) == 0;
     
-        private void PollEventStoreWithExponentialBackoff(CommitNotification msg, Option<long> afterCheckpoint) {
+        private void PollEventStoreWithExponentialBackoff(CommitNotification msg, long afterCheckpoint) {
             //we poll exponentially, on the size of the backlog of unprojected commits
             if (!IsPowerOfTwo((ulong)_backlogCommitCount))
                 return;
@@ -110,7 +105,7 @@ namespace EventSaucing.EventStream {
         /// <param name="msg"></param>
         private void Received(OrderedCommitNotification msg)  {
             // only send the commit if it follows the last streamed checkpoint, else just ignore it
-            if (_orderer.CommitFollowsCheckpoint(_lastStreamedCheckpoint, msg)) {
+            if(_lastStreamedCheckpoint.Map(x=> x == msg.PreviousCheckpoint).GetOrElse(false)){
                 StreamCommit(msg);
             }
         }
