@@ -2,62 +2,21 @@
 using Akka.Event;
 using EventSaucing.EventStream;
 using EventSaucing.NEventStore;
-using Microsoft.Extensions.Configuration;
 using NEventStore;
 using Scalesque;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using NEventStore.Persistence;
 using Failure = Akka.Actor.Failure;
 
 namespace EventSaucing.Projectors {
-
-    /*
-     *catchup is currently triggered under 3 circumstances
-       
-       we receive catchup message
-       we receive AfterProjectorCheckpointStatusSet and local cache cant order the commits we need
-       we receive OrderedCommitNotification which is not the next commit after our current checkpoint
-       
-       
-       current implementation: all three ignore projector sequencing logic
-       also, cache logic is wrong. it only works with ICommit, not OrderedCommitNotification which has better 
-       easier to order
-       
-       problem:  how to receive AfterProjectorCheckpointStatusSet whilst we are 
-       catching up.  following projectors need that message to be able to advance
-       their own checkpoint. there doesnt seem to be a 'yield'
-       
-       Option 1: send orderedcommit to myself.  this seems the most obvious thing to do.  
-       it will auto interleave with AfterProjectorCheckpointStatusSet. if i cache the message, or stash??
-       problem: how to send it to myself and process it at the same time.  i will fill up my mailbox with messages
-    b4 a single one is processed.  - could have a child send the message.
-       what to do if i can't process one?  currently we stop processing. with a child it will simply keep on sending them..
-
-       option 2: create a child to listen to AfterProjectorCheckpointStatusSet. repeatedly ask it for the checkpoint state.
-
-    option 3: store the IEnumerable stream of messages private state.  i can then pull one and send it to myself each time i process.
-    when i receive orderedcommit, it gets processed, and then i check if we are in catchup mode.  if i am, i pull another commit and send it to myself.
-    if processing fails, i leave catch up. if waiting on AfterProjectorCheckpointStatusSet, i simply dont pull another one.  
-     when we reach the end of the stream i close it down and leave catchup mode. when receive AfterProjectorCheckpointStatusSet 
-    i check for catch up mode, and pull and send next commit.
-       
-
-    do i need the cache? do i need to upgrade it to handle orderedcommits?
-       
-       
-       
-     *
-     *
-     */
+    
     public abstract class Projector : ReceiveActor, IWithTimers {
         private readonly IPersistStreams _persistStreams;
         private bool _isCatchingUp;
-        private IEnumerator<ICommit> _catchupCommitStream;
+        private OrderedEventStreamer _catchupCommitStream;
 
         public static class Messages {
             /// <summary>
@@ -210,8 +169,7 @@ namespace EventSaucing.Projectors {
         /// <param name="checkpoint"></param>
         public void SetCheckpoint(long checkpoint) {
             Checkpoint = checkpoint.ToSome();
-            Context.System.EventStream.Publish(
-                new Messages.AfterProjectorCheckpointStatusSet(GetType(), checkpoint));
+            Context.System.EventStream.Publish(new Messages.AfterProjectorCheckpointStatusSet(GetType(), checkpoint));
         }
 
         /// <summary>
@@ -220,11 +178,7 @@ namespace EventSaucing.Projectors {
         public ITimerScheduler Timers { get; set; }
 
         private async Task ReceivedAsync(Messages.CatchUp arg) {
-            //stop timer whilst we catch up else lots of superfluous messages might pile up in mailbox
-            if (Timers.IsTimerActive(TimerName)) Timers.Cancel(TimerName);
-            await CatchUpAsync();
-            await PersistCheckpointAsync();
-            StartTimer();
+            if(!_isCatchingUp) await CatchUpAsync();
         }
 
         private void StartTimer() {
@@ -234,28 +188,35 @@ namespace EventSaucing.Projectors {
         }
 
         /// <summary>
-        ///     Tells projector to project unprojected commits from the commit store
+        /// Starts the catch up process where commits are streamed from the commit store.  
         /// </summary>
         /// <returns></returns>
         protected virtual async Task CatchUpAsync() {
             _isCatchingUp = true;
 
             //load all commits after our current checkpoint from db
-            IEnumerable<ICommit> commits = _persistStreams.GetFrom(Checkpoint.GetOrElse(() => 0));
-            _catchupCommitStream = commits.GetEnumerator();
-
-            await CatchUpNextCommitAsync();
+            var startingCheckpoint = Checkpoint.GetOrElse(() => 0L);
+            _catchupCommitStream = new OrderedEventStreamer(startingCheckpoint, _persistStreams.GetFrom(startingCheckpoint));
+            await SendNextCatchUpMessageAsync();
+            Context.GetLogger()
+                .Info($"Catchup started from checkpoint {startingCheckpoint}");
         }
-
-        private async Task CatchUpNextCommitAsync() {
-            if (_catchupCommitStream.MoveNext()) {
-                //await ProjectAsync(_catchupCommitStream.Current);
-                //Context.Self.Tell(new OrderedCommitNotification(_catchupCommitStream.Current,));
-            }
-            else {
-                // commit stream empty.  catchup has completed
+        /// <summary>
+        /// Get the next commit from the commit store stream and send it to ourselves.
+        /// This way we can interleave commits, and <see cref="Messages.AfterProjectorCheckpointStatusSet"/> messages from any proceeding projectors.
+        /// </summary>
+        /// <returns></returns>
+        private async Task SendNextCatchUpMessageAsync() {
+            if (_catchupCommitStream.IsFinished) {
+                // we have finished catching up.  Leave catching-up state.
                 _isCatchingUp = false;
                 _catchupCommitStream = null;
+                await PersistCheckpointAsync();
+
+                Context.GetLogger()
+                    .Info($"Catchup finished at {Checkpoint.Get()}");
+            } else {
+                Context.Self.Tell(_catchupCommitStream.Next());
             }
         }
 
@@ -266,7 +227,7 @@ namespace EventSaucing.Projectors {
         protected abstract Task PersistCheckpointAsync();
 
         /// <summary>
-        ///     Projects the commit
+        ///     Projects the commit.  
         /// </summary>
         /// <param name="commit"></param>
         /// <returns>Task</returns>
@@ -278,41 +239,47 @@ namespace EventSaucing.Projectors {
             // never go ahead of a proceeding projector
             if (!AllProceedingProjectorsAhead()) {
                 if (order.Compare(Checkpoint, msg.PreviousCheckpoint) <= 0) {
-                    // this is a commit we want.  
-                    // schedule commit to be resent to us in the future
+                    // this is a commit we want but we can't project it yet as we need proceeding projector(s) to project it first
+                    // schedule this commit to be resent to us in the future, hopefully in the meantime all proceeding projectors will have 
+                    // projected it
                     Timers.StartSingleTimer(key: $"commitid:{msg.Commit.CommitId}", msg, TimeSpan.FromMilliseconds(500));
                 }
                 return;
             }
 
+            // at this point:
             // We are behind our proceeding projectors, or we aren't a sequenced projector.
-            // We are allowed to try to project this commit if we need to.
+            // Therefore We are allowed to try to project this commit
+            // however, we might not need to project this commit
 
-            //if their previous matches our current, project
+            //if commit's previous checkpoint matches our current, project
             //if their previous is less than our current, ignore
             //if their previous is > our current, catchup
             var comparision = order.Compare(Checkpoint, msg.PreviousCheckpoint);
             if (comparision == 0) {
-                await ProjectAsync(msg.Commit); //order matched, project
+                // this is the next commit for us to project
+                await ProjectAsync(msg.Commit); 
             }
             else if (comparision > 0) {
-                //we are ahead of this commit so no-op, this is a bit odd, so log it
+                // we are ahead of this commit, just drop it
                 Context.GetLogger()
                     .Debug("Received a commit notification  (checkpoint {0}) behind our checkpoint ({1})",
                         msg.Commit.CheckpointToken, Checkpoint.Get());
             }
             else {
-                //we are behind the head, should catch up
-                var fromPoint = Checkpoint.Map(x => x.ToString()).GetOrElse("beginning of time");
-                Context.GetLogger()
-                    .Info(
-                        "Catchup started from checkpoint {0} after receiving out-of-sequence commit with checkpoint {1} and previous checkpoint {2}",
-                        fromPoint, msg.Commit.CheckpointToken, msg.PreviousCheckpoint);
-                await CatchUpAsync();
-                Context.GetLogger()
-                    .Info("Catchup finished from {0} to checkpoint {1} after receiving commit with checkpoint {2}",
-                        fromPoint, Checkpoint.Map(x => x.ToString()).GetOrElse("beginning of time"),
-                        msg.Commit.CheckpointToken);
+                // this commit is too far ahead to project it. We have fallen behind, catch up
+
+                if (_isCatchingUp) {
+                    // we already in catch up mode
+                    // drop this commit, we will eventually be sent it during catch up process anyway
+                } else {
+                    // go into catch up mode
+                    await CatchUpAsync();
+                }
+            }
+
+            if (_isCatchingUp) {
+                await SendNextCatchUpMessageAsync();
             }
         }
     }

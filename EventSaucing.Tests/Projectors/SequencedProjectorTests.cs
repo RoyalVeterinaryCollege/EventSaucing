@@ -225,14 +225,16 @@ namespace EventSaucing.Projectors {
             _followingProjector = InitialiseProjector<FollowingProjector>();
             _proceedingProjector = InitialiseProjector<ProceedingProjector>();
 
-
             var newCommit = new OrderedCommitNotification(
                 new FakeCommit { CheckpointToken = 11L },
                 10L.ToSome());
 
-            //push following, then Proceeding, in that order
+            // send to Following, then Proceeding, in that order
             _followingProjector.Tell(newCommit);
             _proceedingProjector.Tell(newCommit);
+
+            // give follower time to process all the messages
+            Task.Delay(1000).Wait();
 
             var checkpointDep = _followingProjector
                 .Ask<Projector.Messages.CurrentCheckpoint>(Projector.Messages.SendCurrentCheckpoint.Message);
