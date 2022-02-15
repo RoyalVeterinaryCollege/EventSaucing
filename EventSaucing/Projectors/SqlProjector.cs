@@ -51,11 +51,12 @@ namespace EventSaucing.Projectors
                         new { this.Name });
 
                 //if we have a checkpoint, set it
-                results.ForEach(SetCheckpoint);
+                results.ForEach(x => InitialCheckpoint = x.ToSome());
 
                 // initialise at head if requested
                 if (Checkpoint.IsEmpty && _initialiseAtHead) {
-                    SetCheckpoint(conn.ExecuteScalar<long>("SELECT MAX(CheckpointNumber) FROM dbo.Commits"));
+                    InitialCheckpoint = conn.ExecuteScalar<long>("SELECT MAX(CheckpointNumber) FROM dbo.Commits").ToSome();
+
                 }
             }
         }
@@ -63,7 +64,6 @@ namespace EventSaucing.Projectors
             var projectionMethods = _dispatcher.GetProjectionMethods(commit).ToList();
 
             if (!projectionMethods.Any()) {
-                SetCheckpoint(commit.CheckpointToken);
                 return;
             }
             using (var con = GetProjectionDb()) {
@@ -88,8 +88,6 @@ namespace EventSaucing.Projectors
                     tx.Commit();
                 }
             }
-
-            SetCheckpoint(commit.CheckpointToken);
         }
 
         protected override async Task PersistCheckpointAsync() {

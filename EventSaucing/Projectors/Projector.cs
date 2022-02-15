@@ -143,7 +143,16 @@ namespace EventSaucing.Projectors {
                 .All(proceedingCheckpoint => order.Compare(Checkpoint, proceedingCheckpoint) < 0);
         }
 
+        public Option<long> Checkpoint { get; private set; } = Option.None();
+
+        public Option<long> InitialCheckpoint { get; protected set; }
+
+        /// <summary>
+        /// You must set InitialCheckpoint before called base.PresStart()
+        /// </summary>
         protected override void PreStart() {
+            SetCheckpoint(InitialCheckpoint.GetOrElse(0L));
+            PersistCheckpointAsync().Wait();
             StartTimer();
         }
 
@@ -159,15 +168,10 @@ namespace EventSaucing.Projectors {
         }
 
         /// <summary>
-        ///     Derived class is responsible for updating this field after processing the new commit message by called SetCheckpoint method
-        /// </summary>
-        public Option<long> Checkpoint { get; private set; } = Option.None();
-
-        /// <summary>
         /// Sets the projector's checkpoint and publishes the changed event to the event stream
         /// </summary>
         /// <param name="checkpoint"></param>
-        public void SetCheckpoint(long checkpoint) {
+        private void SetCheckpoint(long checkpoint) {
             Checkpoint = checkpoint.ToSome();
             Context.System.EventStream.Publish(new Messages.AfterProjectorCheckpointStatusSet(GetType(), checkpoint));
         }
@@ -180,9 +184,10 @@ namespace EventSaucing.Projectors {
         private async Task ReceivedAsync(Messages.CatchUp arg) {
             if(!_isCatchingUp) await CatchUpAsync();
         }
-
-        private void StartTimer() {
-            //start timer to periodically persist checkpoint to db
+        /// <summary>
+        /// Starts timer to periodically persist checkpoint to db
+        /// </summary>
+        protected virtual void StartTimer() {
             Timers.StartPeriodicTimer(TimerName, Messages.PersistCheckpoint.Message, TimeSpan.FromSeconds(10),
                 TimeSpan.FromSeconds(5));
         }
@@ -257,8 +262,11 @@ namespace EventSaucing.Projectors {
             //if their previous is > our current, catchup
             var comparision = order.Compare(Checkpoint, msg.PreviousCheckpoint);
             if (comparision == 0) {
+
+                //todo projection error handling
                 // this is the next commit for us to project
                 await ProjectAsync(msg.Commit); 
+                SetCheckpoint(msg.Commit.CheckpointToken);
             }
             else if (comparision > 0) {
                 // we are ahead of this commit, just drop it

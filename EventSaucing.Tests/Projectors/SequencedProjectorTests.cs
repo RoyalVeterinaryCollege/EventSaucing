@@ -19,8 +19,12 @@ namespace EventSaucing.Projectors {
             
         }
         protected override void PreStart() {
-            //dont call base, else it starts the timer which is confusing when debugging
-            SetCheckpoint(10L);
+            InitialCheckpoint = 10L.ToSome();
+            base.PreStart();
+        }
+
+        protected override void StartTimer() {
+           //Don't start timer
         }
 
         protected override Task CatchUpAsync() {
@@ -32,7 +36,6 @@ namespace EventSaucing.Projectors {
         }
 
         public override Task ProjectAsync(ICommit commit) {
-            SetCheckpoint(commit.CheckpointToken);
             return Task.CompletedTask;
         }
     }

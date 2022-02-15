@@ -46,24 +46,23 @@ namespace EventSaucing.Projectors {
         }
 
         protected override void PreStart() {
-            base.PreStart();
-            //get the head checkpoint (if there is one)
+            //get the persisted checkpoint (if there is one)
             using (var conn = _dbService.GetConnection()) {
                 conn.Open();
 
-                var results =
+                Option<long> results =
                     conn.Query<long>(
                         "SELECT LastCheckPointToken FROM dbo.ProjectorStatus WHERE ProjectorId = @ProjectorId",
-                        new { this.ProjectorId });
+                        new { this.ProjectorId }).HeadOption();
 
-                // if we have a checkpoint, set it
-                results.ForEach(SetCheckpoint);
-
-                // initialise at head if requested
-                if (Checkpoint.IsEmpty && _initialiseAtHead) {
-                    SetCheckpoint(conn.ExecuteScalar<long>("SELECT MAX(CheckpointNumber) FROM dbo.Commits"));
+                if (results.HasValue) {
+                    InitialCheckpoint = results;  // if we have a persisted checkpoint, use as initial checkpoint
+                } else if (_initialiseAtHead) {
+                    InitialCheckpoint = conn.ExecuteScalar<long>("SELECT MAX(CheckpointNumber) FROM dbo.Commits").ToSome(); // or initialise at head if requested
                 }
             }
+
+            base.PreStart();
         }
 
         protected override async Task PersistCheckpointAsync()  {
