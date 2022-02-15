@@ -12,7 +12,9 @@ namespace EventSaucing.EventStream {
 			Commit = commit;
 			PreviousCheckpoint = previousCheckpoint;
 		}
-
+		/// <summary>
+		/// The commit
+		/// </summary>
 		public ICommit Commit { get; }
 		/// <summary>
 		/// Gets the checkpoint immediately previous to the attached commit

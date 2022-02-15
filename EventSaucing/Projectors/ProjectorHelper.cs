@@ -22,7 +22,7 @@ namespace EventSaucing.Projectors {
         /// <summary>
         ///     Gets the uniqueprojectorId of a projector
         /// </summary>
-        /// <exception cref="ArgumentException">Thrown if the attribute is mssing</exception>
+        /// <exception cref="ArgumentException">Thrown if the attribute is missing</exception>
         /// <returns></returns>
         public static int GetProjectorId(this Type projectorType) {
             return projectorType.GetCustomAttributes(false)

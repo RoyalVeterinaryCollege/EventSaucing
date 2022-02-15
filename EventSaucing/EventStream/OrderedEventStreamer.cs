@@ -7,7 +7,7 @@ using Scalesque;
 namespace EventSaucing.EventStream {
 
     /// <summary>
-    /// Creates a stream of <see cref="OrderedCommitNotification"/> from an IEnumerable<ICommit> such as the one returned by IPersistStreams
+    /// Creates a stream of <see cref="OrderedCommitNotification"/> from an IEnumerable ICommit such as the one returned by IPersistStreams
     /// </summary>
     public class OrderedEventStreamer : IDisposable {
         private long _previousCheckpoint;

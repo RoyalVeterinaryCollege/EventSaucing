@@ -251,19 +251,13 @@ namespace EventSaucing.Projectors {
 
             // at this point:
             // We are behind our proceeding projectors, or we aren't a sequenced projector.
-            // Therefore We are allowed to try to project this commit
-            // however, we might not need to project this commit
+            // Therefore We are allowed to try to project this commit, if we need to
 
-            //if commit's previous checkpoint matches our current, project
-            //if commit's previous is less than our current, ignore
-            //if commit's previous is > our current, catchup
-
-
+            // if commit's previous checkpoint matches our current, project
             if (Checkpoint == msg.PreviousCheckpoint) {
-
-                //todo projection error handling
+                //  todo projection error handling : check rules around async exceptions
                 // this is the next commit for us to project
-                await ProjectAsync(msg.Commit); 
+                await ProjectAsync(msg.Commit);
                 SetCheckpoint(msg.Commit.CheckpointToken);
             }
             else if (Checkpoint > msg.PreviousCheckpoint) {
@@ -271,18 +265,18 @@ namespace EventSaucing.Projectors {
                 Context.GetLogger()
                     .Debug("Received a commit notification  (checkpoint {0}) behind our checkpoint ({1})",
                         msg.Commit.CheckpointToken, Checkpoint);
-            }
-            else {
+            } else {
                 // this commit is too far ahead to project it. We have fallen behind, catch up
                 if (_isCatchingUp) {
-                    // we already in catch up mode
-                    // drop this commit, we will eventually be sent it during catch up process anyway
+                    // we already in catch up mode and this msg was likely sent by LocalEventStreamActor
+                    // we will eventually see this commit at the right time via Catchup mode, so safe to ignore this message
                 } else {
                     // go into catch up mode
                     await CatchUpAsync();
                 }
             }
 
+            // If we are in catch up mode, stream the next commit to Self
             if (_isCatchingUp) {
                 await SendNextCatchUpMessageAsync();
             }
