@@ -2,9 +2,7 @@
 using System.Data.Common;
 using System.Linq;
 using System.Threading.Tasks;
-using Akka.Event;
 using Dapper;
-using EventSaucing.EventStream;
 using EventSaucing.NEventStore;
 using EventSaucing.Storage;
 using Microsoft.Extensions.Configuration;
@@ -15,10 +13,11 @@ using Serilog;
 
 namespace EventSaucing.Projectors
 {
+    //todo need sql for createing sqlprojector persistent state, and need to alter the existing sql to deal with it
     public abstract class SqlProjector : Projector  {
-        readonly ConventionBasedEventDispatcher _dispatcher;
+        protected readonly ConventionBasedEventDispatcher _dispatcher;
         protected readonly ILogger _logger;
-        private readonly IDbService _dbService;
+        protected readonly IDbService _dbService;
 
 
         /// <summary>
@@ -60,11 +59,11 @@ namespace EventSaucing.Projectors
                 }
             }
         }
-        public override async Task ProjectAsync(ICommit commit) {
+        public override async Task<bool> ProjectAsync(ICommit commit) {
             var projectionMethods = _dispatcher.GetProjectionMethods(commit).ToList();
 
             if (!projectionMethods.Any()) {
-                return;
+                return false;
             }
             using (var con = GetProjectionDb()) {
                 await con.OpenAsync();
@@ -78,14 +77,12 @@ namespace EventSaucing.Projectors
                             await projectionMethod(tx, commit, @evt);
                         }
                         catch (Exception error) {
-                            _logger.Error(error.InnerException, $"{Name} caught exception when trying to project event {@evt.GetType()} in commit {commit.CommitId} at checkpoint {commit.CheckpointToken} for aggregate {commit.AggregateId()}");
+                            _logger.Error(error.InnerException, $"{Name} caught exception in method {projectionMethod.Method.Name} when trying to project event {@evt.GetType()} in commit {commit.CommitId}  at checkpoint {commit.CheckpointToken} for aggregate {commit.AggregateId()}");
                             throw; 
                         }
                     }
-
-                    await PersistCheckpointAsync(commit.CheckpointToken, tx);
-
                     tx.Commit();
+                    return true;
                 }
             }
         }

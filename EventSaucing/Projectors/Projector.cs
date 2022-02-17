@@ -163,7 +163,7 @@ namespace EventSaucing.Projectors {
         /// </summary>
         protected override void PreStart() {
             SetCheckpoint(InitialCheckpoint.GetOrElse(0L));
-            PersistCheckpointAsync().Wait();
+            PersistCheckpointAsync().Wait(); // this persists the checkpoint in case of intialisation
             StartTimer();
         }
 
@@ -253,8 +253,8 @@ namespace EventSaucing.Projectors {
         ///     Projects the commit.  
         /// </summary>
         /// <param name="commit"></param>
-        /// <returns>Task</returns>
-        public abstract Task ProjectAsync(ICommit commit);
+        /// <returns>Bool True if projection of a readmodel occurred.  False if the projector didn't project any events in the ICommit</returns>
+        public abstract Task<bool> ProjectAsync(ICommit commit);
 
         protected virtual async Task ReceivedAsync(OrderedCommitNotification msg) {
             // never go ahead of a proceeding projector
@@ -264,7 +264,7 @@ namespace EventSaucing.Projectors {
                     // schedule this commit to be resent to us in the future, hopefully in the meantime all proceeding projectors will have 
                     // projected it
                     Timers.StartSingleTimer(key: $"commitid:{msg.Commit.CommitId}", msg,
-                        TimeSpan.FromMilliseconds(500));
+                        TimeSpan.FromMilliseconds(100));
                 }
 
                 return;
@@ -276,21 +276,21 @@ namespace EventSaucing.Projectors {
 
             // if commit's previous checkpoint matches our current, project
             if (Checkpoint == msg.PreviousCheckpoint) {
+                bool projectionResultedInReadmodelChangingState = true; //defaults to true, so that in the event of an error, the checkpoint is advanced anyway
                 // this is the next commit for us to project
                 try {
-                    await ProjectAsync(msg.Commit);
-                }
-                catch (Exception e) {
+                    projectionResultedInReadmodelChangingState = await ProjectAsync(msg.Commit);
+                } catch (Exception e) {
                     Context.GetLogger().Error(e,
                         $"Exception caught when projector {GetType().FullName} tried to project checkpoint {msg.Commit.CheckpointToken} for aggregate {msg.Commit.AggregateId()}");
-                }
-                finally {
+                } finally {
                     //advance to next checkpoint even on error
                     SetCheckpoint(msg.Commit.CheckpointToken);
+                    if (projectionResultedInReadmodelChangingState) await PersistCheckpointAsync();
                 }
             }
             else if (Checkpoint > msg.PreviousCheckpoint) {
-                // we are ahead of this commit, just drop it
+                // we have already projected this commit
                 Context
                     .GetLogger()
                     .Debug(

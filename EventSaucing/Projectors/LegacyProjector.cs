@@ -77,15 +77,15 @@ namespace EventSaucing.Projectors {
         /// </summary>
         /// <param name="commit"></param>
         /// <returns>Task</returns>
-        public override Task ProjectAsync(ICommit commit) {
-            Project(commit);
-            return Task.CompletedTask;
+        public override Task<bool> ProjectAsync(ICommit commit) {
+            return Task.FromResult(Project(commit));
         }
 
         /// <summary>
-        /// Projects the commit.  Implementors are responsible for updating Checkpoint property
+        /// Projects the commit synchronously
         /// </summary>
         /// <param name="commit"></param>
-        public abstract void Project(ICommit commit);
+        /// <returns>Bool True if projection of a readmodel occurred.  False if the projector didn't project any events in the ICommit</returns>
+        public abstract bool Project(ICommit commit);
     }
 }

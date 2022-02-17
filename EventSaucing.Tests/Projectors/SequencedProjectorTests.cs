@@ -35,8 +35,8 @@ namespace EventSaucing.Projectors {
             return Task.CompletedTask;
         }
 
-        public override Task ProjectAsync(ICommit commit) {
-            return Task.CompletedTask;
+        public override Task<bool> ProjectAsync(ICommit commit) {
+            return Task.FromResult(true);
         }
     }
 
