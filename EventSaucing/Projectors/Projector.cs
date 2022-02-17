@@ -15,8 +15,18 @@ namespace EventSaucing.Projectors {
     
     public abstract class Projector : ReceiveActor, IWithTimers {
         private readonly IPersistStreams _persistStreams;
+
+        /// <summary>
+        /// Bool. if true, the projector is in catch up mode and will stream commits to itself from <see cref="OrderedEventStreamer"/>
+        /// </summary>
         private bool _isCatchingUp;
         private OrderedEventStreamer _catchupCommitStream;
+        /// <summary>
+        /// Shared random number factory, wrapped in Lazy for thread safety.
+        ///
+        /// Sharing the Random means that there is no chance that each projector happens to get the same seed as they all initialise at the same point during startup
+        /// </summary>
+        static readonly Lazy<Random> Rnd = new Lazy<Random>(() => new Random());
 
         public static class Messages {
             /// <summary>
@@ -187,7 +197,9 @@ namespace EventSaucing.Projectors {
         /// Starts timer to periodically persist checkpoint to db
         /// </summary>
         protected virtual void StartTimer() {
-            Timers.StartPeriodicTimer(TimerName, Messages.PersistCheckpoint.Message, TimeSpan.FromSeconds(10),
+            Timers.StartPeriodicTimer(TimerName, 
+                Messages.PersistCheckpoint.Message, 
+                TimeSpan.FromMilliseconds(Rnd.Value.Next(2000,10000)), // random start up delay so they don't all hit DB at once
                 TimeSpan.FromSeconds(5));
         }
 
@@ -255,10 +267,16 @@ namespace EventSaucing.Projectors {
 
             // if commit's previous checkpoint matches our current, project
             if (Checkpoint == msg.PreviousCheckpoint) {
-                //  todo projection error handling : check rules around async exceptions
                 // this is the next commit for us to project
-                await ProjectAsync(msg.Commit);
-                SetCheckpoint(msg.Commit.CheckpointToken);
+                try {
+                    await ProjectAsync(msg.Commit);
+                }  catch (Exception e) {
+                    Context.GetLogger().Error(e,
+                        $"Exception caught when projector {GetType().FullName} tried to project checkpoint {msg.Commit.CheckpointToken} for aggregate {msg.Commit.AggregateId()}");
+                } finally {
+                    SetCheckpoint(msg.Commit.CheckpointToken);
+                }
+
             }
             else if (Checkpoint > msg.PreviousCheckpoint) {
                 // we are ahead of this commit, just drop it
