@@ -1,4 +1,7 @@
-﻿using System.Linq;
+﻿using System;
+using System.Data.Common;
+using System.Linq;
+using System.Threading.Tasks;
 using Dapper;
 using EventSaucing.NEventStore;
 using EventSaucing.Projectors;
@@ -7,24 +10,34 @@ using EventSaucing.Storage;
 using Microsoft.Extensions.Configuration;
 using NEventStore;
 using NEventStore.Persistence;
+using Serilog;
 
 namespace EventSaucing.Reactors {
+
+    //todo: ReactorAggregateSubscriptionProjector needs to initialise at head, also needs to be cluster aware??
+
     /// <summary>
     /// A projector that sends SubscribedAggregateChanged messages to Reactors who have subscribed to those aggregates
     /// </summary>
-    public class ReactorAggregateSubscriptionProjector : LegacyProjector  {
+    public class ReactorAggregateSubscriptionProjector : SqlProjector  {
         private readonly IReactorBucketFacade _reactorBucketRouter;
         private readonly string _bucket;
 
-        public ReactorAggregateSubscriptionProjector(IPersistStreams persistStreams, IDbService dbService, IConfiguration config, IReactorBucketFacade reactorBucketRouter) : base(persistStreams, dbService, config) {
+        public ReactorAggregateSubscriptionProjector(IPersistStreams persistStreams, ILogger logger, IDbService dbService, IConfiguration config, IReactorBucketFacade reactorBucketRouter) : base(persistStreams, logger, config, dbService) {
             _reactorBucketRouter = reactorBucketRouter;
             _bucket = config.GetLocalBucketName();
         }
-        
-        public override void Project(ICommit commit) {
+
+        public override DbConnection GetProjectionDb() {
+            return _dbService.GetConnection();
+        }
+
+        public override async Task<bool> ProjectAsync(ICommit commit) {
+            throw new NotImplementedException("dont do anything until the todo above is fixed");
+
             using (var con = _dbService.GetConnection()) {
-                con.Open();
-                
+                await con.OpenAsync();
+
                 const string sql = @"
 SELECT 
 	R.Bucket AS [ReactorBucket],
@@ -43,16 +56,15 @@ WHERE
     AND R.Bucket = @Bucket";
 
                 //Look for aggregate subscriptions that need to be updated in our bucket
-                var aggregateSubscriptionMessages = (con.Query<SubscribedAggregateChanged>(sql, new { AggregateId = commit.AggregateId(), commit.StreamRevision, Bucket=_bucket })).ToList();
+                var aggregateSubscriptionMessages = (await con.QueryAsync<SubscribedAggregateChanged>(sql,
+                    new { AggregateId = commit.AggregateId(), commit.StreamRevision, Bucket = _bucket })).ToList();
 
                 foreach (var msg in aggregateSubscriptionMessages) {
                     _reactorBucketRouter.Tell(msg);
                 }
 
                 // persist checkpoint if we sent any messages to avoid resending them on restart
-                if (aggregateSubscriptionMessages.Any()) {
-                    this.PersistProjectorCheckpoint(con);
-                }
+                return aggregateSubscriptionMessages.Any();
             }
         }
     }
