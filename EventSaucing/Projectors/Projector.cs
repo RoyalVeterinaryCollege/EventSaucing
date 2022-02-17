@@ -12,7 +12,6 @@ using NEventStore.Persistence;
 using Failure = Akka.Actor.Failure;
 
 namespace EventSaucing.Projectors {
-    
     public abstract class Projector : ReceiveActor, IWithTimers {
         private readonly IPersistStreams _persistStreams;
 
@@ -20,7 +19,9 @@ namespace EventSaucing.Projectors {
         /// Bool. if true, the projector is in catch up mode and will stream commits to itself from <see cref="OrderedEventStreamer"/>
         /// </summary>
         private bool _isCatchingUp;
+
         private OrderedEventStreamer _catchupCommitStream;
+
         /// <summary>
         /// Shared random number factory, wrapped in Lazy for thread safety.
         ///
@@ -120,7 +121,7 @@ namespace EventSaucing.Projectors {
         /// <summary>
         /// Our proceeding projectors.  Projector type -> last known checkpoint for that projector
         /// </summary>
-        public Dictionary<Type,long> PreceedingProjectors { get; } = new Dictionary<Type, long>();
+        public Dictionary<Type, long> PreceedingProjectors { get; } = new Dictionary<Type, long>();
 
         public Projector(IPersistStreams persistStreams) {
             _persistStreams = persistStreams;
@@ -135,11 +136,12 @@ namespace EventSaucing.Projectors {
                     Sender.Tell(new Failure { Exception = e }, Self);
                 }
             });
-            Receive<Messages.AfterProjectorCheckpointStatusSet> ((msg) => {
+            Receive<Messages.AfterProjectorCheckpointStatusSet>((msg) => {
                 if (PreceedingProjectors.ContainsKey(msg.MyType))
                     PreceedingProjectors[msg.MyType] = msg.Checkpoint;
             });
         }
+
         /// <summary>
         /// Checks if all proceeding projectors are ahead of us
         /// </summary>
@@ -191,15 +193,17 @@ namespace EventSaucing.Projectors {
         public ITimerScheduler Timers { get; set; }
 
         private async Task ReceivedAsync(Messages.CatchUp arg) {
-            if(!_isCatchingUp) await CatchUpAsync();
+            if (!_isCatchingUp) await CatchUpAsync();
         }
+
         /// <summary>
         /// Starts timer to periodically persist checkpoint to db
         /// </summary>
         protected virtual void StartTimer() {
-            Timers.StartPeriodicTimer(TimerName, 
-                Messages.PersistCheckpoint.Message, 
-                TimeSpan.FromMilliseconds(Rnd.Value.Next(2000,10000)), // random start up delay so they don't all hit DB at once
+            Timers.StartPeriodicTimer(TimerName,
+                Messages.PersistCheckpoint.Message,
+                TimeSpan.FromMilliseconds(Rnd.Value.Next(2000,
+                    10000)), // random start up delay so they don't all hit DB at once
                 TimeSpan.FromSeconds(5));
         }
 
@@ -212,11 +216,13 @@ namespace EventSaucing.Projectors {
 
             //load all commits after our current checkpoint from db
             var startingCheckpoint = Checkpoint;
-            _catchupCommitStream = new OrderedEventStreamer(startingCheckpoint, _persistStreams.GetFrom(startingCheckpoint));
+            _catchupCommitStream =
+                new OrderedEventStreamer(startingCheckpoint, _persistStreams.GetFrom(startingCheckpoint));
             await SendNextCatchUpMessageAsync();
             Context.GetLogger()
                 .Info($"Catchup started from checkpoint {startingCheckpoint}");
         }
+
         /// <summary>
         /// Get the next commit from the commit store stream and send it to ourselves.
         /// This way we can interleave commits, and <see cref="Messages.AfterProjectorCheckpointStatusSet"/> messages from any proceeding projectors.
@@ -231,7 +237,8 @@ namespace EventSaucing.Projectors {
 
                 Context.GetLogger()
                     .Info($"Catchup finished at {Checkpoint}");
-            } else {
+            }
+            else {
                 Context.Self.Tell(_catchupCommitStream.Next());
             }
         }
@@ -256,38 +263,47 @@ namespace EventSaucing.Projectors {
                     // this is a commit we want but we can't project it yet as we need proceeding projector(s) to project it first
                     // schedule this commit to be resent to us in the future, hopefully in the meantime all proceeding projectors will have 
                     // projected it
-                    Timers.StartSingleTimer(key: $"commitid:{msg.Commit.CommitId}", msg, TimeSpan.FromMilliseconds(500));
+                    Timers.StartSingleTimer(key: $"commitid:{msg.Commit.CommitId}", msg,
+                        TimeSpan.FromMilliseconds(500));
                 }
+
                 return;
             }
 
             // at this point:
-            // We are behind our proceeding projectors, or we aren't a sequenced projector.
-            // Therefore We are allowed to try to project this commit, if we need to
+            // 1. We are behind our proceeding projectors, or we aren't a sequenced projector.
+            // 2. Therefore We are allowed to try to project this commit, if we need to
 
             // if commit's previous checkpoint matches our current, project
             if (Checkpoint == msg.PreviousCheckpoint) {
                 // this is the next commit for us to project
                 try {
                     await ProjectAsync(msg.Commit);
-                }  catch (Exception e) {
+                }
+                catch (Exception e) {
                     Context.GetLogger().Error(e,
                         $"Exception caught when projector {GetType().FullName} tried to project checkpoint {msg.Commit.CheckpointToken} for aggregate {msg.Commit.AggregateId()}");
-                } finally {
+                }
+                finally {
+                    //advance to next checkpoint even on error
                     SetCheckpoint(msg.Commit.CheckpointToken);
                 }
-
             }
             else if (Checkpoint > msg.PreviousCheckpoint) {
                 // we are ahead of this commit, just drop it
-                Context.GetLogger()
-                    .Debug("Received a commit notification  (checkpoint {0}) behind our checkpoint ({1})",
-                        msg.Commit.CheckpointToken, Checkpoint);
-            } else {
+                Context
+                    .GetLogger()
+                    .Debug(
+                        $"Received a commit notification for a checkpoint which is in our past (ICommit checkpoint {msg.Commit.CheckpointToken}) behind our checkpoint ({Checkpoint})");
+            }
+            else {
                 // this commit is too far ahead to project it. We have fallen behind, catch up
                 if (_isCatchingUp) {
-                    // we already in catch up mode and this msg was likely sent by LocalEventStreamActor
+                    // we are already in catch up mode and this msg was likely sent by LocalEventStreamActor
                     // we will eventually see this commit at the right time via Catchup mode, so safe to ignore this message
+                    Context
+                        .GetLogger()
+                        .Info($"Received a commit notification for a checkpoint which is in our future, but dropped it as we were in catch-up mode (ICommit checkpoint {msg.Commit.CheckpointToken}) ahead of our checkpoint ({Checkpoint}). This ICommit was likely sent by LocalEventStreamActor and doesn't represent a failure.");
                 } else {
                     // go into catch up mode
                     await CatchUpAsync();
