@@ -21,7 +21,6 @@ namespace EventSaucing {
 			return builder
 				.RegisterModule(new DatabaseConnectivity())
 				.RegisterModule(new NEventStoreModule(configuration.UseProjectorPipeline))
-				.RegisterModule(new AkkaModule(configuration))
 				.RegisterModule(new ReactorInfrastructureModule());
 		}
 	}

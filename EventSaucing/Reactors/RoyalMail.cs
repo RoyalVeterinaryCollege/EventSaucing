@@ -5,11 +5,9 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System;
 using System.Linq;
-using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using EventSaucing.Reactors.Messages;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyModel.Resolution;
 using Scalesque;
 
 namespace EventSaucing.Reactors {

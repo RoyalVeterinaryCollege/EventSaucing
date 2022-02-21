@@ -2,7 +2,8 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
-using Akka.DI.Core;
+using Akka.DependencyInjection;
+using Akka.Routing;
 using EventSaucing.Reactors;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -19,6 +20,8 @@ namespace EventSaucing.HostedServices
         private readonly ILogger<ReactorServices> _logger;
         private readonly IReactorRepository _reactorRepo;
         private readonly IConfiguration _config;
+        private IActorRef _royalMailActor;
+        private IActorRef _reactorBucket;
 
         /// <summary>
         /// Instantiates
@@ -28,7 +31,7 @@ namespace EventSaucing.HostedServices
         /// <param name="logger"></param>
         /// <param name="reactorRepo"></param>
         /// <param name="config"></param>
-        public ReactorServices(ActorSystem actorSystem, IDependencyResolver dependencyResolver, ILogger<ReactorServices> logger, IReactorRepository reactorRepo, IConfiguration config){
+        public ReactorServices(ActorSystem actorSystem, ILogger<ReactorServices> logger, IReactorRepository reactorRepo, IConfiguration config){
             _actorSystem = actorSystem;
             _logger = logger;
             _reactorRepo = reactorRepo;
@@ -47,16 +50,18 @@ namespace EventSaucing.HostedServices
             await _reactorRepo.CreateReactorTablesAsync();
 
             //start the local reactor bucket supervisor.  It will automatically connect to the main Reactor process.
-            _actorSystem.ActorOf(_actorSystem.DI().Props<ReactorBucketSupervisor>(), name: "reactor-bucket");
+            var reactorBucketProps = DependencyResolver.For(_actorSystem).Props<ReactorBucketSupervisor>();
+            _reactorBucket = _actorSystem.ActorOf(reactorBucketProps, "reactor-bucket");
 
             //start the local royal mail.
-            var actor = _actorSystem.ActorOf(_actorSystem.DI().Props<RoyalMail>(), "royal-mail");
+            var royalMailBucketProps = DependencyResolver.For(_actorSystem).Props<RoyalMail>();
+            _royalMailActor = _actorSystem.ActorOf(royalMailBucketProps, "royal-mail");
 
             //schedule a poll message to be sent to RoyalMail every n seconds
             _actorSystem.Scheduler.ScheduleTellRepeatedly(
                 TimeSpan.FromSeconds(_config.GetValue<int?>("EventSaucing:RoyalMail:StartupDelay") ?? 5), // on start up, wait this long before polling
                 TimeSpan.FromSeconds(_config.GetValue<int?>("EventSaucing:RoyalMail:PollingInterval") ?? 5), // wait this long between polling
-                actor, 
+                _royalMailActor, 
                 new RoyalMail.LocalMessages.PollForOutstandingArticles(),
                 ActorRefs.NoSender);
         }
@@ -68,7 +73,9 @@ namespace EventSaucing.HostedServices
         /// <returns></returns>
         /// <exception cref="NotImplementedException"></exception>
         public Task StopAsync(CancellationToken cancellationToken) {
-            _logger.LogInformation("EventSaucing Reactor node stopping"); //no-op actor system stops itself
+            _logger.LogInformation("EventSaucing Reactor node stopping"); 
+            _royalMailActor.Tell(PoisonPill.Instance);
+            _reactorBucket.Tell(PoisonPill.Instance);
             return Task.CompletedTask;
         }
     }

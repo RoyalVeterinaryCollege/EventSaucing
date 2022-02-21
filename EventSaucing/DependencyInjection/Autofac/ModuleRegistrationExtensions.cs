@@ -23,10 +23,9 @@ namespace EventSaucing.DependencyInjection.Autofac {
 				throw new ArgumentNullException("configuration");
 
 			builder.RegisterInstance(configuration);
-			return builder
-				.RegisterModule(new DatabaseConnectivity())
-				.RegisterModule(new NEventStoreModule(true))
-				.RegisterModule(new AkkaModule(configuration));
-		}
+            return builder
+                .RegisterModule(new DatabaseConnectivity())
+                .RegisterModule(new NEventStoreModule(true));
+        }
 	}
 }

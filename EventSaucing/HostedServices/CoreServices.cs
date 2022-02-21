@@ -3,11 +3,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Cluster.Tools.PublishSubscribe;
-using Akka.DI.Core;
+using Akka.DependencyInjection;
 using EventSaucing.EventStream;
 using EventSaucing.NEventStore;
-using EventSaucing.Projectors;
-using EventSaucing.Storage;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -19,7 +17,6 @@ namespace EventSaucing.HostedServices
     /// Starts and stops <see cref="LocalEventStreamActor"/> which produces a stream of serialised (in-order) commits for local downstream usage
     /// </summary>
     public class CoreServices : IHostedService {
-        private readonly IDbService _dbService;
         private readonly ActorSystem _actorSystem;
         private readonly PostCommitNotifierPipeline _commitNotifierPipeline;
         private readonly ILogger<CoreServices> _logger;
@@ -29,14 +26,11 @@ namespace EventSaucing.HostedServices
         /// <summary>
         /// Instantiates
         /// </summary>
-        /// <param name="dbService"></param>
-        /// <param name="dependencyResolver">Required.  If you remove this, then autofac starts this class before the actor system is configured to use DI and actors cant be created</param>
         /// <param name="actorSystem"></param>
         /// <param name="commitNotifierPipeline"></param>
         /// <param name="logger"></param>
         /// <param name="cache"></param>
-        public CoreServices(IDbService dbService, IDependencyResolver dependencyResolver, ActorSystem actorSystem, PostCommitNotifierPipeline commitNotifierPipeline, ILogger<CoreServices> logger, IInMemoryCommitSerialiserCache cache) {
-            _dbService = dbService;
+        public CoreServices(ActorSystem actorSystem, PostCommitNotifierPipeline commitNotifierPipeline, ILogger<CoreServices> logger, IInMemoryCommitSerialiserCache cache) {
             _actorSystem = actorSystem;
             _commitNotifierPipeline = commitNotifierPipeline;
             _logger = logger;
@@ -52,21 +46,26 @@ namespace EventSaucing.HostedServices
             _logger.LogInformation($"EventSaucing {nameof(CoreServices)} starting");
 
             // function to create the EventStorePollerActor, ctor dependency of LocalEventStreamActor
-            Func<IUntypedActorContext, IActorRef> pollerMaker = (ctx) => ctx.ActorOf(
-                ctx.DI()
-                    .Props<EventStorePollerActor>()
-                    .WithSupervisorStrategy(SupervisorStrategy.StoppingStrategy)
-                );
+            Func<IUntypedActorContext, IActorRef> pollerMaker = (ctx) => {
+                    var pollerProps = DependencyResolver
+                        .For(_actorSystem)
+                        .Props<EventStorePollerActor>()
+                        .WithSupervisorStrategy(SupervisorStrategy.StoppingStrategy);
+
+                    return ctx.ActorOf(pollerProps);
+                };
 
             // start the local event stream actor
-            _localEventStreamActor = _actorSystem.ActorOf(
-                Props.Create<LocalEventStreamActor>(_cache, pollerMaker), nameof(LocalEventStreamActor)
-                );
+            var streamerProps = DependencyResolver
+                .For(_actorSystem)
+                .Props<LocalEventStreamActor>(_cache, pollerMaker); //todo, im pretty sure we don't need to inject _cache here, just pollerMaker
+            _localEventStreamActor = _actorSystem.ActorOf(streamerProps);
 
             //subscribe actor to distributed commit notification messages
             var mediator = DistributedPubSub.Get(_actorSystem).Mediator;
             mediator.Tell(new Subscribe(LocalEventStreamActor.PubSubCommitNotificationTopic, _localEventStreamActor));
 
+            // watch for commits and publish them
             _commitNotifierPipeline.AfterCommit += CommitNotifierPipeline_AfterCommit;
 
             _logger.LogInformation($"EventSaucing {nameof(CoreServices)} started");

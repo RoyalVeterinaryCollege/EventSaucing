@@ -1,9 +1,9 @@
 ﻿using Akka.Actor;
-using Akka.DI.Core;
 using Akka.Routing;
 using System;
 using System.Threading.Tasks;
 using Akka.Cluster.Tools.PublishSubscribe;
+using Akka.DependencyInjection;
 using EventSaucing.Reactors.Messages;
 using Microsoft.Extensions.Configuration;
 
@@ -67,7 +67,10 @@ namespace EventSaucing.Reactors {
             int instances = _config.GetValue<int?>("EventSaucing:NumberOfReactorActors") ?? 5;
 
             //These child actors will process any messages on our behalf
-            Context.ActorOf(Context.System.DI().Props<ReactorActor>().WithRouter(new ConsistentHashingPool(instances)), ReactorActorsRelativeAddress);
+            var props = DependencyResolver.For(Context.System)
+                .Props<ReactorActor>()
+                .WithRouter(new ConsistentHashingPool(instances));
+            Context.ActorOf(props, ReactorActorsRelativeAddress);
 
             var mediator = DistributedPubSub.Get(Context.System).Mediator;
             string topic = GetInternalPublicationTopic(_bucket);

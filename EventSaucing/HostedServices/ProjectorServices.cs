@@ -4,8 +4,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
-using Akka.DI.Core;
+using Akka.DependencyInjection;
 using EventSaucing.Projectors;
+using EventSaucing.Reactors;
 using EventSaucing.Storage;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -27,10 +28,9 @@ namespace EventSaucing.HostedServices {
         /// </summary>
         /// <param name="dbService"></param>
         /// <param name="actorSystem"></param>
-        /// <param name="dependencyResolver">Required.  If you remove this, then autofac starts this class before the actor system is configured to use DI and actors cant be created</param>
         /// <param name="logger"></param>
         /// <param name="projectorTypeProvider"></param>
-        public ProjectorServices(IDbService dbService, ActorSystem actorSystem, IDependencyResolver dependencyResolver, ILogger<ProjectorServices> logger, IProjectorTypeProvider projectorTypeProvider)
+        public ProjectorServices(IDbService dbService, ActorSystem actorSystem, ILogger<ProjectorServices> logger, IProjectorTypeProvider projectorTypeProvider)
         {
             _dbService = dbService;
             _actorSystem = actorSystem;
@@ -51,7 +51,9 @@ namespace EventSaucing.HostedServices {
 
             // function to create the projectors, ctor dependency of ProjectorSupervisor
             Func<IUntypedActorContext, IEnumerable<IActorRef>> pollerMaker = (ctx) => {
-                var props= _projectorTypeProvider.GetProjectorTypes().Select(type => ctx.DI().Props(type));
+                IEnumerable<Props> props= _projectorTypeProvider
+                    .GetProjectorTypes()
+                    .Select(type => DependencyResolver.For(_actorSystem).Props(type));
                 return props.Select(prop => ctx.ActorOf(prop));
             };
 
