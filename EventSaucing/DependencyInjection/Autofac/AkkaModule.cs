@@ -8,15 +8,6 @@ using EventSaucing.Projectors;
 using Module = Autofac.Module;
 
 namespace EventSaucing.DependencyInjection.Autofac {
-    /// <summary>
-    /// Global registery of important actor paths
-    /// </summary>
-    public class ActorPaths {
-        /// <summary>
-        /// Path to the actor which serialises neventstore commits
-        /// </summary>
-        public ActorPath LocalCommitSerialisor { get; set; }
-    }
 
 
     public class AkkaModule : Module {
@@ -32,10 +23,10 @@ namespace EventSaucing.DependencyInjection.Autofac {
             builder.RegisterType<AkkaAutofacConfigurer>().As<IStartable>();
             builder.RegisterType<Akka.AkkaStartStop>().As<IStartable>();
 
-			
+			//todo DI makes assumptions about which assemblies contain projectors + other actors 
+            //todo the way projectorsupervisor gets refereences to projector types has changed
 			builder.RegisterAssemblyTypes(Assembly.GetEntryAssembly()).AssignableTo<LegacyProjector>(); // Get the assembly that kicks the show off, this should have projectors in it.
             builder.RegisterAssemblyTypes(Assembly.GetExecutingAssembly()).AssignableTo<ReceiveActor>(); // This assembly, which has infrastructure actors.
-            builder.Register(x => new ActorPaths()).SingleInstance();
 
             builder
                 .Register(x => ActorSystem.Create(actorsystemname)) // Akka configured in app.config

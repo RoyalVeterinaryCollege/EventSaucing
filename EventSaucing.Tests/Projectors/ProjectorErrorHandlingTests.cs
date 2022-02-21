@@ -134,13 +134,5 @@ namespace EventSaucing.Projectors {
             _publishedMessages
                 .Should().ContainSingle(x => x.Checkpoint == 11L && x.MyType == typeof(ErrorThrowingProjector));
         }
-
-        [Test]
-        public void Actor_should_log_error() {
-            EventFilter.Error().ExpectOne(() => {
-                _sut.Tell(new OrderedCommitNotification(
-                    new FakeCommit { CheckpointToken = 11L }, 10L)); //not sure why but we need to send the same commit again??
-            });
-        }
     }
 }
