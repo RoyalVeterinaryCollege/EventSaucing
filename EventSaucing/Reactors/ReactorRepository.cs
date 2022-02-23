@@ -56,9 +56,7 @@ namespace EventSaucing.Reactors {
             public long PublicationId { get; set; }
 
             public ArticlePublished ToMessage() {
-                if (string.IsNullOrWhiteSpace(Name)) throw new ArgumentNullException("Name property was not set correctly during persistance");
-                var type = Type.GetType(ArticleSerialisationType, throwOnError: true);
-                var msg = new Messages.ArticlePublished(
+                var msg = new ArticlePublished(
                            SubscribingReactorBucket,
                            Name,
                            SubscribingReactorId,
@@ -66,7 +64,8 @@ namespace EventSaucing.Reactors {
                            VersionNumber,
                            SubscriptionId,
                            PublicationId,
-                           JsonConvert.DeserializeObject(ArticleSerialisation, type)
+                           ArticleSerialisationType,
+                           ArticleSerialisation
                        );
                 return msg;
             }
@@ -119,7 +118,7 @@ namespace EventSaucing.Reactors {
             }
         }
        
-        public async Task<(IReactor, PersistedPubSubData) > LoadFromDbAsync(long reactorId) {
+        public async Task<(IReactor, PersistedPubSubData)> LoadFromDbAsync(long reactorId) {
             using (var con = dbService.GetConnection()) {
                 await con.OpenAsync();
 

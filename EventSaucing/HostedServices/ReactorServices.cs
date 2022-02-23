@@ -62,7 +62,7 @@ namespace EventSaucing.HostedServices
                 TimeSpan.FromSeconds(_config.GetValue<int?>("EventSaucing:RoyalMail:StartupDelay") ?? 5), // on start up, wait this long before polling
                 TimeSpan.FromSeconds(_config.GetValue<int?>("EventSaucing:RoyalMail:PollingInterval") ?? 5), // wait this long between polling
                 _royalMailActor, 
-                new RoyalMail.LocalMessages.PollForOutstandingArticles(),
+                new RoyalMail.Messages.PollForOutstandingArticles(),
                 ActorRefs.NoSender);
         }
 

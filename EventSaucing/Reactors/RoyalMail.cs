@@ -39,7 +39,7 @@ namespace EventSaucing.Reactors {
             _config = config;
             _bucket = config.GetLocalBucketName();
 
-            ReceiveAsync<LocalMessages.PollForOutstandingArticles>(OnPollAsync);
+            ReceiveAsync<Messages.PollForOutstandingArticles>(OnPollAsync);
             _rnd = new Random();
         }
 
@@ -48,16 +48,17 @@ namespace EventSaucing.Reactors {
             public Guid AggregateId { get; set; }
             public int StreamRevision { get; set; }
 
-            public Messages.SubscribedAggregateChanged ToMessage(string bucket) =>
-                new Messages.SubscribedAggregateChanged(bucket, ReactorId, AggregateId, StreamRevision);
+            public Reactors.Messages.SubscribedAggregateChanged ToMessage(string bucket) =>
+                new Reactors.Messages.SubscribedAggregateChanged(bucket, ReactorId, AggregateId, StreamRevision);
         }
 
         protected override void PreStart() {
+            //todo timer to send PollForOutstandingArticles message
             base.PreStart();
             InitialisePersistedCheckpoint();
         }
 
-        private async Task OnPollAsync(LocalMessages.PollForOutstandingArticles arg) {
+        private async Task OnPollAsync(Messages.PollForOutstandingArticles arg) {
             await PublishAggregateSubscriptionsMessages();
             await PublishArticleSubscriptionMessages();
         }
@@ -140,14 +141,18 @@ SELECT @LatestCheckpointNumber;
             using (var con = _dbservice.GetConnection()) {
                 await con.OpenAsync();
 
-
-                //var aggregateSubscriptionMessages =
-                await PublishAggregateSubscriptionsMessages();
-
-
                 //Look for article subscriptions that need to be updated
                 const string sqlReactorSubscriptions = @"
-SELECT TOP (@MaxSubscriptions) RP.Name,  RP.Id AS [PublicationId], RS.SubscribingReactorId, RS.Id as SubscriptionId, RP.PublishingReactorId, RP.VersionNumber, RP.ArticleSerialisationType, RP.ArticleSerialisation
+SELECT TOP (@MaxSubscriptions) 
+    R.Bucket AS [ReactorBucket],
+    RP.Name, 
+    RP.Id AS [PublicationId],
+    RS.SubscribingReactorId, 
+    RS.Id as SubscriptionId, 
+    RP.PublishingReactorId, 
+    RP.VersionNumber, 
+    RP.ArticleSerialisationType,
+    RP.ArticleSerialisation
 
 FROM dbo.ReactorSubscriptions RS
 
@@ -168,21 +173,20 @@ WHERE
 	AND RPD.SubscriptionId IS NULL --never delivered
 	OR (RPD.VersionNumber < RP.VersionNumber); --OR there is a new version";
 
-                var preMessages =
-                    (await con.QueryAsync<PreArticlePublished>(sqlReactorSubscriptions,
+                var messages =
+                    (await con.QueryAsync<ArticlePublished>(sqlReactorSubscriptions,
                         new { Bucket = _bucket, maxSubscriptions })).ToList();
 
-                if (preMessages.Any()) {
-                    _logger.LogDebug($"Found {preMessages.Count} article subscriptions for bucket {_bucket}");
+                if (messages.Any()) {
+                    _logger.LogDebug($"Found {messages.Count} article subscriptions for bucket {_bucket}");
                 }
                 else {
                     _logger.LogDebug($"No article subscriptions for bucket {_bucket} need to be updated");
                 }
 
-                foreach (var preMsg in preMessages.Shuffle(_rnd)) {
-                    _reactorBucketRouter.Tell(
-                        preMsg.ToMessage(
-                            _bucket)); // Todo: performing deserialisation here can fail if the current process is not the right bucket
+                foreach (var message in messages.Shuffle(_rnd)) {
+                    _reactorBucketRouter.Tell(message);
+
                 }
             }
         }
@@ -215,37 +219,12 @@ WHERE NOT EXISTS(SELECT 1 FROM dbo.ReactorsRoyalMailStatus WHERE Bucket = @Bucke
             }
         }
 
-        private class PreArticlePublished {
-            public string Name { get; set; }
-            public string ArticleSerialisationType { get; set; }
-            public string ArticleSerialisation { get; set; }
-            public long SubscribingReactorId { get; set; }
-            public long PublishingReactorId { get; set; }
-            public int VersionNumber { get; set; }
-            public long SubscriptionId { get; set; }
-            public long PublicationId { get; set; }
-
-            public ArticlePublished ToMessage(string subscribingReactorBucket) {
-                return new Messages.ArticlePublished(
-                    subscribingReactorBucket,
-                    Name,
-                    SubscribingReactorId,
-                    PublishingReactorId,
-                    VersionNumber,
-                    SubscriptionId,
-                    PublicationId,
-                    JsonConvert.DeserializeObject(ArticleSerialisation,
-                        Type.GetType(ArticleSerialisationType, throwOnError: true))
-                );
-            }
-        }
-
         /// <summary>
         /// RoyalMail's messages
         /// </summary>
-        public class LocalMessages {
+        public class Messages {
             /// <summary>
-            /// Message instructs royalmail to poll db to check for reactor subscriptions with new articles or for aggregates with new commits
+            /// Message instructs <see cref="RoyalMail"/> to poll db to check for reactor subscriptions with new articles or for aggregates with new commits
             /// </summary>
             public class PollForOutstandingArticles { }
         }
