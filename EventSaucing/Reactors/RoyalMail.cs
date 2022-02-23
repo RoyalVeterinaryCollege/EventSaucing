@@ -24,6 +24,8 @@ namespace EventSaucing.Reactors {
         private readonly Random _rnd;
         private readonly string _bucket;
 
+        //todo : how many instances of royal mail should there be per cluster?  it was designed as a singleton.
+
         /// <summary>
         /// Gets or sets the last checkpoint RoyalMail checked for outstanding aggregate subscriptions
         /// </summary>

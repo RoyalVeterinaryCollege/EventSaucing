@@ -49,7 +49,7 @@ namespace EventSaucing.HostedServices
             //create the reactor persistence tables if not already created
             await _reactorRepo.CreateReactorTablesAsync();
 
-            //start the local reactor bucket supervisor.  It will automatically connect to the main Reactor process.
+            //start the local reactor bucket supervisor.  
             var reactorBucketProps = DependencyResolver.For(_actorSystem).Props<ReactorBucketSupervisor>();
             _reactorBucket = _actorSystem.ActorOf(reactorBucketProps, "reactor-bucket");
 
