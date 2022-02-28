@@ -28,8 +28,11 @@
     <NoWarn>1701;1702;CS1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Akka.Cluster.Sharding" Version="1.4.33" />
     <PackageReference Include="Akka.Cluster.Tools" Version="1.4.33" />
     <PackageReference Include="Akka.DependencyInjection" Version="1.4.33" />
+    <PackageReference Include="Akka.Persistence" Version="1.4.33" />
+    <PackageReference Include="Akka.Persistence.SqlServer" Version="1.4.32" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="5.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="3.0.3" />
     <PackageReference Include="Dapper" Version="2.0.123" />
