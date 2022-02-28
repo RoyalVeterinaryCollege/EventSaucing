@@ -2,6 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
+using Akka.Cluster.Tools.Singleton;
 using Akka.DependencyInjection;
 using Akka.Routing;
 using EventSaucing.Reactors;
@@ -27,7 +28,6 @@ namespace EventSaucing.HostedServices
         /// Instantiates
         /// </summary>
         /// <param name="actorSystem"></param>
-        /// <param name="dependencyResolver">Required.  If you remove this, then autofac starts this class before the actor system is configured to use DI and actors cant be created</param>
         /// <param name="logger"></param>
         /// <param name="reactorRepo"></param>
         /// <param name="config"></param>
@@ -53,11 +53,16 @@ namespace EventSaucing.HostedServices
             var reactorBucketProps = DependencyResolver.For(_actorSystem).Props<ReactorBucketSupervisor>();
             _reactorBucket = _actorSystem.ActorOf(reactorBucketProps, "reactor-bucket");
 
-            //start the local royal mail.
-            var royalMailBucketProps = DependencyResolver.For(_actorSystem).Props<RoyalMail>();
-            _royalMailActor = _actorSystem.ActorOf(royalMailBucketProps, "royal-mail");
+            // start the RoyalMail as a cluster singleton https://getakka.net/articles/clustering/cluster-singleton.html
+            _royalMailActor = _actorSystem.ActorOf(
+                ClusterSingletonManager.Props(
+                    singletonProps: Props.Create<RoyalMail>(),
+                    terminationMessage: PoisonPill.Instance,
+                    settings: ClusterSingletonManagerSettings.Create(_actorSystem).WithRole("reactors")), //todo : configure cluster roles
+                name: "royal-mail");
 
             //schedule a poll message to be sent to RoyalMail every n seconds
+            //todo royal mail to send itself this message on a timer
             _actorSystem.Scheduler.ScheduleTellRepeatedly(
                 TimeSpan.FromSeconds(_config.GetValue<int?>("EventSaucing:RoyalMail:StartupDelay") ?? 5), // on start up, wait this long before polling
                 TimeSpan.FromSeconds(_config.GetValue<int?>("EventSaucing:RoyalMail:PollingInterval") ?? 5), // wait this long between polling

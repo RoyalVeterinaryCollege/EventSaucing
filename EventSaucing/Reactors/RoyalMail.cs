@@ -16,7 +16,7 @@ namespace EventSaucing.Reactors {
     /// 
     /// Existing subscribers are messaged immediately when a publisher creates a new version of an article but newly created subscriptions don't receive any pre-existing publications immediately. They are messaged by RoyalMail.
     /// </summary>
-    public class RoyalMail : ReceiveActor {
+    public class RoyalMail : ReceiveActor, IWithTimers {
         private readonly IDbService _dbservice;
         private readonly IReactorBucketFacade _reactorBucketRouter;
         private readonly ILogger<RoyalMail> _logger;
@@ -53,9 +53,16 @@ namespace EventSaucing.Reactors {
         }
 
         protected override void PreStart() {
-            //todo timer to send PollForOutstandingArticles message
             base.PreStart();
             InitialisePersistedCheckpoint();
+
+            // start a timer for polling
+            Timers.StartPeriodicTimer(
+                "poll",
+                new Messages.PollForOutstandingArticles(),
+                TimeSpan.FromSeconds(_config.GetValue<int?>("EventSaucing:RoyalMail:StartupDelay") ?? 5),
+                TimeSpan.FromSeconds(_config.GetValue<int?>("EventSaucing:RoyalMail:PollingInterval") ?? 5)
+                );
         }
 
         private async Task OnPollAsync(Messages.PollForOutstandingArticles arg) {
@@ -228,5 +235,7 @@ WHERE NOT EXISTS(SELECT 1 FROM dbo.ReactorsRoyalMailStatus WHERE Bucket = @Bucke
             /// </summary>
             public class PollForOutstandingArticles { }
         }
+
+        public ITimerScheduler Timers { get; set; }
     }
 }
