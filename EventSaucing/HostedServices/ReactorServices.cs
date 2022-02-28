@@ -2,6 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
+using Akka.Cluster.Sharding;
 using Akka.Cluster.Tools.Singleton;
 using Akka.DependencyInjection;
 using Akka.Routing;
@@ -49,26 +50,31 @@ namespace EventSaucing.HostedServices
             //create the reactor persistence tables if not already created
             await _reactorRepo.CreateReactorTablesAsync();
 
-            //start the local reactor bucket supervisor.  
+            // start the local reactor bucket supervisor.  
+            // todo convert ReactorBucketSupervisor to sharded actor
+            
             var reactorBucketProps = DependencyResolver.For(_actorSystem).Props<ReactorBucketSupervisor>();
             _reactorBucket = _actorSystem.ActorOf(reactorBucketProps, "reactor-bucket");
 
+            // register actor type as a sharded entity
+            // todo: do we even need the reactor supervisor anymore? cant messages just go to reactoractor directly?
+            var region = await ClusterSharding.Get(_actorSystem).StartAsync(
+                typeName: "reactor-bucket",
+                entityPropsFactory: entityId => Props.Create(() => new ReactorBucketSupervisor(entityId, _config)),
+                settings: ClusterShardingSettings.Create(_actorSystem),
+                messageExtractor: new MessageExtractor());
+
+            // send message to entity through shard region
+            region.Tell(new ShardEnvelope(shardId: 1, entityId: 1, message: "hello"));
+
             // start the RoyalMail as a cluster singleton https://getakka.net/articles/clustering/cluster-singleton.html
+            // this means there is only one per cluster (with various caveats, that don't matter too much for RoyalMail)
             _royalMailActor = _actorSystem.ActorOf(
                 ClusterSingletonManager.Props(
                     singletonProps: Props.Create<RoyalMail>(),
                     terminationMessage: PoisonPill.Instance,
                     settings: ClusterSingletonManagerSettings.Create(_actorSystem).WithRole("reactors")), //todo : configure cluster roles
                 name: "royal-mail");
-
-            //schedule a poll message to be sent to RoyalMail every n seconds
-            //todo royal mail to send itself this message on a timer
-            _actorSystem.Scheduler.ScheduleTellRepeatedly(
-                TimeSpan.FromSeconds(_config.GetValue<int?>("EventSaucing:RoyalMail:StartupDelay") ?? 5), // on start up, wait this long before polling
-                TimeSpan.FromSeconds(_config.GetValue<int?>("EventSaucing:RoyalMail:PollingInterval") ?? 5), // wait this long between polling
-                _royalMailActor, 
-                new RoyalMail.Messages.PollForOutstandingArticles(),
-                ActorRefs.NoSender);
         }
 
         /// <summary>
