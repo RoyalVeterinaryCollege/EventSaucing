@@ -9,6 +9,8 @@ using Microsoft.Extensions.Configuration;
 
 namespace EventSaucing.Reactors {
 
+    //ToDo convert ReactorBucketSupervisor to a shard actor
+
     /// <summary>
     /// The supervisor for a Reactor bucket.  It subscribes to messages posted to the pub/sub mediator for a particular bucket.
     /// It then forwards these messages to its children, which are a pool of reactor actors.
@@ -82,6 +84,8 @@ namespace EventSaucing.Reactors {
         /// </summary>
         /// <param name="reason"></param>
         protected override void PostRestart(Exception reason) {
+            // https://getakka.net/articles/actors/receive-actor-api.html#initialization-patterns
+            // override and don't call PreStart so PreStart is called only once per instance
         }
     }
 }
