@@ -35,7 +35,7 @@ namespace EventSaucing.Reactors {
         }
 
         public virtual async Task ReactAsync(ArticlePublished msg, IUnitOfWork uow) {
-            await dispatcher.DispatchPayloadAsync(this,msg.Article);
+            await dispatcher.DispatchPayloadAsync(this,msg.DeserialiseArticle());
         }
     }
 }

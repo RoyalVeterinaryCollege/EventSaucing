@@ -40,7 +40,7 @@ namespace EventSaucing.Reactors.Messages {
         /// Gets the Article as an object.  You must call this from a process that contains the type 
         /// </summary>
         /// <exception cref="Exception">Thrown when the article cant be deserialised</exception>
-        public object Article =>
+        public object DeserialiseArticle() =>
             JsonConvert.DeserializeObject(ArticleSerialisation,
                 Type.GetType(ArticleSerialisationType, throwOnError: true));
 
