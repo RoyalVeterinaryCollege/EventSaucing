@@ -13,7 +13,7 @@ using Serilog;
 
 namespace EventSaucing.Projectors
 {
-    //todo need sql for createing sqlprojector persistent state, and need to alter the existing sql to deal with it
+    //todo need sql for creating sqlprojector persistent state, and need to alter the existing sql to deal with it
     public abstract class SqlProjector : Projector  {
         protected readonly ConventionBasedEventDispatcher _dispatcher;
         protected readonly ILogger _logger;
