@@ -126,7 +126,7 @@ SELECT @LatestCheckpointNumber;
                 }
 
                 foreach (var preMsg in aggregateSubscriptionMessages.Shuffle(_rnd)) {
-                    _reactorBucketRouter.Tell(preMsg.ToMessage(_bucket));
+                    await _reactorBucketRouter.TellAsync(preMsg.ToMessage(_bucket));
                 }
 
                 // update persisted checkpoint
@@ -192,8 +192,7 @@ WHERE
                 }
 
                 foreach (var message in messages.Shuffle(_rnd)) {
-                    _reactorBucketRouter.Tell(message);
-
+                    await _reactorBucketRouter.TellAsync(message);
                 }
             }
         }

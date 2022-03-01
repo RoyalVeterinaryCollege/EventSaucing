@@ -60,7 +60,7 @@ WHERE
                     new { AggregateId = commit.AggregateId(), commit.StreamRevision, Bucket = _bucket })).ToList();
 
                 foreach (var msg in aggregateSubscriptionMessages) {
-                    _reactorBucketRouter.Tell(msg);
+                    await _reactorBucketRouter.TellAsync(msg);
                 }
 
                 // persist checkpoint if we sent any messages to avoid resending them on restart

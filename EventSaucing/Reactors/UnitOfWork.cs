@@ -136,7 +136,7 @@ namespace EventSaucing.Reactors {
         public async Task CompleteAndPublishAsync() {
             IEnumerable<Messages.ArticlePublished> publications = await PersistWithPublicationsAysnc();
             foreach (var articlePublished in publications.Shuffle(rnd)) {
-                reactorBucketFacade.Tell(articlePublished);
+                await reactorBucketFacade.TellAsync(articlePublished);
             }
         }
 

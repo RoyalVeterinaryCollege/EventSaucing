@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Cluster.Sharding;
 using EventSaucing.Reactors.Messages;
@@ -8,8 +9,8 @@ namespace EventSaucing.Reactors {
     /// A convenience service which lets you easily publish reactor messages
     /// </summary>
     public interface IReactorBucketFacade {
-        void Tell(ArticlePublished msg);
-        void Tell(SubscribedAggregateChanged msg);
+        Task TellAsync(ArticlePublished msg);
+        Task TellAsync(SubscribedAggregateChanged msg);
     }
 
     public class ReactorBucketFacade : IReactorBucketFacade {
@@ -20,24 +21,24 @@ namespace EventSaucing.Reactors {
             _sharding = ClusterSharding.Get(system);
         }
 
-        public void Tell(ArticlePublished msg) {
+        public async Task TellAsync(ArticlePublished msg) {
             if (!_proxies.ContainsKey(msg.ReactorBucket)) {
-                StartProxy(msg.ReactorBucket);
+                await StartProxyAsync(msg.ReactorBucket);
             }
 
             _proxies[msg.ReactorBucket].Tell(msg);
         }
 
-        public void Tell(SubscribedAggregateChanged msg) {
+        public async Task TellAsync(SubscribedAggregateChanged msg) {
             if (!_proxies.ContainsKey(msg.ReactorBucket)) {
-                StartProxy(msg.ReactorBucket);
+                await StartProxyAsync(msg.ReactorBucket);
             }
 
             _proxies[msg.ReactorBucket].Tell(msg);
         }
 
-        private void StartProxy(string bucket) {
-            var proxy = _sharding.StartProxy(
+        private async Task StartProxyAsync(string bucket) {
+            var proxy = await _sharding.StartProxyAsync(
                 typeName: "reactors",
                 role: $"reactors-{bucket}",
                 messageExtractor: new ReactorMessageExtractor(30)); //todo get number of shards from config
