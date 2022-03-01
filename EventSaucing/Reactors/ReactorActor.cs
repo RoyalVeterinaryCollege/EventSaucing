@@ -12,6 +12,8 @@ namespace EventSaucing.Reactors {
         private readonly IReactorRepository reactorRepo;
         private readonly ILogger<ReactorActor> logger;
 
+
+
         public ReactorActor(IReactorRepository reactorRepo, ILogger<ReactorActor> logger) {
             this.reactorRepo = reactorRepo;
             this.logger = logger;

@@ -41,6 +41,31 @@ namespace EventSaucing.Reactors {
             ReceiveAsync<SubscribedAggregateChanged>(OnSubscribedAggregateChangedAsync);
         }
 
+        protected override void PreStart()
+        {
+            int instances = _config.GetValue<int?>("EventSaucing:NumberOfReactorActors") ?? 5;
+
+            //These child actors will process any messages on our behalf
+            var props = DependencyResolver.For(Context.System)
+                .Props<ReactorActor>()
+                .WithRouter(new ConsistentHashingPool(instances));
+            Context.ActorOf(props, ReactorActorsRelativeAddress);
+
+            var mediator = DistributedPubSub.Get(Context.System).Mediator;
+            string topic = GetInternalPublicationTopic(_bucket);
+            mediator.Tell(new Subscribe(topic, Self));
+        }
+
+        /// <summary>
+        /// Overriding postRestart to disable the call to preStart() after restarts.  This means children are restarted, and we don't create extra instances each time
+        /// </summary>
+        /// <param name="reason"></param>
+        protected override void PostRestart(Exception reason)
+        {
+            // https://getakka.net/articles/actors/receive-actor-api.html#initialization-patterns
+            // override and don't call PreStart so PreStart is called only once per instance
+        }
+
         /// <summary>
         /// Gets the internal Akka PubSub topic for a Reactor bucket.  Akka cluster PubSub is used to route reactor messages to the correct bucket.
         /// </summary>
@@ -68,27 +93,6 @@ namespace EventSaucing.Reactors {
             return Task.CompletedTask;
         }
 
-        protected override void PreStart() {
-            int instances = _config.GetValue<int?>("EventSaucing:NumberOfReactorActors") ?? 5;
-
-            //These child actors will process any messages on our behalf
-            var props = DependencyResolver.For(Context.System)
-                .Props<ReactorActor>()
-                .WithRouter(new ConsistentHashingPool(instances));
-            Context.ActorOf(props, ReactorActorsRelativeAddress);
-
-            var mediator = DistributedPubSub.Get(Context.System).Mediator;
-            string topic = GetInternalPublicationTopic(_bucket);
-            mediator.Tell(new Subscribe(topic, Self));
-        }
-
-        /// <summary>
-        /// Overriding postRestart to disable the call to preStart() after restarts.  This means children are restarted, and we don't create extra instances each time
-        /// </summary>
-        /// <param name="reason"></param>
-        protected override void PostRestart(Exception reason) {
-            // https://getakka.net/articles/actors/receive-actor-api.html#initialization-patterns
-            // override and don't call PreStart so PreStart is called only once per instance
-        }
+     
     }
 }

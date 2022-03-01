@@ -60,12 +60,12 @@ namespace EventSaucing.HostedServices
             // todo: do we even need the reactor supervisor anymore? cant messages just go to reactoractor directly?
             var region = await ClusterSharding.Get(_actorSystem).StartAsync(
                 typeName: "reactors",
-                settings: ClusterShardingSettings.Create(_actorSystem).WithRole($"reactor-bucket-{bucket}"),
+                settings: ClusterShardingSettings.Create(_actorSystem).WithRole("reactors-{bucket}"), //todo get bucket from config
                 entityPropsFactory: entityId => Props.Create(() => new ReactorBucketSupervisor(entityId, _config)),
-                messageExtractor: new MessageExtractor());
+                messageExtractor: new ReactorMessageExtractor(30)); //todo num shards from config
 
             // send message to entity through shard region
-            region.Tell(new ShardEnvelope(shardId: 1, reactorId: 1, message: "hello"));
+           // region.Tell(new ShardEnvelope(shardId: 1, reactorId: 1, message: "hello"));
 
             // start the RoyalMail as a cluster singleton https://getakka.net/articles/clustering/cluster-singleton.html
             // this means there is only one per cluster (with various caveats, that don't matter too much for RoyalMail)
@@ -73,7 +73,7 @@ namespace EventSaucing.HostedServices
                 ClusterSingletonManager.Props(
                     singletonProps: Props.Create<RoyalMail>(),
                     terminationMessage: PoisonPill.Instance,
-                    settings: ClusterSingletonManagerSettings.Create(_actorSystem).WithRole("reactors")), //todo : configure cluster roles
+                    settings: ClusterSingletonManagerSettings.Create(_actorSystem).WithRole(AkkaRoles.Reactors)), //todo : configure cluster roles
                 name: "royal-mail");
         }
 

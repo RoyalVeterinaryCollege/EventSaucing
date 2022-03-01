@@ -6,7 +6,7 @@ namespace EventSaucing.Reactors.Messages {
     /// <summary>
     /// Message sent when a reactor should notified that an article it subscribes to has been published.
     /// </summary>
-    public class ArticlePublished : IConsistentHashable {
+    public class ArticlePublished  {
         public ArticlePublished(string reactorBucket, string name, long subscribingReactorId, long publishingReactorId, int versionNumber, long subscriptionId, long publicationId, string articleSerialisationType, string articleSerialisation) {
             if (string.IsNullOrWhiteSpace(reactorBucket)) {
                 throw new System.ArgumentException($"'{nameof(reactorBucket)}' cannot be null or whitespace", nameof(reactorBucket));
@@ -43,7 +43,5 @@ namespace EventSaucing.Reactors.Messages {
         public object DeserialiseArticle() =>
             JsonConvert.DeserializeObject(ArticleSerialisation,
                 Type.GetType(ArticleSerialisationType, throwOnError: true));
-
-        object IConsistentHashable.ConsistentHashKey => SubscribingReactorId; //ensures messages are processed by same reactor actor instance to avoid optimistic concurrency issues
     }
 }
