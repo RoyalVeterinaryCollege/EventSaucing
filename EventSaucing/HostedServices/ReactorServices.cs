@@ -59,13 +59,13 @@ namespace EventSaucing.HostedServices
             // register actor type as a sharded entity
             // todo: do we even need the reactor supervisor anymore? cant messages just go to reactoractor directly?
             var region = await ClusterSharding.Get(_actorSystem).StartAsync(
-                typeName: "reactor-bucket",
+                typeName: "reactors",
+                settings: ClusterShardingSettings.Create(_actorSystem).WithRole($"reactor-bucket-{bucket}"),
                 entityPropsFactory: entityId => Props.Create(() => new ReactorBucketSupervisor(entityId, _config)),
-                settings: ClusterShardingSettings.Create(_actorSystem),
                 messageExtractor: new MessageExtractor());
 
             // send message to entity through shard region
-            region.Tell(new ShardEnvelope(shardId: 1, entityId: 1, message: "hello"));
+            region.Tell(new ShardEnvelope(shardId: 1, reactorId: 1, message: "hello"));
 
             // start the RoyalMail as a cluster singleton https://getakka.net/articles/clustering/cluster-singleton.html
             // this means there is only one per cluster (with various caveats, that don't matter too much for RoyalMail)

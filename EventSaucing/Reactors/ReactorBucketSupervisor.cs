@@ -27,10 +27,13 @@ namespace EventSaucing.Reactors {
         /// </summary>
         const string ReactorActorsRelativeAddress = "reactor-actors";
 
+       
         /// <summary>
-        /// Instantiates
+        /// 
         /// </summary>
-        public ReactorBucketSupervisor(IConfiguration config) {
+        /// <param name="entityId"></param>
+        /// <param name="config"></param>
+        public ReactorBucketSupervisor(string entityId, IConfiguration config) {
             _config = config;
             _bucket = config.GetLocalBucketName();
 
