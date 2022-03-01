@@ -9,7 +9,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace EventSaucing.Reactors {
 
-    //ToDo convert ReactorBucketSupervisor to a shard actor
+    //todo delete ReactorBucketSupervisor?
 
     /// <summary>
     /// The supervisor for a Reactor bucket.  It subscribes to messages posted to the pub/sub mediator for a particular bucket.

@@ -51,18 +51,21 @@ namespace EventSaucing.HostedServices
             await _reactorRepo.CreateReactorTablesAsync();
 
             // start the local reactor bucket supervisor.  
-            // todo convert ReactorBucketSupervisor to sharded actor
-            
-            var reactorBucketProps = DependencyResolver.For(_actorSystem).Props<ReactorBucketSupervisor>();
-            _reactorBucket = _actorSystem.ActorOf(reactorBucketProps, "reactor-bucket");
+            // todo convert ReactorBucketSupervisor to sharded actor or delete it
+
+            var dependencyResolver = DependencyResolver.For(_actorSystem);
+
+            //var reactorBucketProps = DependencyResolver.For(_actorSystem).Props<ReactorBucketSupervisor>();
+            //_reactorBucket = _actorSystem.ActorOf(reactorBucketProps, "reactor-bucket");
 
             // register actor type as a sharded entity
             // todo: do we even need the reactor supervisor anymore? cant messages just go to reactoractor directly?
             var region = await ClusterSharding.Get(_actorSystem).StartAsync(
-                typeName: "reactors",
-                settings: ClusterShardingSettings.Create(_actorSystem).WithRole("reactors-{bucket}"), //todo get bucket from config
-                entityPropsFactory: entityId => Props.Create(() => new ReactorBucketSupervisor(entityId, _config)),
-                messageExtractor: new ReactorMessageExtractor(30)); //todo num shards from config
+                typeName: "reactor-actor",
+                settings: ClusterShardingSettings.Create(_actorSystem).WithRole("reactors-{bucket}"), //todo cluster roles
+                entityPropsFactory: entityId => dependencyResolver.Props<ReactorActor>(entityId),
+                messageExtractor: new ReactorMessageExtractor(30) //todo num shards from config
+                ); 
 
             // send message to entity through shard region
            // region.Tell(new ShardEnvelope(shardId: 1, reactorId: 1, message: "hello"));
@@ -71,9 +74,9 @@ namespace EventSaucing.HostedServices
             // this means there is only one per cluster (with various caveats, that don't matter too much for RoyalMail)
             _royalMailActor = _actorSystem.ActorOf(
                 ClusterSingletonManager.Props(
-                    singletonProps: Props.Create<RoyalMail>(),
+                    singletonProps: dependencyResolver.Props<RoyalMail>(),
                     terminationMessage: PoisonPill.Instance,
-                    settings: ClusterSingletonManagerSettings.Create(_actorSystem).WithRole(AkkaRoles.Reactors)), //todo : configure cluster roles
+                    settings: ClusterSingletonManagerSettings.Create(_actorSystem).WithRole(AkkaRoles.Reactors)), //todo cluster roles
                 name: "royal-mail");
         }
 

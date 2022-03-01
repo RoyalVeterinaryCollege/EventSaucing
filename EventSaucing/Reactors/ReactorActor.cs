@@ -9,12 +9,14 @@ namespace EventSaucing.Reactors {
     /// The actor that interacts directly with a reactor to allow it to process its messages
     /// </summary>
     public class ReactorActor : ReceiveActor {
+        private readonly string _entityid;
         private readonly IReactorRepository reactorRepo;
         private readonly ILogger<ReactorActor> logger;
 
 
 
-        public ReactorActor(IReactorRepository reactorRepo, ILogger<ReactorActor> logger) {
+        public ReactorActor(IReactorRepository reactorRepo, ILogger<ReactorActor> logger, string entityid) {
+            _entityid = entityid;
             this.reactorRepo = reactorRepo;
             this.logger = logger;
             ReceiveAsync<Messages.ArticlePublished>(OnArticlePublishedAsync);

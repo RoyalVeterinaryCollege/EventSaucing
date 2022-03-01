@@ -2,7 +2,6 @@
 using Dapper;
 using EventSaucing.Storage;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -19,7 +18,7 @@ namespace EventSaucing.Reactors {
     public class RoyalMail : ReceiveActor, IWithTimers {
         private readonly IDbService _dbservice;
         private readonly IReactorBucketFacade _reactorBucketRouter;
-        private readonly ILogger<RoyalMail> _logger;
+        private readonly ILogger _logger;
         private readonly IConfiguration _config;
         private readonly Random _rnd;
         private readonly string _bucket;
@@ -31,7 +30,7 @@ namespace EventSaucing.Reactors {
         /// </summary>
         public long Checkpoint { get; set; } = 0L;
 
-        public RoyalMail(IDbService dbservice, IReactorBucketFacade reactorBucketRouter, ILogger<RoyalMail> logger,
+        public RoyalMail(IDbService dbservice, IReactorBucketFacade reactorBucketRouter, ILogger logger,
             IConfiguration config) {
             this._dbservice = dbservice;
             this._reactorBucketRouter = reactorBucketRouter;

@@ -1,11 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Akka.Cluster.Sharding;
+﻿using Akka.Cluster.Sharding;
 using EventSaucing.Reactors.Messages;
 
 namespace EventSaucing.Reactors {
-    public sealed class ReactorMessageExtractor : HashCodeMessageExtractor {
+    /// <summary>
+    /// Extractor which determines the reactor/entity relationship.
+    /// </summary>
+    public class ReactorMessageExtractor : HashCodeMessageExtractor {
         readonly int _maxNumberOfShards;
         public ReactorMessageExtractor(int maxNumberOfShards) : base(maxNumberOfShards) {
             _maxNumberOfShards = maxNumberOfShards;
