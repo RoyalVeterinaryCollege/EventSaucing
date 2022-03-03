@@ -5,9 +5,7 @@ using Akka.Actor;
 using Akka.Cluster.Sharding;
 using Akka.Cluster.Tools.Singleton;
 using Akka.DependencyInjection;
-using Akka.Routing;
 using EventSaucing.Reactors;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -21,9 +19,7 @@ namespace EventSaucing.HostedServices
         private readonly ActorSystem _actorSystem;
         private readonly ILogger<ReactorServices> _logger;
         private readonly IReactorRepository _reactorRepo;
-        private readonly IConfiguration _config;
         private IActorRef _royalMailActor;
-        private IActorRef _reactorBucket;
 
         /// <summary>
         /// Instantiates
@@ -31,12 +27,10 @@ namespace EventSaucing.HostedServices
         /// <param name="actorSystem"></param>
         /// <param name="logger"></param>
         /// <param name="reactorRepo"></param>
-        /// <param name="config"></param>
-        public ReactorServices(ActorSystem actorSystem, ILogger<ReactorServices> logger, IReactorRepository reactorRepo, IConfiguration config){
+        public ReactorServices(ActorSystem actorSystem, ILogger<ReactorServices> logger, IReactorRepository reactorRepo){
             _actorSystem = actorSystem;
             _logger = logger;
             _reactorRepo = reactorRepo;
-            _config = config;
         }
         /// <summary>
         /// Starts a local reactor node
@@ -64,14 +58,11 @@ namespace EventSaucing.HostedServices
                 typeName: "reactor-actor",
                 settings: ClusterShardingSettings.Create(_actorSystem).WithRole("reactors-{bucket}"), //todo cluster roles
                 entityPropsFactory: entityId => dependencyResolver.Props<ReactorActor>(entityId),
-                messageExtractor: new ReactorMessageExtractor(30) //todo num shards from config
+                messageExtractor: new ReactorMessageExtractor(30) //todo num shards from config  As a rule of thumb, you may decide to have a number of shards ten times greater than expected maximum number of cluster nodes.
                 ); 
 
-            // send message to entity through shard region
-           // region.Tell(new ShardEnvelope(shardId: 1, reactorId: 1, message: "hello"));
-
             // start the RoyalMail as a cluster singleton https://getakka.net/articles/clustering/cluster-singleton.html
-            // this means there is only one per cluster (with various caveats, that don't matter too much for RoyalMail)
+            // this means there is only one per cluster (the caveats don't matter too much for RoyalMail)
             _royalMailActor = _actorSystem.ActorOf(
                 ClusterSingletonManager.Props(
                     singletonProps: dependencyResolver.Props<RoyalMail>(),
@@ -89,7 +80,7 @@ namespace EventSaucing.HostedServices
         public Task StopAsync(CancellationToken cancellationToken) {
             _logger.LogInformation("EventSaucing Reactor node stopping"); 
             _royalMailActor.Tell(PoisonPill.Instance);
-            _reactorBucket.Tell(PoisonPill.Instance);
+            //i dont believe we should stop the shard actor ourselves
             return Task.CompletedTask;
         }
     }
