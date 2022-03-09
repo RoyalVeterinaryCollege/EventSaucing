@@ -17,6 +17,28 @@ namespace EventSaucing.DependencyInjection.Autofac {
     /// </summary>
     public class NEventStoreModule : Module
     {
+        //todo: need to register logging modules?
+        /*
+         * using Autofac;
+using Microsoft.Extensions.Logging;
+using Serilog;
+
+namespace CRIS.API.DI {
+    public class LoggingModule : Module {
+        protected override void Load(ContainerBuilder builder) {
+            builder.Register(c => Log.Logger).SingleInstance();
+
+            // Required by EventSaucing.  NEventstore uses the MS ILogger interface
+            var loggerFactory = (ILoggerFactory)new LoggerFactory();
+            loggerFactory.AddSerilog(Log.Logger);
+            var logger = loggerFactory.CreateLogger("default_logger");
+            builder.Register(c => logger).SingleInstance();
+        }
+    }
+}
+         */
+
+
         private readonly bool useCommitPipeline;
         /// <summary>
         /// Instantiates NEvenstore Module which registeres the NEventStore types with AutoFac
