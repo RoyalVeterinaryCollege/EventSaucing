@@ -1,26 +1,28 @@
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using Autofac;
+using Autofac.Extensions.DependencyInjection;
+using ExampleApp;
 
-namespace ExampleApp
-{
-    public class Program
-    {
-        public static void Main(string[] args)
-        {
-            CreateHostBuilder(args).Build().Run();
-        }
+var builder = WebApplication
+    .CreateBuilder(args);
 
-        public static IHostBuilder CreateHostBuilder(string[] args) =>
-            Host.CreateDefaultBuilder(args)
-                .ConfigureWebHostDefaults(webBuilder =>
-                {
-                    webBuilder.UseStartup<Startup>();
-                });
-    }
-}
+
+//use autofac for DI
+builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory());
+
+
+
+
+// Add services to the container.
+builder.Services.AddRazorPages();
+
+var startup = new Startup(builder.Configuration);
+startup.ConfigureServices(builder.Services);
+
+// Register services directly with Autofac here. Don't
+// call builder.Populate(), that happens in AutofacServiceProviderFactory.
+builder.Host.ConfigureContainer<ContainerBuilder>(builder => startup.ConfigureContainer(builder));
+
+
+var app = builder.Build();
+startup.Configure(app, app.Environment);
+app.Run();
