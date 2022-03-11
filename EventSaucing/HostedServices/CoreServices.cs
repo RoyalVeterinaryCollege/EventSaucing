@@ -5,8 +5,11 @@ using Akka;
 using Akka.Actor;
 using Akka.Cluster.Tools.PublishSubscribe;
 using Akka.DependencyInjection;
+using Autofac;
+using Autofac.Extensions.DependencyInjection;
 using EventSaucing.EventStream;
 using EventSaucing.NEventStore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -19,8 +22,6 @@ namespace EventSaucing.HostedServices
     /// </summary>
     public class CoreServices : IHostedService {
         private ActorSystem _actorSystem;
-        private readonly IServiceProvider _sp;
-        private readonly EventSaucingConfiguration _config;
         private readonly PostCommitNotifierPipeline _commitNotifierPipeline;
         private readonly ILogger<CoreServices> _logger;
         private readonly IInMemoryCommitSerialiserCache _cache;
@@ -29,9 +30,8 @@ namespace EventSaucing.HostedServices
         /// <summary>
         /// Instantiates
         /// </summary>
-        public CoreServices(IServiceProvider sp, EventSaucingConfiguration config, ILogger<CoreServices> logger, PostCommitNotifierPipeline commitNotifierPipeline, IInMemoryCommitSerialiserCache cache) {
-            _sp = sp;
-            _config = config;
+        public CoreServices(ActorSystem actorSystem, ILogger<CoreServices> logger, PostCommitNotifierPipeline commitNotifierPipeline, IInMemoryCommitSerialiserCache cache) {
+            _actorSystem = actorSystem;
             _commitNotifierPipeline = commitNotifierPipeline;
             _logger = logger;
             _cache = cache;
@@ -44,7 +44,7 @@ namespace EventSaucing.HostedServices
         /// <returns></returns>
         public Task StartAsync(CancellationToken cancellationToken) {
             _logger.LogInformation($"EventSaucing {nameof(CoreServices)} starting");
-
+            /*
             // start Akka
             // from https://getakka.net/articles/actors/dependency-injection.html
 
@@ -54,7 +54,9 @@ namespace EventSaucing.HostedServices
             var di = DependencyResolverSetup.Create(_sp);
             var actorSystemSetup = bootstrap.And(di);
             _actorSystem = ActorSystem.Create(_config.ActorSystemName, actorSystemSetup);
+            //todo Akka still not registered with DI...
 
+            */
             // function to create the EventStorePollerActor, ctor dependency of LocalEventStreamActor
             Func<IUntypedActorContext, IActorRef> pollerMaker = (ctx) => {
                     var pollerProps = DependencyResolver

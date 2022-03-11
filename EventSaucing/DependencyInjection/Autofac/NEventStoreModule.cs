@@ -42,7 +42,7 @@ namespace CRIS.API.DI {
         protected override void Load(ContainerBuilder builder) {
             builder.RegisterType<PostCommitNotifierPipeline>().SingleInstance();
             builder.Register(c => {
-                var eventStoreLogger = c.Resolve<ILogger>();
+                //var eventStoreLogger = c.Resolve<ILogger>();
 
                 Wireup wireup = 
                     Wireup
@@ -50,7 +50,8 @@ namespace CRIS.API.DI {
                     .HookIntoPipelineUsing(c.Resolve<PostCommitNotifierPipeline>(),c.ResolveOptional<CustomPipelineHook>());
                     
                 var eventStore = wireup
-                   .LogTo(type => eventStoreLogger)
+                    .WithLoggerFactory(c.Resolve<ILoggerFactory>())
+                   //.LogTo(type => eventStoreLogger)
                    .UsingSqlPersistence(c.Resolve<IConnectionFactory>())
                    .WithDialect(new MsSqlDialect())
                    .InitializeStorageEngine()

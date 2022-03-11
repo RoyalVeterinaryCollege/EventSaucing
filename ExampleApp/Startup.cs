@@ -52,12 +52,19 @@ namespace ExampleApp {
             services.AddRazorPages();
 
             services.AddSingleton<IConfiguration>(Configuration);
+            services.AddSingleton(sp => {
+                var bootstrap = BootstrapSetup.Create();
+                var di = DependencyResolverSetup.Create(sp);
+                var actorSystemSetup = bootstrap.And(di);
+                var actorSystem = ActorSystem.Create("Test", actorSystemSetup); //todo actorsystem name from config
+                return actorSystem;
+            });
 
             // add hosted services.
             // CoreServices needs to come first, then any order
             services.AddHostedService<CoreServices>(); // required
-            services.AddHostedService<ProjectorServices>(); // optional
-            services.AddHostedService<ReactorServices>(); // optional
+            //services.AddHostedService<ProjectorServices>(); // optional
+            //services.AddHostedService<ReactorServices>(); // optional
         }
 
       
