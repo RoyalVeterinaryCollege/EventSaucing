@@ -19,7 +19,7 @@ namespace EventSaucing {
 
 			builder.RegisterInstance(configuration);
 			return builder
-				.RegisterModule(new DatabaseConnectivity())
+				.RegisterModule(new DatabaseConnectivityModule())
 				.RegisterModule(new NEventStoreModule())
 				.RegisterModule(new ReactorInfrastructureModule());
 		}
