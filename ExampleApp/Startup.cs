@@ -1,5 +1,6 @@
 ﻿using Autofac;
 using EventSaucing;
+using EventSaucing.HostedServices;
 
 namespace ExampleApp
 {
@@ -19,18 +20,26 @@ namespace ExampleApp
             services.AddSingleton<IConfiguration>(Configuration);
 
             // add hosted services
-            services.AddHostedService<ProjectorPipeline>();
-            services.AddHostedService<ReactorBucket>();
-            services.AddHostedService<ReadModelSubscriptions>();
-
+            services.AddHostedService<AkkaServices>();
+            services.AddHostedService<CoreServices>();
+            services.AddHostedService<ProjectorServices>();
+            services.AddHostedService<ReactorServices>();
         }
 
         public void ConfigureContainer(ContainerBuilder builder)
         {
+            EventSaucingConfiguration eventsaucingconfiguration = new EventSaucingConfiguration {
+                ConnectionString = Configuration.GetConnectionString("SqlConnectionString"),
+                ActorSystemName = "CRIS3",
+                // todo move akka config to hconf file
+            };
+
+            builder.RegisterEventSaucingModules(eventsaucingconfiguration);
+
             // Register your own things directly with Autofac here. Don't
             // call builder.Populate(), that happens in AutofacServiceProviderFactory
             // for you.
-
+            /*
             builder.RegisterModule(new LoggingModule());
             builder.RegisterModule(new DatabaseModule(_config));
             builder.RegisterModule(new DatabaseBuilderModule(_config, _env));
@@ -47,7 +56,8 @@ namespace ExampleApp
             builder.RegisterModule(new DomainServicesModule(_config));
             builder.RegisterModule(new MigrationModule(_config));
             builder.RegisterModule(new ReadmodelSubscriptionModule(_config));
-            builder.RegisterModule(new CrisReactorsModule());
+            builder.RegisterModule(new CrisReactorsModule());*/
+
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)

@@ -10,23 +10,25 @@ using Microsoft.Extensions.Logging;
 namespace EventSaucing.HostedServices {
     public class AkkaServices : IHostedService {
         private ActorSystem _actorSystem;
-        public IActorRef RouterActor { get; private set; }
         private readonly IServiceProvider _sp;
+        private readonly EventSaucingConfiguration _config;
         private readonly ILogger _logger;
 
-        public AkkaServices(IServiceProvider sp, ILogger logger) {
+        public AkkaServices(IServiceProvider sp, EventSaucingConfiguration config,  ILogger logger) {
             _sp = sp;
+            _config = config;
             _logger = logger;
         }
 
         public Task StartAsync(CancellationToken cancellationToken) {
             // from https://getakka.net/articles/actors/dependency-injection.html
 
+            //todo load HCONFIG from file
             // var hocon = ConfigurationFactory.ParseString(File.ReadAllText("app.conf"));
             var bootstrap = BootstrapSetup.Create();
             var di = DependencyResolverSetup.Create(_sp);
             var actorSystemSetup = bootstrap.And(di);
-            _actorSystem = ActorSystem.Create("AspNetDemo", actorSystemSetup);
+            _actorSystem = ActorSystem.Create(_config.ActorSystemName, actorSystemSetup); 
             return Task.CompletedTask;
         }
 

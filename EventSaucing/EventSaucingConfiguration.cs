@@ -2,10 +2,6 @@
 
 namespace EventSaucing {
     public class EventSaucingConfiguration {
-		/// <summary>
-		/// Gets or sets if you want to use the EventSaucing projector pipeline
-		/// </summary>
-		public bool UseProjectorPipeline { get; set; }
         /// <summary>
         /// Gets or sets the database connection string which holds the commit store.
         /// </summary>

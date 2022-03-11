@@ -10,10 +10,10 @@ using NEventStore.Domain.Persistence;
 using NEventStore.Persistence.Sql;
 using NEventStore.Persistence.Sql.SqlDialects;
 
-namespace EventSaucing.DependencyInjection.Autofac { 
+namespace EventSaucing.DependencyInjection.Autofac {
 
     /// <summary>
-    /// Module for setting up NEventStore
+    /// Registers NEvent classes.  Don't register yourself, use <see cref="ModuleRegistrationExtensions.RegisterEventSaucingModules"/> 
     /// </summary>
     public class NEventStoreModule : Module
     {
@@ -39,24 +39,16 @@ namespace CRIS.API.DI {
          */
 
 
-        private readonly bool useCommitPipeline;
-        /// <summary>
-        /// Instantiates NEvenstore Module which registeres the NEventStore types with AutoFac
-        /// </summary>
-        /// <param name="useCommitPipeline">bool True if you want to use EventSaucing projector pipeline</param>
-        public NEventStoreModule(bool useCommitPipeline)
-        {
-            this.useCommitPipeline = useCommitPipeline;
-        }
         protected override void Load(ContainerBuilder builder) {
             builder.RegisterType<PostCommitNotifierPipeline>().SingleInstance();
             builder.Register(c => {
                 var eventStoreLogger = c.Resolve<ILogger>();
 
-                Wireup wireup = useCommitPipeline ?
-                    Wireup.Init().HookIntoPipelineUsing(c.Resolve<PostCommitNotifierPipeline>(), c.ResolveOptional<CustomPipelineHook>())
-                    : Wireup.Init();
-
+                Wireup wireup = 
+                    Wireup
+                    .Init()
+                    .HookIntoPipelineUsing(c.Resolve<PostCommitNotifierPipeline>(),c.ResolveOptional<CustomPipelineHook>());
+                    
                 var eventStore = wireup
                    .LogTo(type => eventStoreLogger)
                    .UsingSqlPersistence(c.Resolve<IConnectionFactory>())
@@ -67,7 +59,6 @@ namespace CRIS.API.DI {
                 return eventStore;
             }).SingleInstance();
             
-         
             builder.Register(c => c.Resolve<IStoreEvents>().Advanced).SingleInstance();
             builder.RegisterType<SharedEventApplicationRoutes>()
                 .As<ISharedEventApplicationRoutes>()
