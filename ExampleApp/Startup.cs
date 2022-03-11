@@ -52,7 +52,9 @@ namespace ExampleApp {
             services.AddRazorPages();
 
             services.AddSingleton<IConfiguration>(Configuration);
-            services.AddSingleton(sp => {
+
+            //todo: move to module, or extension method
+             services.AddSingleton(sp => {
                 var bootstrap = BootstrapSetup.Create();
                 var di = DependencyResolverSetup.Create(sp);
                 var actorSystemSetup = bootstrap.And(di);
