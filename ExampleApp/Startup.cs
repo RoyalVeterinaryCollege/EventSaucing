@@ -37,8 +37,8 @@ namespace ExampleApp {
 
             // add EventSaucing services.  Then add the HostedServices in any order
             services.AddEventSaucing();
-            //services.AddHostedService<ProjectorServices>(); // optional
-            //services.AddHostedService<ReactorServices>(); // optional
+            services.AddHostedService<ProjectorService>(); // optional
+            services.AddHostedService<ReactorService>(); // optional
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env) {
