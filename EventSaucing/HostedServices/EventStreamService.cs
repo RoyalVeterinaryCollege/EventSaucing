@@ -5,6 +5,7 @@ using Akka;
 using Akka.Actor;
 using Akka.Cluster.Tools.PublishSubscribe;
 using Akka.DependencyInjection;
+using Akka.Dispatch.SysMsg;
 using Autofac;
 using EventSaucing.EventStream;
 using EventSaucing.NEventStore;
@@ -89,7 +90,7 @@ namespace EventSaucing.HostedServices
             _logger.LogInformation($"EventSaucing {nameof(EventStreamService)} stop requested.");
             _logger.LogInformation($"EventSaucing {nameof(EventStreamService)} sending Stop to {nameof(LocalEventStreamActor)} @ {_localEventStreamActor.Path}");
             return _localEventStreamActor
-                .GracefulStop(TimeSpan.FromSeconds(5))
+                .GracefulStop(TimeSpan.FromSeconds(5), new Stop())
                 .ContinueWith(t => _logger.LogInformation($"{nameof(LocalEventStreamActor)} is stopped"), cancellationToken);
         }
     }
