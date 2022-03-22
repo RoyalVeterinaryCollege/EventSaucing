@@ -70,7 +70,7 @@ namespace EventSaucing.HostedServices
             // start the local event stream actor
             var streamerProps = DependencyResolver
                 .For(_actorSystem)
-                .Props<LocalEventStreamActor>(_cache, pollerMaker); //todo, im pretty sure we don't need to inject _cache here, just pollerMaker
+                .Props<LocalEventStreamActor>(pollerMaker); 
             _localEventStreamActor = _actorSystem.ActorOf(streamerProps);
 
             //subscribe actor to distributed commit notification messages
