@@ -12,14 +12,16 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace EventSaucing.HostedServices {
+
+    //todo rename Projectors to StreamProcessors
     /// <summary>
     /// Starts and stops <see cref="ProjectorSupervisor"/> which supervises the dependency graph of projectors for this node.
     /// </summary>
-    public class ProjectorServices : IHostedService
+    public class ProjectorService : IHostedService
     {
         private readonly IDbService _dbService;
         private readonly ActorSystem _actorSystem;
-        private readonly ILogger<ProjectorServices> _logger;
+        private readonly ILogger<ProjectorService> _logger;
         private readonly IProjectorTypeProvider _projectorTypeProvider;
         private IActorRef _localProjectorSupervisor;
 
@@ -30,7 +32,7 @@ namespace EventSaucing.HostedServices {
         /// <param name="actorSystem"></param>
         /// <param name="logger"></param>
         /// <param name="projectorTypeProvider"></param>
-        public ProjectorServices(IDbService dbService, ActorSystem actorSystem, ILogger<ProjectorServices> logger, IProjectorTypeProvider projectorTypeProvider)
+        public ProjectorService(IDbService dbService, ActorSystem actorSystem, ILogger<ProjectorService> logger, IProjectorTypeProvider projectorTypeProvider)
         {
             _dbService = dbService;
             _actorSystem = actorSystem;
@@ -44,7 +46,7 @@ namespace EventSaucing.HostedServices {
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public Task StartAsync(CancellationToken cancellationToken)  {
-            _logger.LogInformation($"EventSaucing {nameof(ProjectorServices)} starting");
+            _logger.LogInformation($"EventSaucing {nameof(ProjectorService)} starting");
 
             // Ensure the Projector Status table is created.
             ProjectorHelper.InitialiseProjectorStatusStore(_dbService);
@@ -60,7 +62,7 @@ namespace EventSaucing.HostedServices {
             // start projector supervisor
             _localProjectorSupervisor = _actorSystem.ActorOf(Props.Create<ProjectorSupervisor>(pollerMaker));
 
-            _logger.LogInformation($"EventSaucing {nameof(ProjectorServices)} started");
+            _logger.LogInformation($"EventSaucing {nameof(ProjectorService)} started");
 
             return Task.CompletedTask;
         }
@@ -71,7 +73,7 @@ namespace EventSaucing.HostedServices {
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public Task StopAsync(CancellationToken cancellationToken){
-            _logger.LogInformation($"EventSaucing {nameof(ProjectorServices)} stop requested. Sending PoisonPill to {nameof(ProjectorSupervisor)} @ path {_localProjectorSupervisor.Path}");
+            _logger.LogInformation($"EventSaucing {nameof(ProjectorService)} stop requested. Sending PoisonPill to {nameof(ProjectorSupervisor)} @ path {_localProjectorSupervisor.Path}");
             _localProjectorSupervisor.Tell(PoisonPill.Instance, ActorRefs.NoSender);
             return Task.CompletedTask;
         }

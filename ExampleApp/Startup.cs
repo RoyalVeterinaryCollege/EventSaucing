@@ -22,54 +22,24 @@ namespace ExampleApp {
                 // todo move akka config to hconf file
             };
 
+            // register EventSaucingModules in ConfigureContainer
             builder.RegisterEventSaucingModules(eventsaucingconfiguration);
 
             // Register your own things directly with Autofac here. Don't
             // call builder.Populate(), that happens in AutofacServiceProviderFactory
             // for you.
-            /*
-            builder.RegisterModule(new LoggingModule());
-            builder.RegisterModule(new DatabaseModule(_config));
-            builder.RegisterModule(new DatabaseBuilderModule(_config, _env));
-            builder.RegisterModule(new MVCPipelineModule(_config));
-            EventSaucingConfiguration eventsaucingconfiguration = new EventSaucingConfiguration
-            {
-                ConnectionString = _config.GetConnectionString("SqlConnectionString"),
-                ActorSystemName = "CRIS3",
-                UseProjectorPipeline = true
-                // akka config is now stored in app.config
-            };
-            builder.RegisterEventSaucingModules(eventsaucingconfiguration);
-            builder.RegisterModule(new AuditModule());
-            builder.RegisterModule(new DomainServicesModule(_config));
-            builder.RegisterModule(new MigrationModule(_config));
-            builder.RegisterModule(new ReadmodelSubscriptionModule(_config));
-            builder.RegisterModule(new CrisReactorsModule());*/
         }
 
 
         public void ConfigureServices(IServiceCollection services) {
             services.AddRazorPages();
-
             services.AddSingleton<IConfiguration>(Configuration);
 
-            //todo: move to module, or extension method
-             services.AddSingleton(sp => {
-                var bootstrap = BootstrapSetup.Create();
-                var di = DependencyResolverSetup.Create(sp);
-                var actorSystemSetup = bootstrap.And(di);
-                var actorSystem = ActorSystem.Create("Test", actorSystemSetup); //todo actorsystem name from config
-                return actorSystem;
-            });
-
-            // add hosted services.
-            // CoreServices needs to come first, then any order
-            services.AddHostedService<CoreServices>(); // required
+            // add EventSaucing services.  Then add the HostedServices in any order
+            services.AddEventSaucing();
             //services.AddHostedService<ProjectorServices>(); // optional
             //services.AddHostedService<ReactorServices>(); // optional
         }
-
-      
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env) {
             if (!env.IsDevelopment()) {

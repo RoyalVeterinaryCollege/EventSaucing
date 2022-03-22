@@ -6,31 +6,29 @@ using Akka.Actor;
 using Akka.Cluster.Tools.PublishSubscribe;
 using Akka.DependencyInjection;
 using Autofac;
-using Autofac.Extensions.DependencyInjection;
 using EventSaucing.EventStream;
 using EventSaucing.NEventStore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace EventSaucing.HostedServices
 {
     /// <summary>
-    /// Starts EventSaucing core services.  You mist host this service for EventSaucing to work.  
+    /// Starts EventSaucing event stream.  
     /// 
-    /// Starts and stops Akka and also <see cref="LocalEventStreamActor"/> which produces a stream of serialised (in-order) commits for local and cluster usage
+    /// Starts and stops <see cref="LocalEventStreamActor"/> which produces a stream of serialised (in-order) commits for local and cluster usage
     /// </summary>
-    public class CoreServices : IHostedService {
+    public class EventStreamService : IHostedService {
         private ActorSystem _actorSystem;
         private readonly PostCommitNotifierPipeline _commitNotifierPipeline;
-        private readonly ILogger<CoreServices> _logger;
+        private readonly ILogger<EventStreamService> _logger;
         private readonly IInMemoryCommitSerialiserCache _cache;
         private IActorRef _localEventStreamActor;
 
         /// <summary>
         /// Instantiates
         /// </summary>
-        public CoreServices(ActorSystem actorSystem, ILogger<CoreServices> logger, PostCommitNotifierPipeline commitNotifierPipeline, IInMemoryCommitSerialiserCache cache) {
+        public EventStreamService(ActorSystem actorSystem, ILogger<EventStreamService> logger, PostCommitNotifierPipeline commitNotifierPipeline, IInMemoryCommitSerialiserCache cache) {
             _actorSystem = actorSystem;
             _commitNotifierPipeline = commitNotifierPipeline;
             _logger = logger;
@@ -38,25 +36,12 @@ namespace EventSaucing.HostedServices
         }
 
         /// <summary>
-        /// Starts core services
+        /// Starts LocalEventStreamActor
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public Task StartAsync(CancellationToken cancellationToken) {
-            _logger.LogInformation($"EventSaucing {nameof(CoreServices)} starting");
-            /*
-            // start Akka
-            // from https://getakka.net/articles/actors/dependency-injection.html
-
-            // todo load HCONFIG from file
-            // var hocon = ConfigurationFactory.ParseString(File.ReadAllText("app.conf"));
-            var bootstrap = BootstrapSetup.Create();
-            var di = DependencyResolverSetup.Create(_sp);
-            var actorSystemSetup = bootstrap.And(di);
-            _actorSystem = ActorSystem.Create(_config.ActorSystemName, actorSystemSetup);
-            //todo Akka still not registered with DI...
-
-            */
+            _logger.LogInformation($"EventSaucing {nameof(EventStreamService)} starting");
             // function to create the EventStorePollerActor, ctor dependency of LocalEventStreamActor
             Func<IUntypedActorContext, IActorRef> pollerMaker = (ctx) => {
                     var pollerProps = DependencyResolver
@@ -80,7 +65,7 @@ namespace EventSaucing.HostedServices
             // watch for commits and publish them
             _commitNotifierPipeline.AfterCommit += CommitNotifierPipeline_AfterCommit;
 
-            _logger.LogInformation($"EventSaucing {nameof(CoreServices)} started");
+            _logger.LogInformation($"EventSaucing {nameof(EventStreamService)} started");
 
             return Task.CompletedTask;
         }
@@ -96,17 +81,16 @@ namespace EventSaucing.HostedServices
         }
 
         /// <summary>
-        /// Stops core services including Akka
+        /// Stops LocalEventStreamActor
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public Task StopAsync(CancellationToken cancellationToken) {
-            _logger.LogInformation($"EventSaucing {nameof(CoreServices)} stop requested.");
-            _logger.LogInformation($"EventSaucing {nameof(CoreServices)} sending PoisonPill to {nameof(LocalEventStreamActor)} @ {_localEventStreamActor.Path}");
-            _localEventStreamActor.Tell(PoisonPill.Instance, ActorRefs.NoSender);
-            _logger.LogInformation("Akka is entering co-ordinated shutdown");
-            Task<Done> shutdownTask = CoordinatedShutdown.Get(_actorSystem).Run(CoordinatedShutdown.ClrExitReason.Instance);
-            return shutdownTask.ContinueWith(t => _logger.LogInformation("Akka is stopped"), cancellationToken);
+            _logger.LogInformation($"EventSaucing {nameof(EventStreamService)} stop requested.");
+            _logger.LogInformation($"EventSaucing {nameof(EventStreamService)} sending Stop to {nameof(LocalEventStreamActor)} @ {_localEventStreamActor.Path}");
+            return _localEventStreamActor
+                .GracefulStop(TimeSpan.FromSeconds(5))
+                .ContinueWith(t => _logger.LogInformation($"{nameof(LocalEventStreamActor)} is stopped"), cancellationToken);
         }
     }
 }

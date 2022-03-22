@@ -14,10 +14,10 @@ namespace EventSaucing.HostedServices
     /// <summary>
     /// Starts a local Reactor node using the bucket set in config
     /// </summary>
-    public class ReactorServices  : IHostedService
+    public class ReactorService  : IHostedService
     {
         private readonly ActorSystem _actorSystem;
-        private readonly ILogger<ReactorServices> _logger;
+        private readonly ILogger<ReactorService> _logger;
         private readonly IReactorRepository _reactorRepo;
         private IActorRef _royalMailActor;
 
@@ -27,7 +27,7 @@ namespace EventSaucing.HostedServices
         /// <param name="actorSystem"></param>
         /// <param name="logger"></param>
         /// <param name="reactorRepo"></param>
-        public ReactorServices(ActorSystem actorSystem, ILogger<ReactorServices> logger, IReactorRepository reactorRepo){
+        public ReactorService(ActorSystem actorSystem, ILogger<ReactorService> logger, IReactorRepository reactorRepo){
             _actorSystem = actorSystem;
             _logger = logger;
             _reactorRepo = reactorRepo;
