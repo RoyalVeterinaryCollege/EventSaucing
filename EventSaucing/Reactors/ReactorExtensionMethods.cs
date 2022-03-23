@@ -21,10 +21,13 @@ namespace EventSaucing.Reactors {
                    .GetOrElse(1);
             return LoadUndispatchedEvents(storeEvents, msg.AggregateId, fromStreamRevision);
         }
+
         /// <summary>
         /// Loads the events from the eventstream optionally after a particular StreamRevision
         /// </summary>
         /// <param name="storeEvents"></param>
+        /// <param name="aggregateId"></param>
+        /// <param name="streamRevision"></param>
         /// <returns>IEventStream the (potentially partial) stream of events which have not yet been dispatched to the Reactor</returns>
         public static IEventStream LoadUndispatchedEvents(this IStoreEvents storeEvents, Guid aggregateId, int streamRevision = 1) {
             return storeEvents.OpenStream(aggregateId, streamRevision);
@@ -33,7 +36,11 @@ namespace EventSaucing.Reactors {
         /// <summary>
         /// Dispatches the eventstream to the reactor
         /// </summary>
+        /// <param name="reactor"></param>
         /// <param name="storeEvents"></param>
+        /// <param name="dispatcher"></param>
+        /// <param name="aggregateId"></param>
+        /// <param name="streamRevision"></param>
         /// <returns>int The last streamrevision that was dispatched</returns>
         public static async Task<int> DispatchEventStreamAsync(this IReactor reactor, IStoreEvents storeEvents, ConventionalReactionDispatcher dispatcher, Guid aggregateId, int streamRevision = 1) {
             var stream = storeEvents.OpenStream(aggregateId, streamRevision);

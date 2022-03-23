@@ -20,6 +20,7 @@ namespace EventSaucing.Reactors {
         /// Ctor
         /// </summary>
         /// <param name="dispatcher">ConventionalReactorAggregateEventDispatcher Instatiate this in a static constructor for your Reactor type and call BuildDispatchTable() before instantiating a non-static instance</param>
+        /// <param name="storeEvents"></param>
         public ReactorBase(ConventionalReactionDispatcher dispatcher, IStoreEvents storeEvents) {
             this.dispatcher = dispatcher;
             this.storeEvents = storeEvents;

@@ -42,9 +42,11 @@ namespace EventSaucing.Reactors {
         /// </summary>
         /// <param name="subscription"></param>
         void Subscribe(ReactorAggregateSubscription subscription);
+
         /// <summary>
         /// Subscribes to the aggregate's event stream
         /// </summary>
+        /// <param name="aggregateId"></param>
         /// <param name="stream"></param>
         void Subscribe(Guid aggregateId, IEventStream stream);
         /// <summary>

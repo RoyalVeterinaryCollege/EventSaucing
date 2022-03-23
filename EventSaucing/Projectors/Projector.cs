@@ -9,7 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using NEventStore.Persistence;
-using Failure = Akka.Actor.Failure;
+using Failure = Akka.Actor.Status.Failure;
 
 namespace EventSaucing.Projectors {
     public abstract class Projector : ReceiveActor, IWithTimers {
@@ -133,7 +133,7 @@ namespace EventSaucing.Projectors {
                     Sender.Tell(new Messages.CurrentCheckpoint(Checkpoint), Self);
                 }
                 catch (Exception e) {
-                    Sender.Tell(new Failure { Exception = e }, Self);
+                    Sender.Tell(new Failure (e), Self);
                 }
             });
             Receive<Messages.AfterProjectorCheckpointStatusSet>((msg) => {
