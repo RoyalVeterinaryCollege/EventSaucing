@@ -97,7 +97,7 @@ END
 
 		public static void InitialiseProjectorStatusStore(IDbService dbService) {
 			//get the head checkpoint (if there is one)
-			using (var conn = dbService.GetReplica()) {
+			using (var conn = dbService.GetReadmodel()) {
 				conn.Open();
 				conn.Execute(SqlInitialiseProjectorStatus);
 			}

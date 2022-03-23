@@ -29,7 +29,7 @@ namespace EventSaucing.Reactors {
 
         public async Task CreateReactorTablesAsync() {
             //create the reactor tables if necessary
-            using (var con = dbService.GetReplica()) {
+            using (var con = dbService.GetReadmodel()) {
                 await con.OpenAsync();
                 await con.ExecuteAsync(SqlCreateReactorTables);
             }
@@ -73,7 +73,7 @@ namespace EventSaucing.Reactors {
         private async Task<IEnumerable<Messages.ArticlePublished>> PersistAsync(UnitOfWork uow) {
             if (uow.Reactor.State is null) throw new ReactorValidationException($"Can't persist a reactor {uow.Reactor.GetType().FullName} if its State property is null");
 
-            using (var con = dbService.GetReplica()) {
+            using (var con = dbService.GetReadmodel()) {
                 await con.OpenAsync();
                 var (sb, args) = uow.GetSQLAndArgs();
 
@@ -119,7 +119,7 @@ namespace EventSaucing.Reactors {
         }
        
         public async Task<(IReactor, PersistedPubSubData)> LoadFromDbAsync(long reactorId) {
-            using (var con = dbService.GetReplica()) {
+            using (var con = dbService.GetReadmodel()) {
                 await con.OpenAsync();
 
                 //get all objects in one round trip

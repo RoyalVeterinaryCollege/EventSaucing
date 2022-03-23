@@ -7,9 +7,9 @@ namespace EventSaucing {
 		/// </summary>
 		public string CommitStoreConnectionString { get; set; }
 		/// <summary>
-		/// Gets or sets teh connection string for the replica
+		/// Gets or sets teh connection string for the readmodel db
 		/// </summary>
-        public string ReplicaConnectionString { get; set; }
+        public string ReadmodelConnectionString { get; set; }
 
 		/// <summary>
 		/// Gets or sets the maximum number of commits to cache in memory for the projector pipeline. The default is 10.

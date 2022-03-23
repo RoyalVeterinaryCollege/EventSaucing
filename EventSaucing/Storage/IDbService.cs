@@ -9,7 +9,7 @@ namespace EventSaucing.Storage {
 		/// Gets a connection to the replica db storage.
 		/// </summary>
 		/// <returns></returns>
-		DbConnection GetReplica();
+		DbConnection GetReadmodel();
 		/// <summary>
 		/// Gets a connection to the commit store db
 		/// </summary>
@@ -20,7 +20,7 @@ namespace EventSaucing.Storage {
 		/// Legacy. Get's connection to db.
 		/// </summary>
 		/// <returns></returns>
-        [Obsolete("Replace all usage with GetReplica or GetCommitStore as appropriate")]
+        [Obsolete("Replace all usage with GetReadmodel or GetCommitStore as appropriate")]
 		DbConnection GetConnection();
     }
 }

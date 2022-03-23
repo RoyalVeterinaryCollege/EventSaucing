@@ -6,11 +6,11 @@ using NEventStore.Persistence.Sql;
 
 namespace EventSaucing.Storage.Sql {
     public class SqlDbService : IDbService, IConnectionFactory {
-        private readonly string _replicaConnectionString;
+        private readonly string _readmodelConnectionString;
         private readonly string _commitStoreConnectionString;
 
         public SqlDbService(EventSaucingConfiguration configuration) {
-            this._replicaConnectionString = configuration.ReplicaConnectionString;
+            this._readmodelConnectionString = configuration.ReadmodelConnectionString;
             this._commitStoreConnectionString = configuration.CommitStoreConnectionString;
         }
 
@@ -18,8 +18,8 @@ namespace EventSaucing.Storage.Sql {
             return new SqlConnection(connectionString);
         }
 
-        public DbConnection GetReplica() {
-            return GetConnection(_replicaConnectionString);
+        public DbConnection GetReadmodel() {
+            return GetConnection(_readmodelConnectionString);
         }
 
         public DbConnection GetCommitStore() {
@@ -27,7 +27,7 @@ namespace EventSaucing.Storage.Sql {
         }
 
         public DbConnection GetConnection() {
-            return GetReplica();
+            return GetReadmodel();
         }
 
         //Required by NEvent

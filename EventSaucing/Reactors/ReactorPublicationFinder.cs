@@ -25,7 +25,7 @@ namespace EventSaucing.Reactors {
             this.dbservice = dbservice;
         }
         public async Task<IEnumerable<ReactorPublicationSearchResult>> FindPublications(string name) {
-            using(var con = dbservice.GetReplica()) {
+            using(var con = dbservice.GetReadmodel()) {
                 await con.OpenAsync();
                 return await con.QueryAsync<ReactorPublicationSearchResult>("SELECT * FROM dbo.ReactorPublications RP WHERE NameHash=@NameHash AND Name=@Name", new { NameHash = name.GetHashCode(), name });
             }
