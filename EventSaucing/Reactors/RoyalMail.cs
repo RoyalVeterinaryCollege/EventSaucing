@@ -74,7 +74,7 @@ namespace EventSaucing.Reactors {
         /// </summary>
         /// <returns></returns>
         private async Task PublishAggregateSubscriptionsMessages() {
-            using (var con = _dbservice.GetConnection()) {
+            using (var con = _dbservice.GetReplica()) {
                 await con.OpenAsync();
                 int maxSubscriptions = _config.GetValue<int?>("EventSaucing:RoyalMail:MaxNumberSubscriptions") ?? 100;
 
@@ -144,7 +144,7 @@ SELECT @LatestCheckpointNumber;
             // max number of subscriptions to update in one poll
             int maxSubscriptions = _config.GetValue<int?>("EventSaucing:RoyalMail:MaxNumberSubscriptions") ?? 100;
 
-            using (var con = _dbservice.GetConnection()) {
+            using (var con = _dbservice.GetReplica()) {
                 await con.OpenAsync();
 
                 //Look for article subscriptions that need to be updated
@@ -199,7 +199,7 @@ WHERE
         private void InitialisePersistedCheckpoint() {
             // todo remove 'my bucket' concept from royalmail
             // todo move this row to projector table?
-            using (var con = _dbservice.GetConnection()) {
+            using (var con = _dbservice.GetReplica()) {
                 con.Open();
 
                 var results = con.Query<long>(

@@ -29,13 +29,13 @@ namespace EventSaucing.Reactors {
         }
 
         public override DbConnection GetProjectionDb() {
-            return _dbService.GetConnection();
+            return _dbService.GetReplica();
         }
 
         public override async Task<bool> ProjectAsync(ICommit commit) {
             throw new NotImplementedException("dont do anything until the todo above is fixed");
 
-            using (var con = _dbService.GetConnection()) {
+            using (var con = _dbService.GetReplica()) {
                 await con.OpenAsync();
 
                 const string sql = @"

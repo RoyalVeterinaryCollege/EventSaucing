@@ -41,7 +41,7 @@ namespace EventSaucing.Projectors
             base.PreStart();
 
             // restore checkpoint status from db, and initialise if no state found
-            using (var conn = _dbService.GetConnection()) {
+            using (var conn = _dbService.GetReplica()) {
                 conn.Open();
 
                 var results =

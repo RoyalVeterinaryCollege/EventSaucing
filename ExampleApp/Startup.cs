@@ -13,13 +13,10 @@ namespace ExampleApp {
         public IConfiguration Configuration { get; }
 
 
-        public void ConfigureContainer(ContainerBuilder builder)
-        {
-            EventSaucingConfiguration eventsaucingconfiguration = new EventSaucingConfiguration
-            {
-                ConnectionString = Configuration.GetConnectionString("SqlConnectionString"),
-                ActorSystemName = "CRIS3",
-                // todo move akka config to hconf file
+        public void ConfigureContainer(ContainerBuilder builder)  {
+            EventSaucingConfiguration eventsaucingconfiguration = new EventSaucingConfiguration  {
+                //todo set connection strings
+                ActorSystemName = "ExampleApp",
             };
 
             // register EventSaucingModules in ConfigureContainer
@@ -36,6 +33,7 @@ namespace ExampleApp {
             services.AddSingleton<IConfiguration>(Configuration);
 
             // add EventSaucing services.  Then add the HostedServices in any order
+            // make sure you have provided Akka config in app.config
             services.AddEventSaucing();
             services.AddHostedService<ProjectorService>(); // optional
             services.AddHostedService<ReactorService>(); // optional

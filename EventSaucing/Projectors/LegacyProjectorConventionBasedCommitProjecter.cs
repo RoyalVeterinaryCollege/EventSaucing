@@ -21,7 +21,7 @@ namespace EventSaucing.Projectors {
 
         public void Project(ICommit commit) {
             if (_dispatcher.CanProject(commit)) {
-                using (var conn = _dbService.GetConnection()) {
+                using (var conn = _dbService.GetReplica()) {
                     conn.Open();
                     using (var tx = conn.BeginTransaction()) {
                         _dispatcher.Project(tx, commit);
@@ -35,7 +35,7 @@ namespace EventSaucing.Projectors {
                 //only randomly persist projector state if there are no events to project in this commit (1% of the time). 
                 //this speeds up catchups
                 if (_rnd.Next(0, 99) == 0) { 
-                    using (var conn = _dbService.GetConnection()) {
+                    using (var conn = _dbService.GetReplica()) {
                         conn.Open();
                         _projector.PersistProjectorCheckpoint(conn);
                         conn.Close();

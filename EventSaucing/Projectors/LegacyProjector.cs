@@ -47,7 +47,7 @@ namespace EventSaucing.Projectors {
 
         protected override void PreStart() {
             //get the persisted checkpoint (if there is one)
-            using (var conn = _dbService.GetConnection()) {
+            using (var conn = _dbService.GetReplica()) {
                 conn.Open();
 
                 Option<long> results =
@@ -66,7 +66,7 @@ namespace EventSaucing.Projectors {
         }
 
         protected override async Task PersistCheckpointAsync()  {
-            using (var conn = _dbService.GetConnection()) {
+            using (var conn = _dbService.GetReplica()) {
                 await conn.OpenAsync();
                 this.PersistProjectorCheckpoint(conn);
             }

@@ -22,16 +22,14 @@ namespace EventSaucing {
             // start Akka
             // from https://getakka.net/articles/actors/dependency-injection.html
 
-            // todo load HCONFIG from file
-            // var hocon = ConfigurationFactory.ParseString(File.ReadAllText("app.conf"));
-
 			services.AddSingleton(sp => {
-				//todo get Akka config from hcon file
+                var config = sp.GetService<EventSaucingConfiguration>();
                 var bootstrap = BootstrapSetup.Create();
                 var di = DependencyResolverSetup.Create(sp);
                 var actorSystemSetup = bootstrap.And(di);
-                var actorSystem = ActorSystem.Create("Test", actorSystemSetup); //todo actorsystem name from config
-                return actorSystem;
+                var actorSystem = ActorSystem.Create(config.ActorSystemName, actorSystemSetup); //todo actorsystem name from config
+
+				return actorSystem;
             });
             services.AddHostedService<AkkaShutDownService>(); // performs graceful shutdown
             services.AddHostedService<EventStreamService>();  // required by all other hosted service (at time of writing)

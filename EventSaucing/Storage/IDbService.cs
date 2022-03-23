@@ -1,3 +1,4 @@
+using System;
 using System.Data;
 using System.Data.Common;
 using System.Data.SqlClient;
@@ -5,9 +6,21 @@ using System.Data.SqlClient;
 namespace EventSaucing.Storage {
     public interface IDbService {
 		/// <summary>
-		/// Gets a connection to the db storage.
+		/// Gets a connection to the replica db storage.
 		/// </summary>
 		/// <returns></returns>
+		DbConnection GetReplica();
+		/// <summary>
+		/// Gets a connection to the commit store db
+		/// </summary>
+		/// <returns></returns>
+        DbConnection GetCommitStore();
+
+		/// <summary>
+		/// Legacy. Get's connection to db.
+		/// </summary>
+		/// <returns></returns>
+        [Obsolete("Replace all usage with GetReplica or GetCommitStore as appropriate")]
 		DbConnection GetConnection();
     }
 }
