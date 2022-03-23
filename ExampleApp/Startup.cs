@@ -15,8 +15,9 @@ namespace ExampleApp {
 
         public void ConfigureContainer(ContainerBuilder builder)  {
             EventSaucingConfiguration eventsaucingconfiguration = new EventSaucingConfiguration  {
-                //todo set connection strings
                 ActorSystemName = "ExampleApp",
+                CommitStoreConnectionString = Configuration.GetConnectionString("CommitStore"),
+                ReadmodelConnectionString = Configuration.GetConnectionString("Readmodel")
             };
 
             // register EventSaucingModules in ConfigureContainer
@@ -35,8 +36,8 @@ namespace ExampleApp {
             // add EventSaucing services.  Then add the HostedServices in any order
             // make sure you have provided Akka config in app.config
             services.AddEventSaucing();
-            services.AddHostedService<ProjectorService>(); // optional
-            services.AddHostedService<ReactorService>(); // optional
+            //services.AddHostedService<ProjectorService>(); // optional
+            //services.AddHostedService<ReactorService>(); // optional
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env) {
