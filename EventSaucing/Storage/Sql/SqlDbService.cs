@@ -22,13 +22,17 @@ namespace EventSaucing.Storage.Sql {
             return GetConnection(_replicaConnectionString);
         }
 
+        public DbConnection GetCommitStore() {
+            return GetConnection(_commitStoreConnectionString);
+        }
+
         public DbConnection GetConnection() {
             return GetReplica();
         }
 
         //Required by NEvent
         IDbConnection IConnectionFactory.Open() {
-			var conn = GetConnection(_commitStoreConnectionString);
+            var conn = GetCommitStore();
 			conn.Open();
 			return conn;
 		}
