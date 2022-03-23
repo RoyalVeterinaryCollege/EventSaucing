@@ -6,7 +6,7 @@ using System.Data.SqlClient;
 namespace EventSaucing.Storage {
     public interface IDbService {
 		/// <summary>
-		/// Gets a connection to the replica db storage.
+		/// Gets a connection to the readmodel db
 		/// </summary>
 		/// <returns></returns>
 		DbConnection GetReadmodel();
