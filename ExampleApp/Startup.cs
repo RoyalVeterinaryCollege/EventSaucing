@@ -4,6 +4,9 @@ using Autofac;
 using EventSaucing;
 using EventSaucing.HostedServices;
 using ExampleApp.Modules;
+using System.Configuration;
+using Akka.Configuration;
+using ConfigurationManager = System.Configuration.ConfigurationManager;
 
 namespace ExampleApp {
     public class Startup {
@@ -15,17 +18,30 @@ namespace ExampleApp {
 
 
         public void ConfigureContainer(ContainerBuilder builder) {
+            string akkaHconf = File.ReadAllText("akka_hconf.txt");
+
             //These values should be specified in a file called .env which should be kept out of source control
             var userid = Environment.GetEnvironmentVariable("UserId") ?? "UserId_environment_variable_missing";
             var password = Environment.GetEnvironmentVariable("Password") ?? "missing";
 
+            var data = new {
+                user_id= Environment.GetEnvironmentVariable("user_id") ?? "UserId_environment_variable_missing",
+                password = Environment.GetEnvironmentVariable("password") ?? "missing",
+                commitstore_db= Environment.GetEnvironmentVariable("CommitStore_dev"),
+                akka_persistence_db = Environment.GetEnvironmentVariable("akka_persistence_db"),
+                akka_persistence_table = Environment.GetEnvironmentVariable("akka_persistence_table"),
+                akka_snapshot_table = Environment.GetEnvironmentVariable("akka_snapshot_table"),
+                readmodel_db = Environment.GetEnvironmentVariable("readmodel_db"),
+
+            };
+
 
             EventSaucingConfiguration eventsaucingconfiguration = new EventSaucingConfiguration  {
                 ActorSystemName = "ExampleApp",
-                CommitStoreConnectionString = string.Format(Configuration.GetConnectionString("CommitStore"), userid, password),
-                ReadmodelConnectionString = string.Format(Configuration.GetConnectionString("Readmodel"), userid, password)
+                //CommitStoreConnectionString = Configuration.GetConnectionString("CommitStore"), userid, password),
+                //ReadmodelConnectionString = string.Format(Configuration.GetConnectionString("Readmodel"), userid, password),
+                AkkaConfig = ConfigurationFactory.ParseString(akkaHconf)
             };
-
 
             // register EventSaucingModules in ConfigureContainer
             builder.RegisterEventSaucingModules(eventsaucingconfiguration);

@@ -24,10 +24,10 @@ namespace EventSaucing {
 
 			services.AddSingleton(sp => {
                 var config = sp.GetService<EventSaucingConfiguration>();
-                var bootstrap = BootstrapSetup.Create();
+                var bootstrap = BootstrapSetup.Create().WithConfig(config.AkkaConfig);
                 var di = DependencyResolverSetup.Create(sp);
                 var actorSystemSetup = bootstrap.And(di);
-                var actorSystem = ActorSystem.Create(config.ActorSystemName, actorSystemSetup); //todo actorsystem name from config
+				var actorSystem = ActorSystem.Create(config.ActorSystemName, actorSystemSetup);
 
 				return actorSystem;
             });

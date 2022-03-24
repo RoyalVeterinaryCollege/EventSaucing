@@ -1,4 +1,5 @@
 ﻿using System;
+using Akka.Configuration;
 
 namespace EventSaucing {
     public class EventSaucingConfiguration {
@@ -20,5 +21,10 @@ namespace EventSaucing {
 		/// The name of the akka actorsystem. Defaults to 'EventSaucing'.  All nodes in the akka cluster must use the same name.
 		/// </summary>
 		public string ActorSystemName { get; set; } = "EventSaucing";
-	}
+
+		/// <summary>
+		/// The config for akka as read in by <see cref="ConfigurationFactory"/>
+		/// </summary>
+		public Config AkkaConfig { get; set; }
+    }
 }
