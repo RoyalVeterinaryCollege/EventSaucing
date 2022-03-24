@@ -3,6 +3,7 @@ using Akka.DependencyInjection;
 using Autofac;
 using EventSaucing;
 using EventSaucing.HostedServices;
+using ExampleApp.Modules;
 
 namespace ExampleApp {
     public class Startup {
@@ -13,12 +14,18 @@ namespace ExampleApp {
         public IConfiguration Configuration { get; }
 
 
-        public void ConfigureContainer(ContainerBuilder builder)  {
+        public void ConfigureContainer(ContainerBuilder builder) {
+            //These values should be specified in a file called .env which should be kept out of source control
+            var userid = Environment.GetEnvironmentVariable("UserId") ?? "UserId_environment_variable_missing";
+            var password = Environment.GetEnvironmentVariable("Password") ?? "missing";
+
+
             EventSaucingConfiguration eventsaucingconfiguration = new EventSaucingConfiguration  {
                 ActorSystemName = "ExampleApp",
-                CommitStoreConnectionString = Configuration.GetConnectionString("CommitStore"),
-                ReadmodelConnectionString = Configuration.GetConnectionString("Readmodel")
+                CommitStoreConnectionString = string.Format(Configuration.GetConnectionString("CommitStore"), userid, password),
+                ReadmodelConnectionString = string.Format(Configuration.GetConnectionString("Readmodel"), userid, password)
             };
+
 
             // register EventSaucingModules in ConfigureContainer
             builder.RegisterEventSaucingModules(eventsaucingconfiguration);
@@ -26,6 +33,7 @@ namespace ExampleApp {
             // Register your own things directly with Autofac here. Don't
             // call builder.Populate(), that happens in AutofacServiceProviderFactory
             // for you.
+            builder.RegisterModule<AllClasses>();
         }
 
 

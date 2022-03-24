@@ -6,3 +6,6 @@ services:
     build:
       context: .
       dockerfile: ExampleApp/Dockerfile
+    env_file:
+        - .env
+
