@@ -9,7 +9,7 @@ namespace EventSaucing.Storage {
 		/// Gets a connection to the readmodel db
 		/// </summary>
 		/// <returns></returns>
-		DbConnection GetReadmodel();
+		DbConnection GetReplica();
 		/// <summary>
 		/// Gets a connection to the commit store db
 		/// </summary>

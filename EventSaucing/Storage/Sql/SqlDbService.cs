@@ -18,7 +18,7 @@ namespace EventSaucing.Storage.Sql {
             return new SqlConnection(connectionString);
         }
 
-        public DbConnection GetReadmodel() {
+        public DbConnection GetReplica() {
             return GetConnection(_readmodelConnectionString);
         }
 
@@ -27,7 +27,7 @@ namespace EventSaucing.Storage.Sql {
         }
 
         public DbConnection GetConnection() {
-            return GetReadmodel();
+            return GetReplica();
         }
 
         //Required by NEvent
