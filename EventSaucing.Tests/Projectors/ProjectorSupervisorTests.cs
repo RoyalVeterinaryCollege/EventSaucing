@@ -4,6 +4,8 @@ using Akka.Actor;
 using Akka.TestKit;
 using Akka.TestKit.NUnit3;
 using EventSaucing.EventStream;
+using EventSaucing.StreamProcessors;
+using EventSaucing.StreamProcessors.Projectors;
 using NUnit.Framework;
 using Scalesque;
 
@@ -38,8 +40,8 @@ namespace EventSaucing.Projectors
     public class When_ProjectorSupervisor_starts : ProjectorSupervisorTests {
         [Test]
         public void Should_send_catchup() {
-            _projector1.ExpectMsg<Projector.Messages.CatchUp>(TimeSpan.FromMilliseconds(100));
-            _projector2.ExpectMsg<Projector.Messages.CatchUp>(TimeSpan.FromMilliseconds(100));
+            _projector1.ExpectMsg<StreamProcessor.Messages.CatchUp>(TimeSpan.FromMilliseconds(100));
+            _projector2.ExpectMsg<StreamProcessor.Messages.CatchUp>(TimeSpan.FromMilliseconds(100));
         }
     }
 
@@ -53,8 +55,8 @@ namespace EventSaucing.Projectors
             sut.Tell(_msg);
 
             //ignore these ones for this test
-            _projector1.ExpectMsg<Projector.Messages.CatchUp>();//TimeSpan.FromMilliseconds(100));
-            _projector2.ExpectMsg<Projector.Messages.CatchUp>(); //TimeSpan.FromMilliseconds(100));
+            _projector1.ExpectMsg<StreamProcessor.Messages.CatchUp>();//TimeSpan.FromMilliseconds(100));
+            _projector2.ExpectMsg<StreamProcessor.Messages.CatchUp>(); //TimeSpan.FromMilliseconds(100));
         }
 
         [Test]

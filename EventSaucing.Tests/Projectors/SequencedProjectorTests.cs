@@ -5,6 +5,7 @@ using Akka.Actor;
 using Akka.TestKit;
 using Akka.TestKit.NUnit3;
 using EventSaucing.EventStream;
+using EventSaucing.StreamProcessors;
 using FluentAssertions;
 using NEventStore;
 using NEventStore.Persistence;
@@ -12,9 +13,9 @@ using NUnit.Framework;
 using Scalesque;
 
 namespace EventSaucing.Projectors {
-    public class ProbingProjector : Projector {
+    public class ProbingStreamProcessor : StreamProcessor {
 
-        public ProbingProjector() : base(new FakePersistStreams())
+        public ProbingStreamProcessor() : base(new FakePersistStreams())
         {
             
         }
@@ -40,12 +41,12 @@ namespace EventSaucing.Projectors {
         }
     }
 
-    public class ProceedingProjector : ProbingProjector { }
+    public class ProceedingStreamProcessor : ProbingStreamProcessor { }
 
-    public class FollowingProjector : ProbingProjector {
+    public class FollowingStreamProcessor : ProbingStreamProcessor {
         protected override void PreStart() {
             base.PreStart();
-            base.PreceededBy<ProceedingProjector>();
+            base.PreceededBy<ProceedingStreamProcessor>();
         }
     }
 
@@ -55,9 +56,9 @@ namespace EventSaucing.Projectors {
             Because();
         }
 
-        protected IActorRef InitialiseProjector<T>() where T : ProbingProjector, new() {
+        protected IActorRef InitialiseProjector<T>() where T : ProbingStreamProcessor, new() {
             var projector = Sys.ActorOf<T>(typeof(T).FullName);
-            Sys.EventStream.Subscribe(projector, typeof(Projector.Messages.AfterProjectorCheckpointStatusSet));
+            Sys.EventStream.Subscribe(projector, typeof(StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet));
             return projector;
         }
 
@@ -71,41 +72,41 @@ namespace EventSaucing.Projectors {
         private IActorRef _proceedingProjector;
         private IActorRef _followingProjector;
         private TestProbe _probe;
-        private IEnumerable<Projector.Messages.AfterProjectorCheckpointStatusSet> _publishedMessages;
+        private IEnumerable<StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet> _publishedMessages;
 
         protected override void Because() {
             _probe = CreateTestProbe();
-            Sys.EventStream.Subscribe(_probe, typeof(Projector.Messages.AfterProjectorCheckpointStatusSet));
+            Sys.EventStream.Subscribe(_probe, typeof(StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet));
 
             //both initialised at checkpoint 10
             //the order of creation matters here. We need to create follower first because otherwise it wont receive proceeder's Projector.Messages.AfterProjectorCheckpointStatusSet
-            _followingProjector = InitialiseProjector<FollowingProjector>();
-            _proceedingProjector = InitialiseProjector<ProceedingProjector>();
+            _followingProjector = InitialiseProjector<FollowingStreamProcessor>();
+            _proceedingProjector = InitialiseProjector<ProceedingStreamProcessor>();
 
             //push proceeding to 11L
             _proceedingProjector.Tell(new OrderedCommitNotification(new FakeCommit { CheckpointToken = 11L },10L));
 
             _publishedMessages = _probe.ReceiveN(3)
-                .Select(x => (Projector.Messages.AfterProjectorCheckpointStatusSet)x)
+                .Select(x => (StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet)x)
                 .ToList();
         }
 
         [Test]
         public void Proceeding_should_have_started_at_10() {
             _publishedMessages
-                .Should().ContainSingle(x => x.Checkpoint == 10L && x.MyType == typeof(ProceedingProjector));
+                .Should().ContainSingle(x => x.Checkpoint == 10L && x.MyType == typeof(ProceedingStreamProcessor));
         }
 
         [Test]
         public void Following_should_have_started_at_10() {
             _publishedMessages
-                .Should().ContainSingle(x => x.Checkpoint == 10L && x.MyType == typeof(FollowingProjector));
+                .Should().ContainSingle(x => x.Checkpoint == 10L && x.MyType == typeof(FollowingStreamProcessor));
         }
 
         [Test]
         public void Proceeding_should_have_advanced_to_11() {
             _publishedMessages
-                .Should().ContainSingle(x => x.Checkpoint == 11L && x.MyType == typeof(ProceedingProjector));
+                .Should().ContainSingle(x => x.Checkpoint == 11L && x.MyType == typeof(ProceedingStreamProcessor));
         }
     }
 
@@ -116,17 +117,17 @@ namespace EventSaucing.Projectors {
         private IActorRef _proceedingProjector;
         private IActorRef _followingProjector;
         private TestProbe _probe;
-        private IEnumerable<Projector.Messages.AfterProjectorCheckpointStatusSet> _publishedMessages;
+        private IEnumerable<StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet> _publishedMessages;
 
         protected override void Because() {
             _probe = CreateTestProbe();
-            Sys.EventStream.Subscribe(_probe, typeof(Projector.Messages.AfterProjectorCheckpointStatusSet));
+            Sys.EventStream.Subscribe(_probe, typeof(StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet));
 
 
             //both initialised at checkpoint 10
             //the order of creation matters here. We need to create follower first because otherwise it wont receive proceeder's Projector.Messages.AfterProjectorCheckpointStatusSet
-            _followingProjector = InitialiseProjector<FollowingProjector>();
-            _proceedingProjector = InitialiseProjector<ProceedingProjector>();
+            _followingProjector = InitialiseProjector<FollowingStreamProcessor>();
+            _proceedingProjector = InitialiseProjector<ProceedingStreamProcessor>();
 
 
             //push commit to both in the natural order
@@ -136,32 +137,32 @@ namespace EventSaucing.Projectors {
             _followingProjector.Tell(orderedCommitNotification);
 
             _publishedMessages = _probe.ReceiveN(4)
-                .Select(x => (Projector.Messages.AfterProjectorCheckpointStatusSet)x)
+                .Select(x => (StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet)x)
                 .ToList();
         }
 
         [Test]
         public void Proceeding_should_have_started_at_10() {
             _publishedMessages
-                .Should().ContainSingle(x => x.Checkpoint == 10L && x.MyType == typeof(ProceedingProjector));
+                .Should().ContainSingle(x => x.Checkpoint == 10L && x.MyType == typeof(ProceedingStreamProcessor));
         }
 
         [Test]
         public void Following_should_have_started_at_10() {
             _publishedMessages
-                .Should().ContainSingle(x => x.Checkpoint == 10L && x.MyType == typeof(FollowingProjector));
+                .Should().ContainSingle(x => x.Checkpoint == 10L && x.MyType == typeof(FollowingStreamProcessor));
         }
 
         [Test]
         public void Proceeding_should_have_advanced_to_11() {
             _publishedMessages
-                .Should().ContainSingle(x => x.Checkpoint == 11L && x.MyType == typeof(ProceedingProjector));
+                .Should().ContainSingle(x => x.Checkpoint == 11L && x.MyType == typeof(ProceedingStreamProcessor));
         }
 
         [Test]
         public void Following_should_have_advanced_to_11() {
             _publishedMessages
-                .Should().ContainSingle(x => x.Checkpoint == 11L && x.MyType == typeof(FollowingProjector));
+                .Should().ContainSingle(x => x.Checkpoint == 11L && x.MyType == typeof(FollowingStreamProcessor));
         }
     }
 
@@ -171,14 +172,14 @@ namespace EventSaucing.Projectors {
     public class When_commit_is_sent_only_to_following_projector : SequencedProjectorTests {
         private IActorRef _proceedingProjector;
         private IActorRef _followingProjector;
-        private Projector.Messages.CurrentCheckpoint _followingCurrentCheckpoint;
-        private Projector.Messages.CurrentCheckpoint _proceedingCurrentCheckpoint;
+        private StreamProcessor.Messages.CurrentCheckpoint _followingCurrentCheckpoint;
+        private StreamProcessor.Messages.CurrentCheckpoint _proceedingCurrentCheckpoint;
 
         protected override void Because() {
             //both initialised at checkpoint 10
             //the order of creation matters here. We need to create follower first because otherwise it wont receive proceeder's Projector.Messages.AfterProjectorCheckpointStatusSet
-            _followingProjector = InitialiseProjector<FollowingProjector>();
-            _proceedingProjector = InitialiseProjector<ProceedingProjector>();
+            _followingProjector = InitialiseProjector<FollowingStreamProcessor>();
+            _proceedingProjector = InitialiseProjector<ProceedingStreamProcessor>();
 
 
             var newCommit = new OrderedCommitNotification(
@@ -189,9 +190,9 @@ namespace EventSaucing.Projectors {
             _followingProjector.Tell(newCommit);
 
             var followerCheckpoint = _followingProjector
-                .Ask<Projector.Messages.CurrentCheckpoint>(Projector.Messages.SendCurrentCheckpoint.Message);
+                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(StreamProcessor.Messages.SendCurrentCheckpoint.Message);
             var proceedingCheckPoint = _proceedingProjector
-                .Ask<Projector.Messages.CurrentCheckpoint>(Projector.Messages.SendCurrentCheckpoint.Message);
+                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(StreamProcessor.Messages.SendCurrentCheckpoint.Message);
 
             Task.WaitAll(proceedingCheckPoint, followerCheckpoint);
             _followingCurrentCheckpoint = followerCheckpoint.Result;
@@ -216,14 +217,14 @@ namespace EventSaucing.Projectors {
     public class When_commit_is_sent_to_sequenced_projectors_out_of_order : SequencedProjectorTests {
         private IActorRef _proceedingProjector;
         private IActorRef _followingProjector;
-        private Projector.Messages.CurrentCheckpoint _followingCurrentCheckpoint;
-        private Projector.Messages.CurrentCheckpoint _proceedingCurrentCheckpoint;
+        private StreamProcessor.Messages.CurrentCheckpoint _followingCurrentCheckpoint;
+        private StreamProcessor.Messages.CurrentCheckpoint _proceedingCurrentCheckpoint;
 
         protected override void Because() {
             //both initialised at checkpoint 10
             //the order of creation matters here. We need to create follower first because otherwise it wont receive proceeder's Projector.Messages.AfterProjectorCheckpointStatusSet
-            _followingProjector = InitialiseProjector<FollowingProjector>();
-            _proceedingProjector = InitialiseProjector<ProceedingProjector>();
+            _followingProjector = InitialiseProjector<FollowingStreamProcessor>();
+            _proceedingProjector = InitialiseProjector<ProceedingStreamProcessor>();
 
             var newCommit = new OrderedCommitNotification(
                 new FakeCommit { CheckpointToken = 11L }, 10L);
@@ -236,9 +237,9 @@ namespace EventSaucing.Projectors {
             Task.Delay(1000).Wait();
 
             var checkpointDep = _followingProjector
-                .Ask<Projector.Messages.CurrentCheckpoint>(Projector.Messages.SendCurrentCheckpoint.Message);
+                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(StreamProcessor.Messages.SendCurrentCheckpoint.Message);
             var checkpointInd = _proceedingProjector
-                .Ask<Projector.Messages.CurrentCheckpoint>(Projector.Messages.SendCurrentCheckpoint.Message);
+                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(StreamProcessor.Messages.SendCurrentCheckpoint.Message);
 
             Task.WaitAll(checkpointInd, checkpointDep);
             _followingCurrentCheckpoint = checkpointDep.Result;

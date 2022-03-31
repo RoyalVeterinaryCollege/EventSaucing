@@ -1,8 +1,8 @@
-﻿using NEventStore;
-using System.Data;
+﻿using System.Data;
 using System.Threading.Tasks;
+using NEventStore;
 
-namespace EventSaucing.Projectors
+namespace EventSaucing.StreamProcessors.Projectors
 {
     /// <summary>
     /// A delegate describing the signature of a method which projects an event

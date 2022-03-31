@@ -1,5 +1,5 @@
 ﻿using Autofac;
-using EventSaucing.Projectors;
+using EventSaucing.StreamProcessors;
 using ExampleApp.Services;
 
 namespace ExampleApp.Modules
@@ -9,7 +9,7 @@ namespace ExampleApp.Modules
         protected override void Load(ContainerBuilder builder) {
 
 
-            builder.RegisterType<ProjectorTypeProvider>().As<IProjectorTypeProvider>();
+            builder.RegisterType<StreamProcessorTypeProvider>().As<IStreamProcessorTypeProvider>();
         }
     }
 }

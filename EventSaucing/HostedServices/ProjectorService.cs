@@ -5,9 +5,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.DependencyInjection;
-using EventSaucing.Projectors;
-using EventSaucing.Reactors;
 using EventSaucing.Storage;
+using EventSaucing.StreamProcessors;
+using EventSaucing.StreamProcessors.Projectors;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -22,7 +22,7 @@ namespace EventSaucing.HostedServices {
         private readonly IDbService _dbService;
         private readonly ActorSystem _actorSystem;
         private readonly ILogger<ProjectorService> _logger;
-        private readonly IProjectorTypeProvider _projectorTypeProvider;
+        private readonly IStreamProcessorTypeProvider _streamProcessorTypeProvider;
         private IActorRef _replicaProjectorSupervisor;
 
         /// <summary>
@@ -31,13 +31,13 @@ namespace EventSaucing.HostedServices {
         /// <param name="dbService"></param>
         /// <param name="actorSystem"></param>
         /// <param name="logger"></param>
-        /// <param name="projectorTypeProvider"></param>
-        public ProjectorService(IDbService dbService, ActorSystem actorSystem, ILogger<ProjectorService> logger, IProjectorTypeProvider projectorTypeProvider)
+        /// <param name="streamProcessorTypeProvider"></param>
+        public ProjectorService(IDbService dbService, ActorSystem actorSystem, ILogger<ProjectorService> logger, IStreamProcessorTypeProvider streamProcessorTypeProvider)
         {
             _dbService = dbService;
             _actorSystem = actorSystem;
             _logger = logger;
-            _projectorTypeProvider = projectorTypeProvider;
+            _streamProcessorTypeProvider = streamProcessorTypeProvider;
         }
 
         /// <summary>
@@ -53,7 +53,7 @@ namespace EventSaucing.HostedServices {
 
             // function to create the replica projectors, ctor dependency of ProjectorSupervisor
             Func<IUntypedActorContext, IEnumerable<IActorRef>> pollerMaker = (ctx) => {
-                IEnumerable<Props> props= _projectorTypeProvider
+                IEnumerable<Props> props= _streamProcessorTypeProvider
                     .GetReplicaProjectorTypes()
                     .Select(type => DependencyResolver.For(_actorSystem).Props(type));
                 return props.Select(prop => ctx.ActorOf(prop));

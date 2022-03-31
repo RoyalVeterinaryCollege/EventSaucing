@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using Akka.Actor;
 using Akka.Event;
-using EventSaucing.Projectors;
 using Scalesque;
 
 namespace EventSaucing.EventStream {

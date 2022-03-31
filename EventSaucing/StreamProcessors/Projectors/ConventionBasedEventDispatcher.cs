@@ -1,15 +1,13 @@
-﻿using NEventStore;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using NEventStore;
 
-//public delegate void ProjectionMethod(IDbTransaction tx, ICommit commit, object @event);
 
-
-namespace EventSaucing.Projectors
+namespace EventSaucing.StreamProcessors.Projectors
 {
 
     /// <summary>

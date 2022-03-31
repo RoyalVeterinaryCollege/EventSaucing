@@ -1,23 +1,20 @@
 using System;
-using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
-using Akka.Event;
 using Dapper;
-using EventSaucing.NEventStore;
 using EventSaucing.Storage;
 using Microsoft.Extensions.Configuration;
 using NEventStore;
 using NEventStore.Persistence;
 using Scalesque;
-using System.Linq;
 
-namespace EventSaucing.Projectors {
+namespace EventSaucing.StreamProcessors.Projectors {
 
     /// <summary>
     /// Obsolete replacement for ProjectorBase.  Provided for backwards compatibility only.  Prefer <see cref="SqlProjector"/> for future usage.
     /// </summary>
     [Obsolete("Provided for backwards compatibility only.  Prefer SqlProjector for future usage")]
-    public abstract class LegacyProjector : Projector {
+    public abstract class LegacyProjector : StreamProcessor {
         private readonly IPersistStreams _persistStreams;
         private protected readonly IDbService _dbService;
 

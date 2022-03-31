@@ -11,10 +11,10 @@ using NEventStore.Persistence;
 using Scalesque;
 using Serilog;
 
-namespace EventSaucing.Projectors
+namespace EventSaucing.StreamProcessors.Projectors
 {
     //todo need sql for creating sqlprojector persistent state, and need to alter the existing sql to deal with it
-    public abstract class SqlProjector : Projector  {
+    public abstract class SqlProjector : StreamProcessor  {
         protected readonly ConventionBasedEventDispatcher _dispatcher;
         protected readonly ILogger _logger;
         protected readonly IDbService _dbService;

@@ -1,13 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Data;
-using System.Linq;
-using System.Reflection;
 using Dapper;
 using EventSaucing.Storage;
 using Scalesque;
 
-namespace EventSaucing.Projectors {
+namespace EventSaucing.StreamProcessors.Projectors {
     public static class ProjectorHelper {
         /// <summary>
         ///     Gets the uniqueprojectorId of a projector

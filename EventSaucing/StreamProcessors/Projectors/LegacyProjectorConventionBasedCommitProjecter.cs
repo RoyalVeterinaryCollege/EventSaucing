@@ -2,7 +2,7 @@
 using EventSaucing.Storage;
 using NEventStore;
 
-namespace EventSaucing.Projectors {
+namespace EventSaucing.StreamProcessors.Projectors {
     /// <summary>
     /// A conventional way of projecting commits for the legacy <see cref="LegacyProjector"/>.  This handles ACIDic projection of all projectable events in the commit.
     /// </summary>

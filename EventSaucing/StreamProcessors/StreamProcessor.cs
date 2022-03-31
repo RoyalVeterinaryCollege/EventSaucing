@@ -1,22 +1,22 @@
-﻿using Akka.Actor;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Akka.Actor;
 using Akka.Event;
 using EventSaucing.EventStream;
 using EventSaucing.NEventStore;
 using NEventStore;
-using Scalesque;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using NEventStore.Persistence;
+using Scalesque;
 using Failure = Akka.Actor.Status.Failure;
 
-namespace EventSaucing.Projectors {
-    public abstract class Projector : ReceiveActor, IWithTimers {
+namespace EventSaucing.StreamProcessors {
+    public abstract class StreamProcessor : ReceiveActor, IWithTimers {
         private readonly IPersistStreams _persistStreams;
 
         /// <summary>
-        /// Bool. if true, the projector is in catch up mode and will stream commits to itself from <see cref="OrderedEventStreamer"/>
+        /// Bool. if true, the streamprocessor is in catch up mode and will stream commits to itself from <see cref="OrderedEventStreamer"/>
         /// </summary>
         private bool _isCatchingUp;
 
@@ -25,13 +25,13 @@ namespace EventSaucing.Projectors {
         /// <summary>
         /// Shared random number factory, wrapped in Lazy for thread safety.
         ///
-        /// Sharing the Random means that there is no chance that each projector happens to get the same seed as they all initialise at the same point during startup
+        /// Sharing the Random means that there is no chance that each SP happens to get the same seed as they all initialise at the same point during startup
         /// </summary>
         static readonly Lazy<Random> Rnd = new Lazy<Random>(() => new Random());
 
         public static class Messages {
             /// <summary>
-            ///     Tell Projector to catch up by going to commit store to stream unprojected commits
+            ///     Tell StreamProcessor to catch up by going to commit store to stream commits
             /// </summary>
             public class CatchUp {
                 static CatchUp() {
@@ -44,7 +44,7 @@ namespace EventSaucing.Projectors {
             }
 
             /// <summary>
-            ///     Tell projector to persist its checkpoint state to db
+            ///     Tell streamprocessor to persist its checkpoint state to db
             /// </summary>
             public class PersistCheckpoint {
                 static PersistCheckpoint() {
@@ -57,7 +57,7 @@ namespace EventSaucing.Projectors {
             }
 
             /// <summary>
-            /// Asks projector to send its current checkpoint. Replies with <see cref="CurrentCheckpoint"/>
+            /// Asks streamprocessor to send its current checkpoint. Replies with <see cref="CurrentCheckpoint"/>
             /// </summary>
             public class SendCurrentCheckpoint {
                 static SendCurrentCheckpoint() {
@@ -79,37 +79,37 @@ namespace EventSaucing.Projectors {
                 }
             }
 
-            public class DependUponProjectors {
+            public class DependUponStreamProcessors {
                 /// <summary>
-                /// The Type of the projector that depends on the Projectors listed
+                /// The Type of the SP that depends on the SP listed
                 /// </summary>
                 public Type MyType { get; }
 
                 /// <summary>
-                /// Reference to the projector
+                /// Reference to the streamprocessor
                 /// </summary>
                 public IActorRef MyRef { get; }
 
                 /// <summary>
-                /// A list of Types of projectors upon which this projector depends. If list is empty, this projector depends on no other projectors.
+                /// A list of Types of streamprocessors upon which this streamprocessor depends. If list is empty, this streamprocessor depends on no other streamprocessors.
                 /// </summary>
-                public IReadOnlyList<Type> Projectors { get; }
+                public IReadOnlyList<Type> StreamProcessors { get; }
 
-                public DependUponProjectors(Type myType, IActorRef myRef, IReadOnlyList<Type> projectors) {
+                public DependUponStreamProcessors(Type myType, IActorRef myRef, IReadOnlyList<Type> streamProcessors) {
                     MyType = myType;
                     MyRef = myRef;
-                    Projectors = projectors;
+                    StreamProcessors = streamProcessors;
                 }
             }
 
             /// <summary>
-            /// Message published on EventStream after the projector's checkpoint changes
+            /// Message published on EventStream after the streamprocessor's checkpoint changes
             /// </summary>
-            public class AfterProjectorCheckpointStatusSet {
+            public class AfterStreamProcessorCheckpointStatusSet {
                 public Type MyType { get; }
                 public long Checkpoint { get; }
 
-                public AfterProjectorCheckpointStatusSet(Type myType, long checkpoint) {
+                public AfterStreamProcessorCheckpointStatusSet(Type myType, long checkpoint) {
                     MyType = myType;
                     Checkpoint = checkpoint;
                 }
@@ -119,11 +119,11 @@ namespace EventSaucing.Projectors {
         private const string TimerName = "persist_checkpoint";
 
         /// <summary>
-        /// Our proceeding projectors.  Projector type -> last known checkpoint for that projector
+        /// Our proceeding streamprocessors.  streamprocessor type -> last known checkpoint for that streamprocessor
         /// </summary>
-        public Dictionary<Type, long> PreceedingProjectors { get; } = new Dictionary<Type, long>();
+        public Dictionary<Type, long> PreceedingStreamProcessors { get; } = new Dictionary<Type, long>();
 
-        public Projector(IPersistStreams persistStreams) {
+        public StreamProcessor(IPersistStreams persistStreams) {
             _persistStreams = persistStreams;
             ReceiveAsync<Messages.CatchUp>(ReceivedAsync);
             ReceiveAsync<OrderedCommitNotification>(ReceivedAsync);
@@ -136,20 +136,20 @@ namespace EventSaucing.Projectors {
                     Sender.Tell(new Failure (e), Self);
                 }
             });
-            Receive<Messages.AfterProjectorCheckpointStatusSet>((msg) => {
-                if (PreceedingProjectors.ContainsKey(msg.MyType))
-                    PreceedingProjectors[msg.MyType] = msg.Checkpoint;
+            Receive<Messages.AfterStreamProcessorCheckpointStatusSet>((msg) => {
+                if (PreceedingStreamProcessors.ContainsKey(msg.MyType))
+                    PreceedingStreamProcessors[msg.MyType] = msg.Checkpoint;
             });
         }
 
         /// <summary>
-        /// Checks if all proceeding projectors are ahead of us
+        /// Checks if all proceeding streamprocessors are ahead of us
         /// </summary>
-        /// <returns>bool True if we have no proceeding projectors or all proceeding projectors have a higher checkpoint than us</returns>
-        protected bool AllProceedingProjectorsAhead() {
-            if (!PreceedingProjectors.Any()) return true;
+        /// <returns>bool True if we have no proceeding streamprocessors or all proceeding streamprocessors have a higher checkpoint than us</returns>
+        protected bool AllProceedingStreamProcessorsAhead() {
+            if (!PreceedingStreamProcessors.Any()) return true;
 
-            return PreceedingProjectors
+            return PreceedingStreamProcessors
                 .Values
                 .All(proceedingCheckpoint => proceedingCheckpoint > Checkpoint);
         }
@@ -168,27 +168,27 @@ namespace EventSaucing.Projectors {
         }
 
         /// <summary>
-        /// Turns this projector into a sequenced projector. This projector's Checkpoint will never be greater than the proceeding projector.
+        /// Turns this streamprocessor into a sequenced streamprocessor. This streamprocessor's Checkpoint will never be greater than the proceeding streamprocessor.
         ///
-        /// This means it's safe for this projector to access the other's readmodels
+        /// This means it's safe for this streamprocessor to access the other's readmodels
         /// </summary>
         /// <typeparam name="T"></typeparam>
-        protected void PreceededBy<T>() where T : Projector {
+        protected void PreceededBy<T>() where T : StreamProcessor {
             var type = typeof(T);
-            if (!PreceedingProjectors.ContainsKey(type)) PreceedingProjectors[type] = 0L;
+            if (!PreceedingStreamProcessors.ContainsKey(type)) PreceedingStreamProcessors[type] = 0L;
         }
 
         /// <summary>
-        /// Sets the projector's checkpoint and publishes the changed event to the event stream
+        /// Sets the streamprocessor's checkpoint and publishes the changed event to the event stream
         /// </summary>
         /// <param name="checkpoint"></param>
         private void SetCheckpoint(long checkpoint) {
             Checkpoint = checkpoint;
-            Context.System.EventStream.Publish(new Messages.AfterProjectorCheckpointStatusSet(GetType(), checkpoint));
+            Context.System.EventStream.Publish(new Messages.AfterStreamProcessorCheckpointStatusSet(GetType(), checkpoint));
         }
 
         /// <summary>
-        ///     Holds the timer which periodically tells projector to persist its checkpoint
+        ///     Holds the timer which periodically tells streamprocessor to persist its checkpoint
         /// </summary>
         public ITimerScheduler Timers { get; set; }
 
@@ -225,7 +225,7 @@ namespace EventSaucing.Projectors {
 
         /// <summary>
         /// Get the next commit from the commit store stream and send it to ourselves.
-        /// This way we can interleave commits, and <see cref="Messages.AfterProjectorCheckpointStatusSet"/> messages from any proceeding projectors.
+        /// This way we can interleave commits, and <see cref="Messages.AfterStreamProcessorCheckpointStatusSet"/> messages from any proceeding streamprocessors.
         /// </summary>
         /// <returns></returns>
         private async Task SendNextCatchUpMessageAsync() {
@@ -253,15 +253,15 @@ namespace EventSaucing.Projectors {
         ///     Projects the commit.  
         /// </summary>
         /// <param name="commit"></param>
-        /// <returns>Bool True if projection of a readmodel occurred.  False if the projector didn't project any events in the ICommit</returns>
+        /// <returns>Bool True if projection of a readmodel occurred.  False if the streamprocessor didn't project any events in the ICommit</returns>
         public abstract Task<bool> ProjectAsync(ICommit commit);
 
         protected virtual async Task ReceivedAsync(OrderedCommitNotification msg) {
-            // never go ahead of a proceeding projector
-            if (!AllProceedingProjectorsAhead()) {
+            // never go ahead of a proceeding streamprocessor
+            if (!AllProceedingStreamProcessorsAhead()) {
                 if (Checkpoint <= msg.PreviousCheckpoint) {
-                    // this is a commit we want but we can't project it yet as we need proceeding projector(s) to project it first
-                    // schedule this commit to be resent to us in the future, hopefully in the meantime all proceeding projectors will have 
+                    // this is a commit we want but we can't project it yet as we need proceeding streamprocessor(s) to project it first
+                    // schedule this commit to be resent to us in the future, hopefully in the meantime all proceeding streamprocessors will have 
                     // projected it
                     Timers.StartSingleTimer(key: $"commitid:{msg.Commit.CommitId}", msg,
                         TimeSpan.FromMilliseconds(100));
@@ -271,7 +271,7 @@ namespace EventSaucing.Projectors {
             }
 
             // at this point:
-            // 1. We are behind our proceeding projectors, or we aren't a sequenced projector.
+            // 1. We are behind our proceeding streamprocessors, or we aren't a sequenced streamprocessor.
             // 2. Therefore We are allowed to try to project this commit, if we need to
 
             // if commit's previous checkpoint matches our current, project
@@ -282,7 +282,7 @@ namespace EventSaucing.Projectors {
                     projectionResultedInReadmodelChangingState = await ProjectAsync(msg.Commit);
                 } catch (Exception e) {
                     Context.GetLogger().Error(e,
-                        $"Exception caught when projector {GetType().FullName} tried to project checkpoint {msg.Commit.CheckpointToken} for aggregate {msg.Commit.AggregateId()}");
+                        $"Exception caught when streamprocessor {GetType().FullName} tried to project checkpoint {msg.Commit.CheckpointToken} for aggregate {msg.Commit.AggregateId()}");
                 } finally {
                     //advance to next checkpoint even on error
                     SetCheckpoint(msg.Commit.CheckpointToken);

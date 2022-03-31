@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace EventSaucing.Projectors {
+namespace EventSaucing.StreamProcessors.Projectors {
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
     public class ProjectorAttribute : Attribute {
         /// <summary>

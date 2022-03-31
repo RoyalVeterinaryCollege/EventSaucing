@@ -5,7 +5,7 @@ using Akka.Routing;
 using EventSaucing.EventStream;
 using Scalesque;
 
-namespace EventSaucing.Projectors {
+namespace EventSaucing.StreamProcessors.Projectors {
     public class ReplicaProjectorSupervisor : ReceiveActor {
         /// <summary>
         /// Broadcast router which forwards any messages it receives to all Projectors
@@ -40,7 +40,7 @@ namespace EventSaucing.Projectors {
                     "ProjectionBroadcastRouter");
 
             //tell them to catchup, else they will sit and wait for user activity 
-            _projectorsBroadCastRouter.Tell(Projector.Messages.CatchUp.Message, Self);
+            _projectorsBroadCastRouter.Tell(StreamProcessor.Messages.CatchUp.Message, Self);
         }
     }
 }

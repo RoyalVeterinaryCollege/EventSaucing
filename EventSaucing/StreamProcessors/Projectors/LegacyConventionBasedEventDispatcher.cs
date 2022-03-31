@@ -5,7 +5,7 @@ using System.Linq;
 using NEventStore;
 using Scalesque;
 
-namespace EventSaucing.Projectors {
+namespace EventSaucing.StreamProcessors.Projectors {
     /// <summary>
     /// A convention based way of dispatching events to methods which project those events.  Legacy class for supporting ProjectorBase style projectors
     /// </summary>
