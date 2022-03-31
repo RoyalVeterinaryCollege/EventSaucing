@@ -14,7 +14,7 @@ using Microsoft.Extensions.Logging;
 
 namespace EventSaucing.HostedServices {
     /// <summary>
-    /// Starts and stops <see cref="StreamProcessorSupervisor"/> which supervises the projectors for this node.
+    /// Starts and stops <see cref="StreamProcessorSupervisor"/> which supervises the projectors and reactors for this node.
     /// </summary>
     public class StreamProcessorService : IHostedService {
         private readonly IDbService _dbService;
