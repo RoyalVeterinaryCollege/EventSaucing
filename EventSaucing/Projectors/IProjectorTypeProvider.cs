@@ -8,14 +8,24 @@ namespace EventSaucing.Projectors {
     /// A contract which returns the Types of projectors to be used for projection
     /// </summary>
     public interface IProjectorTypeProvider {
-        IEnumerable<Type> GetProjectorTypes();
+        /// <summary>
+        /// Returns all the Types which are the Types of replica Projectors
+        /// </summary>
+        /// <returns></returns>
+        IEnumerable<Type> GetReplicaProjectorTypes();
+
+        /// <summary>
+        /// Returns all the Types which are the Types of Stream Processors Projectors
+        /// </summary>
+        /// <returns></returns>
+        IEnumerable<Type> GetStreamProcessorTypes();
     }
 
     /// <summary>
     /// An implementation of IProjectorTypeProvider which searches the entry assembly for classes tagged with ProjectorAttribute
     /// </summary>
     public class EntryAssemblyProjectorTypeProvider : IProjectorTypeProvider {
-        public IEnumerable<Type> GetProjectorTypes() {
+        public IEnumerable<Type> GetReplicaProjectorTypes() {
             //Reflect on assembly to identify projectors and have DI create them
             var types = Assembly.GetEntryAssembly().GetTypes();
             return

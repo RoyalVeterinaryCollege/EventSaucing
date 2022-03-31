@@ -51,12 +51,11 @@ namespace CRIS.API.DI {
                     
                 var eventStore = wireup
                     .WithLoggerFactory(c.Resolve<ILoggerFactory>())
-                   //.LogTo(type => eventStoreLogger)
-                   .UsingSqlPersistence(c.Resolve<IConnectionFactory>())
-                   .WithDialect(new MsSqlDialect())
-                   .InitializeStorageEngine()
-                   .UsingCustomSerialization(new JsonSerializer())
-                   .Build();
+                    .UsingSqlPersistence(c.Resolve<IConnectionFactory>())
+                    .WithDialect(new MsSqlDialect())
+                    .InitializeStorageEngine()
+                    .UsingCustomSerialization(new JsonSerializer())
+                    .Build();
                 return eventStore;
             }).SingleInstance();
             

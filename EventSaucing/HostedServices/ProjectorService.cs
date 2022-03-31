@@ -15,7 +15,7 @@ namespace EventSaucing.HostedServices {
 
     //todo rename Projectors to StreamProcessors
     /// <summary>
-    /// Starts and stops <see cref="ProjectorSupervisor"/> which supervises the dependency graph of projectors for this node.
+    /// Starts and stops <see cref="ReplicaProjectorSupervisor"/> which supervises the dependency graph of projectors for this node.
     /// </summary>
     public class ProjectorService : IHostedService
     {
@@ -23,7 +23,7 @@ namespace EventSaucing.HostedServices {
         private readonly ActorSystem _actorSystem;
         private readonly ILogger<ProjectorService> _logger;
         private readonly IProjectorTypeProvider _projectorTypeProvider;
-        private IActorRef _localProjectorSupervisor;
+        private IActorRef _replicaProjectorSupervisor;
 
         /// <summary>
         /// Instantiates
@@ -41,7 +41,7 @@ namespace EventSaucing.HostedServices {
         }
 
         /// <summary>
-        /// Starts <see cref="ProjectorSupervisor"/>
+        /// Starts <see cref="ReplicaProjectorSupervisor"/>
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
@@ -51,16 +51,16 @@ namespace EventSaucing.HostedServices {
             // Ensure the Projector Status table is created.
             ProjectorHelper.InitialiseProjectorStatusStore(_dbService);
 
-            // function to create the projectors, ctor dependency of ProjectorSupervisor
+            // function to create the replica projectors, ctor dependency of ProjectorSupervisor
             Func<IUntypedActorContext, IEnumerable<IActorRef>> pollerMaker = (ctx) => {
                 IEnumerable<Props> props= _projectorTypeProvider
-                    .GetProjectorTypes()
+                    .GetReplicaProjectorTypes()
                     .Select(type => DependencyResolver.For(_actorSystem).Props(type));
                 return props.Select(prop => ctx.ActorOf(prop));
             };
 
-            // start projector supervisor
-            _localProjectorSupervisor = _actorSystem.ActorOf(Props.Create<ProjectorSupervisor>(pollerMaker));
+            // start replica projector supervisor
+            _replicaProjectorSupervisor = _actorSystem.ActorOf(Props.Create<ReplicaProjectorSupervisor>(pollerMaker));
 
             _logger.LogInformation($"EventSaucing {nameof(ProjectorService)} started");
 
@@ -68,14 +68,19 @@ namespace EventSaucing.HostedServices {
         }
 
         /// <summary>
-        /// Stops <see cref="ProjectorSupervisor"/>
+        /// Stops <see cref="ReplicaProjectorSupervisor"/>
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public Task StopAsync(CancellationToken cancellationToken){
-            _logger.LogInformation($"EventSaucing {nameof(ProjectorService)} stop requested. Sending PoisonPill to {nameof(ProjectorSupervisor)} @ path {_localProjectorSupervisor.Path}");
-            _localProjectorSupervisor.Tell(PoisonPill.Instance, ActorRefs.NoSender);
-            return Task.CompletedTask;
+            _logger.LogInformation($"EventSaucing {nameof(ProjectorService)} stop requested. Sending PoisonPill to {nameof(ReplicaProjectorSupervisor)} @ path {_replicaProjectorSupervisor.Path}");
+
+            // from https://petabridge.com/blog/how-to-stop-an-actor-akkadotnet/
+            // targetActorRef is sent a PoisonPill by default
+            // and returns a task whose result confirms shutdown within 5 seconds
+            var shutdown = _replicaProjectorSupervisor.GracefulStop(TimeSpan.FromSeconds(5));
+
+            return shutdown;
         }
     }
 }

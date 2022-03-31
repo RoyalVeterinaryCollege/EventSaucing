@@ -7,9 +7,9 @@ namespace EventSaucing.Projectors {
     /// An implementation of IProjectorTypeProvider which adds <see cref="ReactorAggregateSubscriptionProjector"></see> and all types added by <see cref="EntryAssemblyProjectorTypeProvider"></see>
     /// </summary>
     public class DefaultProjectorTypeProvider : IProjectorTypeProvider {
-        public IEnumerable<Type> GetProjectorTypes() {
+        public IEnumerable<Type> GetReplicaProjectorTypes() {
             var types = new List<Type> {typeof(ReactorAggregateSubscriptionProjector)};
-            types.AddRange(new EntryAssemblyProjectorTypeProvider().GetProjectorTypes());
+            types.AddRange(new EntryAssemblyProjectorTypeProvider().GetReplicaProjectorTypes());
             return types;
         }
     }

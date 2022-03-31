@@ -6,7 +6,7 @@ using EventSaucing.EventStream;
 using Scalesque;
 
 namespace EventSaucing.Projectors {
-    public class ProjectorSupervisor : ReceiveActor {
+    public class ReplicaProjectorSupervisor : ReceiveActor {
         /// <summary>
         /// Broadcast router which forwards any messages it receives to all Projectors
         /// </summary>
@@ -16,9 +16,8 @@ namespace EventSaucing.Projectors {
         /// Instantiates
         /// </summary>
         /// <param name="projectorMaker">Func which returns all the projectors to be supervised</param>
-        public ProjectorSupervisor(Func<IUntypedActorContext, IEnumerable<IActorRef>> projectorMaker) {
+        public ReplicaProjectorSupervisor(Func<IUntypedActorContext, IEnumerable<IActorRef>> projectorMaker) {
             InitialiseProjectors(projectorMaker);
-            //todo who is responsible for giving the ProjectorSupervisor this factory function?
 
             Receive<OrderedCommitNotification>(msg => _projectorsBroadCastRouter.Tell(msg, Self));
         }
