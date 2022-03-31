@@ -13,26 +13,30 @@ namespace EventSaucing.StreamProcessors {
         /// Returns all the Types which are the Types of replica Projectors
         /// </summary>
         /// <returns></returns>
-        IEnumerable<Type> GetReplicaProjectorTypes();
+        IEnumerable<Type> GetProjectorTypes();
 
         /// <summary>
         /// Returns all the Types which are the Types of Stream Processors Projectors
         /// </summary>
         /// <returns></returns>
-        //IEnumerable<Type> GetStreamProcessorTypes();
+        IEnumerable<Type> GetReactorTypes();
     }
 
     /// <summary>
     /// An implementation of IProjectorTypeProvider which searches the entry assembly for classes tagged with ProjectorAttribute
     /// </summary>
     public class EntryAssemblyStreamProcessorTypeProvider : IStreamProcessorTypeProvider {
-        public IEnumerable<Type> GetReplicaProjectorTypes() {
+        public IEnumerable<Type> GetProjectorTypes() {
             //Reflect on assembly to identify projectors and have DI create them
             var types = Assembly.GetEntryAssembly().GetTypes();
             return
                 from type in types
                     where type.GetCustomAttributes(typeof(ProjectorAttribute), false).Any()
                     select type;
+        }
+
+        public IEnumerable<Type> GetReactorTypes() {
+            throw new NotImplementedException();
         }
     }
 }

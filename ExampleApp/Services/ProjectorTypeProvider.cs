@@ -4,7 +4,7 @@ namespace ExampleApp.Services
 {
     public class StreamProcessorTypeProvider : IStreamProcessorTypeProvider
     {
-        public IEnumerable<Type> GetReplicaProjectorTypes() {
+        public IEnumerable<Type> GetProjectorTypes() {
             return new List<Type>();
         }
     }

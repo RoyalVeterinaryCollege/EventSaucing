@@ -15,7 +15,7 @@ namespace EventSaucing.Projectors
     [TestFixture]
     public abstract class ProjectorSupervisorTests : TestKit {
         /// <summary>
-        /// <see cref="ReplicaProjectorSupervisor"/>
+        /// <see cref="StreamProcessorSupervisor"/>
         /// </summary>
         protected IActorRef sut;
 
@@ -29,7 +29,7 @@ namespace EventSaucing.Projectors
 
             //inject dependencies
             Func<IUntypedActorContext, IEnumerable<IActorRef>> maker = (ctx) => new []{_projector1, _projector2};
-            sut = Sys.ActorOf(Props.Create<ReplicaProjectorSupervisor>(maker));
+            sut = Sys.ActorOf(Props.Create<StreamProcessorSupervisor>(maker));
 
             Because();
         }
