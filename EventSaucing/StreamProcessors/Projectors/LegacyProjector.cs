@@ -15,60 +15,15 @@ namespace EventSaucing.StreamProcessors.Projectors {
     /// </summary>
     [Obsolete("Provided for backwards compatibility only.  Prefer SqlProjector for future usage")]
     public abstract class LegacyProjector : StreamProcessor {
-        private readonly IPersistStreams _persistStreams;
-        private protected readonly IDbService _dbService;
-
         public int ProjectorId { get; }
-
-        /// <summary>
-        ///     Should projector be set to the head checkpoint of the commit store on first ever instantiation.  If false,
-        ///     projector will run through all commits in the store.  If True, projector will start at the head of the commit and
-        ///     only process new commits
-        /// </summary>
-        private bool _initialiseAtHead;
 
         /// <summary>
         /// Instantiates
         /// </summary>
-        /// <param name="persistStreams">IPersistStreams Required for when the projector falls behind the head commit and needs to catchup</param>
-        /// <param name="dbService"></param>
-        /// <param name="config"></param>
-        public LegacyProjector(IPersistStreams persistStreams, IDbService dbService, IConfiguration config):base(persistStreams) {
-            _persistStreams = persistStreams;
-            _dbService = dbService;
+        public LegacyProjector(IPersistStreams persistStreams, IStreamProcessorCheckpointPersister checkpointPersister) :base(persistStreams, checkpointPersister) {
             ProjectorId = this.GetProjectorId();
-
-            var initialiseAtHead = config.GetSection("EventSaucing:Projectors:InitialiseAtHead").Get<string[]>();
-            _initialiseAtHead = initialiseAtHead.Contains(GetType().FullName);
         }
-
-        protected override void PreStart() {
-            //get the persisted checkpoint (if there is one)
-            using (var conn = _dbService.GetReplica()) {
-                conn.Open();
-
-                Option<long> results =
-                    conn.Query<long>(
-                        "SELECT LastCheckPointToken FROM dbo.ProjectorStatus WHERE ProjectorId = @ProjectorId",
-                        new { this.ProjectorId }).HeadOption();
-
-                if (results.HasValue) {
-                    InitialCheckpoint = results;  // if we have a persisted checkpoint, use as initial checkpoint
-                } else if (_initialiseAtHead) {
-                    InitialCheckpoint = conn.ExecuteScalar<long>("SELECT MAX(CheckpointNumber) FROM dbo.Commits").ToSome(); // or initialise at head if requested
-                }
-            }
-
-            base.PreStart();
-        }
-
-        protected override async Task PersistCheckpointAsync()  {
-            using (var conn = _dbService.GetReplica()) {
-                await conn.OpenAsync();
-                this.PersistProjectorCheckpoint(conn);
-            }
-        }
-
+      
         /// <summary>
         /// Projects the commit by delegating it to the synchronous Project method
         /// </summary>

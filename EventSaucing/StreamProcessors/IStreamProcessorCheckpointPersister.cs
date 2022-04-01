@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Data.Common;
 using System.Linq;
 using System.Threading.Tasks;
 using Dapper;
@@ -9,7 +10,7 @@ using Scalesque;
 
 namespace EventSaucing.StreamProcessors {
     public interface IStreamProcessorCheckpointPersister {
-        Task<long> GetCommitstoreHeadAsync();
+        //Task<long> GetCommitstoreHeadAsync();
         Task<long> GetInitialCheckpointAsync(StreamProcessor streamProcessor);
         Task PersistCheckpointAsync(StreamProcessor streamProcessor, long checkpoint);
     }
@@ -54,7 +55,7 @@ namespace EventSaucing.StreamProcessors {
                 }
 
                 if (IsInitialisedAtHead(streamProcessor)) {
-                    return await conn.ExecuteScalarAsync<long>("SELECT MAX(CheckpointNumber) FROM dbo.Commits");
+                    return await GetCommitstoreHeadAsync();
                 }
 
                 return 0L;
@@ -94,5 +95,85 @@ namespace EventSaucing.StreamProcessors {
                 ThrowNeedLegacyProjector(streamProcessor);
             }
         }
+    }
+
+    public class SqlProjectorCheckPointPersister : IStreamProcessorCheckpointPersister {
+        private readonly IDbService _dbService;
+        private readonly IConfiguration _config;
+
+     
+        public SqlProjectorCheckPointPersister(IDbService dbService,
+            IConfiguration config) {
+            _dbService = dbService;
+            _config = config;
+        }
+
+        public async Task<long> GetInitialCheckpointAsync(StreamProcessor streamProcessor) {
+            if (streamProcessor is SqlProjector sp) {
+
+                using (var conn = sp.GetProjectionDb()) {
+                    await conn.OpenAsync();
+
+                    Option<long> persistedCheckpoint =
+                        (await conn.QueryAsync<long>(
+                            "SELECT LastCheckPointToken FROM dbo.ProjectorStatus WHERE Fullname = @FullName",
+                            new { FullName = GetPersistedName(streamProcessor) })).HeadOption();
+
+                    if (persistedCheckpoint.HasValue) {
+                        return persistedCheckpoint.Get();
+                    }
+
+                    if (IsInitialisedAtHead(streamProcessor)) {
+                        return await GetCommitstoreHeadAsync();
+                    }
+
+                    return 0L;
+                }
+            }
+
+        }
+
+        public async Task<long> GetCommitstoreHeadAsync() {
+            using (var conn = _dbService.GetCommitStore()) {
+                await conn.OpenAsync();
+                return await conn.ExecuteScalarAsync<long>("SELECT MAX(CheckpointNumber) FROM dbo.Commits");
+            }
+        }
+
+        private bool IsInitialisedAtHead(StreamProcessor streamProcessor) {
+            return _config
+                .GetSection("EventSaucing:Projectors:InitialiseAtHead")
+                .Get<string[]>()
+                .Contains(streamProcessor.GetType().FullName);
+        }
+
+        private static string GetPersistedName(StreamProcessor streamProcessor) {
+            return streamProcessor.GetType().FullName.Substring(0,800); //only 800 characters for db persistence
+        }
+
+        const string SqlPersistProjectorState = @"
+			MERGE dbo.StreamProcessorStatus AS target
+			USING (SELECT @FullName, @Checkpoint) AS source (FullName, Checkpoint)
+			ON (target.FullName = source.FullName)
+			WHEN MATCHED THEN 
+				UPDATE SET LastCheckpointToken = source.Checkpoint
+			WHEN NOT MATCHED THEN	
+				INSERT (FullName, LastCheckpointToken)
+				VALUES (source.FullName, source.Checkpoint);";
+
+        public async Task PersistCheckpointAsync(StreamProcessor streamProcessor, long checkpoint) {
+            if (streamProcessor is SqlProjector sp) {
+                using (var con = sp.GetProjectionDb()) {
+                    await con.OpenAsync();
+                    await con.ExecuteAsync(
+                        SqlPersistProjectorState,
+                        new { FullName = GetPersistedName(streamProcessor), streamProcessor.Checkpoint });
+                }
+            }
+        }
+
+        private static void ThrowNeedSqlProjector(StreamProcessor sp) =>
+            throw new ArgumentException(
+                $"{nameof(SqlProjectorCheckPointPersister)} expects type of {nameof(SqlProjector)} but received  {sp.GetType()}");
     }
 }

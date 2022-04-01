@@ -127,6 +127,7 @@ namespace EventSaucing.StreamProcessors {
         public StreamProcessor(IPersistStreams persistStreams, IStreamProcessorCheckpointPersister checkpointPersister) {
             _persistStreams = persistStreams;
             _checkpointPersister = checkpointPersister;
+
             ReceiveAsync<Messages.CatchUp>(ReceivedAsync);
             ReceiveAsync<OrderedCommitNotification>(ReceivedAsync);
             ReceiveAsync<Messages.PersistCheckpoint>(msg => PersistCheckpointAsync());
@@ -146,7 +147,7 @@ namespace EventSaucing.StreamProcessors {
 
         protected override void PreStart() {
             InitialCheckpoint = _checkpointPersister.GetInitialCheckpointAsync(this).Result.ToSome();
-            PersistCheckpointAsync().Wait(); // this persists the checkpoint in case of intialisation
+            PersistCheckpointAsync().Wait(); // this ensures a persisted checkpoint on first instantiation
             StartTimer();
         }
 
@@ -158,7 +159,7 @@ namespace EventSaucing.StreamProcessors {
             _checkpointPersister.PersistCheckpointAsync(this, Checkpoint);
 
         /// <summary>
-        ///     Projects the commit.  
+        /// Projects the commit.  
         /// </summary>
         /// <param name="commit"></param>
         /// <returns>Bool True if projection of a readmodel occurred.  False if the streamprocessor didn't project any events in the ICommit</returns>
@@ -255,8 +256,6 @@ namespace EventSaucing.StreamProcessors {
                 Context.Self.Tell(_catchupCommitStream.Next());
             }
         }
-
-
 
         protected virtual async Task ReceivedAsync(OrderedCommitNotification msg) {
             // never go ahead of a proceeding streamprocessor
