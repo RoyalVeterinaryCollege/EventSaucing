@@ -101,7 +101,7 @@ namespace EventSaucing.StreamProcessors {
         private readonly IDbService _dbService;
         private readonly IConfiguration _config;
 
-     
+
         public SqlProjectorCheckPointPersister(IDbService dbService,
             IConfiguration config) {
             _dbService = dbService;
@@ -110,7 +110,6 @@ namespace EventSaucing.StreamProcessors {
 
         public async Task<long> GetInitialCheckpointAsync(StreamProcessor streamProcessor) {
             if (streamProcessor is SqlProjector sp) {
-
                 using (var conn = sp.GetProjectionDb()) {
                     await conn.OpenAsync();
 
@@ -130,7 +129,10 @@ namespace EventSaucing.StreamProcessors {
                     return 0L;
                 }
             }
-
+            else {
+                throw new ArgumentException(
+                    $"{nameof(SqlProjectorCheckPointPersister)} expects type of {nameof(SqlProjector)} but received  {streamProcessor.GetType()}");
+            }
         }
 
         public async Task<long> GetCommitstoreHeadAsync() {
@@ -148,7 +150,7 @@ namespace EventSaucing.StreamProcessors {
         }
 
         private static string GetPersistedName(StreamProcessor streamProcessor) {
-            return streamProcessor.GetType().FullName.Substring(0,800); //only 800 characters for db persistence
+            return streamProcessor.GetType().FullName.Substring(0, 800); //only 800 characters for db persistence
         }
 
         const string SqlPersistProjectorState = @"
@@ -171,9 +173,5 @@ namespace EventSaucing.StreamProcessors {
                 }
             }
         }
-
-        private static void ThrowNeedSqlProjector(StreamProcessor sp) =>
-            throw new ArgumentException(
-                $"{nameof(SqlProjectorCheckPointPersister)} expects type of {nameof(SqlProjector)} but received  {sp.GetType()}");
     }
 }

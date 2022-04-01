@@ -4,11 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Dapper;
 using EventSaucing.NEventStore;
-using EventSaucing.Storage;
-using Microsoft.Extensions.Configuration;
 using NEventStore;
 using NEventStore.Persistence;
-using Scalesque;
 using Serilog;
 
 namespace EventSaucing.StreamProcessors.Projectors
@@ -17,12 +14,10 @@ namespace EventSaucing.StreamProcessors.Projectors
     public abstract class SqlProjector : StreamProcessor  {
         protected readonly ConventionBasedEventDispatcher _dispatcher;
         protected readonly ILogger _logger;
-        protected readonly IDbService _dbService;
 
 
         public SqlProjector(IPersistStreams persistStreams, IStreamProcessorCheckpointPersister checkpointPersister) :base(persistStreams, checkpointPersister){
             _dispatcher = new ConventionBasedEventDispatcher(this);
-            Name = GetType().FullName;
         }
 
         public override async Task<bool> ProjectAsync(ICommit commit) {
@@ -43,7 +38,7 @@ namespace EventSaucing.StreamProcessors.Projectors
                             await projectionMethod(tx, commit, @evt);
                         }
                         catch (Exception error) {
-                            _logger.Error(error.InnerException, $"{Name} caught exception in method {projectionMethod.Method.Name} when trying to project event {@evt.GetType()} in commit {commit.CommitId}  at checkpoint {commit.CheckpointToken} for aggregate {commit.AggregateId()}");
+                            _logger.Error(error.InnerException, $"{GetType().FullName} caught exception in method {projectionMethod.Method.Name} when trying to project event {@evt.GetType()} in commit {commit.CommitId}  at checkpoint {commit.CheckpointToken} for aggregate {commit.AggregateId()}");
                             throw; 
                         }
                     }
@@ -53,16 +48,8 @@ namespace EventSaucing.StreamProcessors.Projectors
             }
         }
 
-   
-
-
         /// <summary>
-        /// Gets the name of the projector. Must be unique and defaults to GetType().FullName
-        /// </summary>
-        public virtual string Name { get; } 
-
-        /// <summary>
-        /// Gets the connection to where the commit will be projected
+        /// Gets the connection to where the commit will be projected and where the checkpoint will be persisted
         /// </summary>
         /// <returns></returns>
         public abstract DbConnection GetProjectionDb();
