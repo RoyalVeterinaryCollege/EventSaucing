@@ -67,9 +67,9 @@ namespace EventSaucing.HostedServices {
 
             // start replica projector supervisor
             _replicaProjectorSupervisor =
-                _actorSystem.ActorOf(CreateSupervisorProps(_streamProcessorTypeProvider.GetProjectorTypes()));
+                _actorSystem.ActorOf(CreateSupervisorProps(_streamProcessorTypeProvider.GetReplicaScopedStreamProcessorsTypes()));
 
-            var reactors = _streamProcessorTypeProvider.GetReactorTypes().ToList();
+            var reactors = _streamProcessorTypeProvider.GetClusterScopedStreamProcessorsTypes().ToList();
 
             if (reactors.Any()) {
                 // todo : need to create streamprocessor checkpoint tables in the cluster wide db 

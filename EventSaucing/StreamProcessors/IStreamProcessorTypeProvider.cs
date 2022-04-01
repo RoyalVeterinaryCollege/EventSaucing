@@ -6,37 +6,19 @@ using EventSaucing.StreamProcessors.Projectors;
 
 namespace EventSaucing.StreamProcessors {
     /// <summary>
-    /// A contract which returns the Types of <see cref="StreamProcessor"/> to be used for stream processing.  Returns both Projectors and Reactors
+    /// A contract which returns the Types of <see cref="StreamProcessor"/> to be used for stream processing.  You must implement this class and register it with Autofac.
     /// </summary>
     public interface IStreamProcessorTypeProvider {
         /// <summary>
-        /// Returns all the Types which are the Types of replica Projectors
+        /// Returns all the Types of StreamProcessors which are scoped to a replica
         /// </summary>
         /// <returns></returns>
-        IEnumerable<Type> GetProjectorTypes();
+        IEnumerable<Type> GetReplicaScopedStreamProcessorsTypes();
 
         /// <summary>
-        /// Returns all the Types which are the Types of Stream Processors Projectors
+        /// Returns all the Types which of StreamProcessors which are scoped to the cluster
         /// </summary>
         /// <returns></returns>
-        IEnumerable<Type> GetReactorTypes();
-    }
-
-    /// <summary>
-    /// An implementation of IProjectorTypeProvider which searches the entry assembly for classes tagged with ProjectorAttribute
-    /// </summary>
-    public class EntryAssemblyStreamProcessorTypeProvider : IStreamProcessorTypeProvider {
-        public IEnumerable<Type> GetProjectorTypes() {
-            //Reflect on assembly to identify projectors and have DI create them
-            var types = Assembly.GetEntryAssembly().GetTypes();
-            return
-                from type in types
-                    where type.GetCustomAttributes(typeof(ProjectorAttribute), false).Any()
-                    select type;
-        }
-
-        public IEnumerable<Type> GetReactorTypes() {
-            throw new NotImplementedException();
-        }
+        IEnumerable<Type> GetClusterScopedStreamProcessorsTypes();
     }
 }
