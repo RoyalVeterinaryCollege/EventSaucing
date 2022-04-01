@@ -159,11 +159,11 @@ namespace EventSaucing.StreamProcessors {
             _checkpointPersister.PersistCheckpointAsync(this, Checkpoint);
 
         /// <summary>
-        /// Projects the commit.  
+        /// Processes the commit.  
         /// </summary>
         /// <param name="commit"></param>
-        /// <returns>Bool True if projection of a readmodel occurred.  False if the streamprocessor didn't project any events in the ICommit</returns>
-        public abstract Task<bool> ProjectAsync(ICommit commit);
+        /// <returns>Bool True if checkpoint should be persisted</returns>
+        public abstract Task<bool> ProcessAsync(ICommit commit);
 
         /// <summary>
         /// Checks if all proceeding streamprocessors are ahead of us
@@ -277,17 +277,21 @@ namespace EventSaucing.StreamProcessors {
 
             // if commit's previous checkpoint matches our current, project
             if (Checkpoint == msg.PreviousCheckpoint) {
-                bool projectionResultedInReadmodelChangingState = true; //defaults to true, so that in the event of an error, the checkpoint is advanced anyway
                 // this is the next commit for us to project
+
+                bool shouldPersistCheckpoint = true; //defaults to true so if processing results in an exception, the checkpoint is persisted anyway
+               
                 try {
-                    projectionResultedInReadmodelChangingState = await ProjectAsync(msg.Commit);
+                    shouldPersistCheckpoint = await ProcessAsync(msg.Commit);
                 } catch (Exception e) {
                     Context.GetLogger().Error(e,
                         $"Exception caught when streamprocessor {GetType().FullName} tried to project checkpoint {msg.Commit.CheckpointToken} for aggregate {msg.Commit.AggregateId()}");
                 } finally {
                     //advance to next checkpoint even on error
                     SetCheckpoint(msg.Commit.CheckpointToken);
-                    if (projectionResultedInReadmodelChangingState) await PersistCheckpointAsync();
+
+                    // save the checkpoint, even on error
+                    if (shouldPersistCheckpoint) await PersistCheckpointAsync();
                 }
             }
             else if (Checkpoint > msg.PreviousCheckpoint) {

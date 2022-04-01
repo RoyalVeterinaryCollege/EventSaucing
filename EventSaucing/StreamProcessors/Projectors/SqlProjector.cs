@@ -20,10 +20,11 @@ namespace EventSaucing.StreamProcessors.Projectors
             _dispatcher = new ConventionBasedEventDispatcher(this);
         }
 
-        public override async Task<bool> ProjectAsync(ICommit commit) {
+        public override async Task<bool> ProcessAsync(ICommit commit) {
             var projectionMethods = _dispatcher.GetProjectionMethods(commit).ToList();
 
             if (!projectionMethods.Any()) {
+                // don't bother round tripping as we didn't do any projection for this commit
                 return false;
             }
             using (var con = GetProjectionDb()) {
@@ -43,7 +44,7 @@ namespace EventSaucing.StreamProcessors.Projectors
                         }
                     }
                     tx.Commit();
-                    return true;
+                    return true; // persist checkpoint
                 }
             }
         }

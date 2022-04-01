@@ -29,7 +29,7 @@ namespace EventSaucing.StreamProcessors.Projectors {
         /// </summary>
         /// <param name="commit"></param>
         /// <returns>Task</returns>
-        public override Task<bool> ProjectAsync(ICommit commit) {
+        public override Task<bool> ProcessAsync(ICommit commit) {
             return Task.FromResult(Project(commit));
         }
 
