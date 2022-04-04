@@ -11,6 +11,7 @@ namespace EventSaucing.StreamProcessors.Projectors {
         private readonly IDbService _dbService;
         private readonly IConfiguration _config;
 
+        //todo need sql for creating sqlprojector persistent state, and need to alter the existing sql to deal with it
 
         public SqlProjectorCheckPointPersister(IDbService dbService,
             IConfiguration config) {
@@ -18,15 +19,19 @@ namespace EventSaucing.StreamProcessors.Projectors {
             _config = config;
         }
 
+
+
         public async Task<long> GetInitialCheckpointAsync(StreamProcessor streamProcessor) {
             if (streamProcessor is SqlProjector sp) {
                 using (var conn = sp.GetProjectionDb()) {
                     await conn.OpenAsync();
 
+                   
+
                     Option<long> persistedCheckpoint =
                         (await conn.QueryAsync<long>(
-                            "SELECT LastCheckPointToken FROM dbo.ProjectorStatus WHERE Fullname = @FullName",
-                            new { FullName = GetPersistedName(streamProcessor) })).HeadOption();
+                            "SELECT LastCheckPointToken FROM dbo.StreamProcessorCheckpoints WHERE StreamProcessor = @StreamProcessor",
+                            new { StreamProcessor = GetPersistedName(streamProcessor) })).HeadOption();
 
                     if (persistedCheckpoint.HasValue) {
                         return persistedCheckpoint.Get();
@@ -64,14 +69,14 @@ namespace EventSaucing.StreamProcessors.Projectors {
         }
 
         const string SqlPersistProjectorState = @"
-			MERGE dbo.StreamProcessorStatus AS target
-			USING (SELECT @FullName, @Checkpoint) AS source (FullName, Checkpoint)
-			ON (target.FullName = source.FullName)
+			MERGE dbo.StreamProcessorCheckpoints AS target
+			USING (SELECT @StreamProcessor, @Checkpoint) AS source (StreamProcessor, Checkpoint)
+			ON (target.StreamProcessor = source.StreamProcessor)
 			WHEN MATCHED THEN 
 				UPDATE SET LastCheckpointToken = source.Checkpoint
 			WHEN NOT MATCHED THEN	
-				INSERT (FullName, LastCheckpointToken)
-				VALUES (source.FullName, source.Checkpoint);";
+				INSERT (StreamProcessor, LastCheckpointToken)
+				VALUES (source.StreamProcessor, source.Checkpoint);";
 
         public async Task PersistCheckpointAsync(StreamProcessor streamProcessor, long checkpoint) {
             if (streamProcessor is SqlProjector sp) {

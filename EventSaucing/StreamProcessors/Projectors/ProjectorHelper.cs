@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Data;
+using System.Data.Common;
+using System.Threading.Tasks;
 using Dapper;
 using EventSaucing.Storage;
 using Scalesque;
@@ -7,7 +9,7 @@ using Scalesque;
 namespace EventSaucing.StreamProcessors.Projectors {
     public static class ProjectorHelper {
         /// <summary>
-        ///     Gets the uniqueprojectorId of a projector
+        /// Gets the unique ProjectorId of a projector
         /// </summary>
         /// <param name="projectorBase"></param>
         /// <exception cref="ArgumentException">Thrown if the attribute is mssing</exception>
@@ -61,43 +63,43 @@ namespace EventSaucing.StreamProcessors.Projectors {
         }
 
 
-		const string SqlInitialiseProjectorStatus = @"
+		const string SqlInitialiseStreamProcessorCheckpointsTable = @"
 -- get an exclusive lock on creating this table. It's possible for multiple nodes to start up at the same time and each will try to create this table
 -- @result = 0 = we got the lock
 -- @result = 1 = we got the lock after someone released it
 -- @result < 0 = we didn't get the lock
 
-EXEC @result = sp_getapplock @resource='dbo.ProjectorStatus', @lockmode='Exclusive', @LockOwner='Session', @LockTimeout=0;
+EXEC @result = sp_getapplock @resource='dbo.StreamProcessorCheckpoints', @lockmode='Exclusive', @LockOwner='Session', @LockTimeout=0;
 
 IF (@result >=0 AND NOT EXISTS (SELECT * 
      FROM INFORMATION_SCHEMA.TABLES 
      WHERE TABLE_SCHEMA = 'dbo' 
-     AND TABLE_NAME = 'ProjectorStatus'))
+     AND TABLE_NAME = 'StreamProcessorCheckpoints'))
 BEGIN
-	CREATE TABLE [dbo].[ProjectorStatus](
-		[ProjectorId] [int] NOT NULL,
-		[ProjectorName] [nvarchar](800) NOT NULL,
-		[LastCheckpointToken] [bigint] NULL,
-		CONSTRAINT [PK_ProjectorStatus] PRIMARY KEY CLUSTERED 
+	CREATE TABLE [dbo].[StreamProcessorCheckpoints](
+		[StreamProcessor] [nvarchar](800) NOT NULL,
+		[LastCheckpointToken] [bigint] NOT NULL,
+		CONSTRAINT [PK_StreamProcessor] PRIMARY KEY CLUSTERED 
 		(
-			[ProjectorId] ASC
+			[StreamProcessor] ASC
 		) ON [PRIMARY]
 	) ON [PRIMARY]
 END
 
 IF (@result >=0 )
 BEGIN
-    sp_releaseapplock @Resource = 'dbo.ProjectorStatus';
+    sp_releaseapplock @Resource = 'dbo.StreamProcessorCheckpoints';
 END
-
 ";
 
-		public static void InitialiseProjectorStatusStore(IDbService dbService) {
-			//get the head checkpoint (if there is one)
-			using (var conn = dbService.GetReplica()) {
-				conn.Open();
-				conn.Execute(SqlInitialiseProjectorStatus);
-			}
+        /// <summary>
+        /// Creates the dbo.ProjectorStatus table. Thread safe and safe for multiple replicas to call at once.
+        /// </summary>
+        /// <param name="connection">DbConnection an unopened db connection pointing to the db where the table should be created</param>
+        /// <returns></returns>
+		public static async Task InitialiseProjectorStatusStore(DbConnection connection) {
+			await connection.OpenAsync();
+			await connection.ExecuteAsync(SqlInitialiseStreamProcessorCheckpointsTable);
 		}
 
         private static object GetProjectorParams(LegacyProjector projector) {

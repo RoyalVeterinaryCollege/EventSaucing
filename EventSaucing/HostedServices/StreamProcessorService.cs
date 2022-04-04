@@ -11,6 +11,7 @@ using EventSaucing.StreamProcessors;
 using EventSaucing.StreamProcessors.Projectors;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Scalesque;
 
 namespace EventSaucing.HostedServices {
     /// <summary>
@@ -21,8 +22,16 @@ namespace EventSaucing.HostedServices {
         private readonly ActorSystem _actorSystem;
         private readonly ILogger<StreamProcessorService> _logger;
         private readonly IStreamProcessorTypeProvider _streamProcessorTypeProvider;
-        private IActorRef _replicaProjectorSupervisor;
 
+        /// <summary>
+        /// Optional Actor of type <see cref="StreamProcessorSupervisor"/> which manages the replica-scoped <see cref="StreamProcessor"/> actors
+        /// </summary>
+        private Option<IActorRef> _replicaProjectorSupervisor = Option.None();
+
+        /// <summary>
+        /// Optional Proxy to actor of type <see cref="StreamProcessorSupervisor"/>, which is a cluster singleton which manages the cluster-scoped <see cref="StreamProcessor"/> actors
+        /// </summary>
+        private Option<IActorRef> _clusterProjectorSupervisor = Option.None();
 
         /// <summary>
         /// Instantiates
@@ -58,33 +67,45 @@ namespace EventSaucing.HostedServices {
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        public Task StartAsync(CancellationToken cancellationToken) {
+        public async Task StartAsync(CancellationToken cancellationToken) {
             _logger.LogInformation($"EventSaucing {nameof(StreamProcessorService)} starting");
 
-            // Ensure the Projector Status table is created in the replica db
-            ProjectorHelper
-                .InitialiseProjectorStatusStore(_dbService); //todo rename projector status to stream processor status
+            // start projector supervisor(s) for both replica scoped StreamProcessors and clusters scoped StreamProcessors
+            var replicaScopedStreamProcessorsTypes = _streamProcessorTypeProvider.GetReplicaScopedStreamProcessorsTypes().ToList();
 
-            // start replica projector supervisor
-            _replicaProjectorSupervisor =
-                _actorSystem.ActorOf(CreateSupervisorProps(_streamProcessorTypeProvider.GetReplicaScopedStreamProcessorsTypes()));
+            if (replicaScopedStreamProcessorsTypes.Any()) {
+                // Ensure the StreamProcessor checkpoint table is created in the replica db
+                // nb this is the data structure expected by SqlProjector, not LegacyProjector as we shouldn't be creating LeagacyProjectors in future
+                using (var dbConnection = _dbService.GetReplica()) {
+                    await ProjectorHelper.InitialiseProjectorStatusStore(dbConnection);
+                }
 
-            var reactors = _streamProcessorTypeProvider.GetClusterScopedStreamProcessorsTypes().ToList();
+                _replicaProjectorSupervisor =_actorSystem.ActorOf(CreateSupervisorProps(replicaScopedStreamProcessorsTypes)).ToSome();
+                _logger.LogInformation($"EventSaucing started supervision of replica-scoped StreamProcessors of {string.Join(", ", replicaScopedStreamProcessorsTypes.Select(x => x.Name))}");
 
-            if (reactors.Any()) {
-                // todo : need to create streamprocessor checkpoint tables in the cluster wide db 
-                _actorSystem.ActorOf(ClusterSingletonManager.Props(
-                        singletonProps: CreateSupervisorProps(reactors),
+            }
+
+
+            var clusterScopedStreamProcessorTypes = _streamProcessorTypeProvider.GetClusterScopedStreamProcessorsTypes().ToList();
+
+            if (clusterScopedStreamProcessorTypes.Any()) {
+                // Ensure the StreamProcessor checkpoint table is created in the cluster db
+                // nb this is the data structure expected by SqlProjector, not LegacyProjector as we shouldn't be creating LeagacyProjectors in future
+                using (var dbConnection = _dbService.GetCluster()) {
+                    await ProjectorHelper.InitialiseProjectorStatusStore(dbConnection);
+                }
+
+                _clusterProjectorSupervisor =  _actorSystem.ActorOf(ClusterSingletonManager.Props(
+                        singletonProps: CreateSupervisorProps(clusterScopedStreamProcessorTypes),
                         terminationMessage: PoisonPill.Instance,
                         settings: ClusterSingletonManagerSettings.Create(_actorSystem).WithRole("api")),
-                    name: "reactor-supervisor");
+                    name: "streamprocessor-supervisor").ToSome();
 
-                _logger.LogInformation($"EventSaucing reactor supervision started");
+                _logger.LogInformation($"EventSaucing started supervision of cluster-scoped StreamProcessors of {string.Join(", ", clusterScopedStreamProcessorTypes.Select(x => x.Name))}");
+
             }
 
             _logger.LogInformation($"EventSaucing {nameof(StreamProcessorService)} started");
-
-            return Task.CompletedTask;
         }
 
         /// <summary>
@@ -93,17 +114,19 @@ namespace EventSaucing.HostedServices {
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public Task StopAsync(CancellationToken cancellationToken) {
-            _logger.LogInformation(
-                $"EventSaucing {nameof(StreamProcessorService)} stop requested. Sending PoisonPill to local replica projectors @ path {_replicaProjectorSupervisor.Path}");
+            _logger.LogInformation($"EventSaucing {nameof(StreamProcessorService)} stop requested");
 
-            // from https://petabridge.com/blog/how-to-stop-an-actor-akkadotnet/
-            // targetActorRef is sent a PoisonPill by default
-            // and returns a task whose result confirms shutdown within 5 seconds
-            var shutdown = _replicaProjectorSupervisor.GracefulStop(TimeSpan.FromSeconds(5));
+            if (_replicaProjectorSupervisor.HasValue) {
+                // from https://petabridge.com/blog/how-to-stop-an-actor-akkadotnet/
+                // targetActorRef is sent a PoisonPill by default
+                // and returns a task whose result confirms shutdown within 5 seconds
+                var actorRef = _replicaProjectorSupervisor.Get();
+                Task<bool> stopTask =  actorRef.GracefulStop(TimeSpan.FromSeconds(5));
+            }
 
-            // i don't think we should shut the reactors down, as they might be about to migrate to another server
-
-            return shutdown;
+            // i don't think we should shut the cluster-scoped supervisor down, as we don't actually know that the whole cluster is being stopped at this point
+            // it might just be our node, let Akka handle shutting down the cluster singleton
+            return Task.CompletedTask;
         }
     }
 }

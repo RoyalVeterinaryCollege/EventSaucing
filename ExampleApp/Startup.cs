@@ -39,7 +39,7 @@ namespace ExampleApp {
             EventSaucingConfiguration eventsaucingconfiguration = new EventSaucingConfiguration  {
                 ActorSystemName = "ExampleApp",
                 //CommitStoreConnectionString = Configuration.GetConnectionString("CommitStore"), userid, password),
-                //ReadmodelConnectionString = string.Format(Configuration.GetConnectionString("Readmodel"), userid, password),
+                //ReplicaConnectionString = string.Format(Configuration.GetConnectionString("Readmodel"), userid, password),
                 AkkaConfig = ConfigurationFactory.ParseString(akkaHconf)
             };
 

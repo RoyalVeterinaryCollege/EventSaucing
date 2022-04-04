@@ -6,7 +6,7 @@ using System.Data.SqlClient;
 namespace EventSaucing.Storage {
     public interface IDbService {
 		/// <summary>
-		/// Gets a connection to the readmodel db
+		/// Gets a connection to the replica db
 		/// </summary>
 		/// <returns></returns>
 		DbConnection GetReplica();
@@ -17,10 +17,16 @@ namespace EventSaucing.Storage {
         DbConnection GetCommitStore();
 
 		/// <summary>
-		/// Legacy. Get's connection to db.
+		/// Legacy. Gets connection to db.
 		/// </summary>
 		/// <returns></returns>
-        [Obsolete("Replace all usage with GetReadmodel or GetCommitStore as appropriate")]
+        [Obsolete("Replace all usage with GetReplica(), GetCommitStore(), or GetCluster() as appropriate")]
 		DbConnection GetConnection();
+
+		/// <summary>
+		/// Gets the cluster db shared by all replicas
+		/// </summary>
+		/// <returns></returns>
+        DbConnection GetCluster();
     }
 }
