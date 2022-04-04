@@ -144,9 +144,11 @@ namespace EventSaucing.StreamProcessors {
                     PreceedingStreamProcessors[msg.MyType] = msg.Checkpoint;
             });
         }
-
+        /// <summary>
+        /// Set initial state of actor on start up
+        /// </summary>
         protected override void PreStart() {
-            InitialCheckpoint = _checkpointPersister.GetInitialCheckpointAsync(this).Result.ToSome();
+            Checkpoint = _checkpointPersister.GetInitialCheckpointAsync(this).Result;
             PersistCheckpointAsync().Wait(); // this ensures a persisted checkpoint on first instantiation
             StartTimer();
         }
@@ -155,8 +157,7 @@ namespace EventSaucing.StreamProcessors {
         /// Persist checkpoint to db
         /// </summary>
         /// <returns></returns>
-        protected virtual Task PersistCheckpointAsync() =>
-            _checkpointPersister.PersistCheckpointAsync(this, Checkpoint);
+        protected virtual Task PersistCheckpointAsync() => _checkpointPersister.PersistCheckpointAsync(this, Checkpoint);
 
         /// <summary>
         /// Processes the commit.  
@@ -178,8 +179,6 @@ namespace EventSaucing.StreamProcessors {
         }
 
         public long Checkpoint { get; private set; }
-
-        public Option<long> InitialCheckpoint { get;protected set; }
 
         /// <summary>
         /// Turns this streamprocessor into a sequenced streamprocessor. This streamprocessor's Checkpoint will never be greater than the proceeding streamprocessor.

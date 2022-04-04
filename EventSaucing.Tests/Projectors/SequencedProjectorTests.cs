@@ -15,13 +15,9 @@ using Scalesque;
 namespace EventSaucing.Projectors {
     public class ProbingStreamProcessor : StreamProcessor {
 
-        public ProbingStreamProcessor() : base(new FakePersistStreams())
+        public ProbingStreamProcessor() : base(new FakePersistStreams(), new FakeCheckpointPersister())
         {
             
-        }
-        protected override void PreStart() {
-            InitialCheckpoint = 10L.ToSome();
-            base.PreStart();
         }
 
         protected override void StartTimer() {
@@ -205,8 +201,7 @@ namespace EventSaucing.Projectors {
         }
 
         [Test]
-        public void
-            Following_should_not_have_advanced_to_11_because_proceeding_is_still_on_10() {
+        public void Following_should_not_have_advanced_to_11_because_proceeding_is_still_on_10() {
             _followingCurrentCheckpoint.Checkpoint.Should().Be(10L);
         }
     }

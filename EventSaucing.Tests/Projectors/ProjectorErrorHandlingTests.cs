@@ -20,14 +20,9 @@ namespace EventSaucing.Projectors {
     public class ErrorThrowingStreamProcessor : StreamProcessor {
         private Func<ICommit, Task<bool>> _projectionMethod;
 
-        public ErrorThrowingStreamProcessor() : base(new FakePersistStreams()) {
+        public ErrorThrowingStreamProcessor() : base(new FakePersistStreams(), new FakeCheckpointPersister()) {
             //allow caller to alter projection method implementation
             Receive<Func<ICommit, Task<bool>>>(msg => _projectionMethod = msg);
-        }
-
-        protected override void PreStart() {
-            InitialCheckpoint = 10L.ToSome();
-            base.PreStart();
         }
 
         protected override void StartTimer() {

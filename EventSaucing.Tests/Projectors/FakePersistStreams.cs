@@ -4,6 +4,8 @@ using NEventStore;
 using NEventStore.Persistence;
 
 namespace EventSaucing.Projectors {
+
+ 
     public class FakePersistStreams : IPersistStreams {
         public void Dispose() {
             throw new NotImplementedException();
