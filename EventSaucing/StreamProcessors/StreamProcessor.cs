@@ -8,7 +8,6 @@ using EventSaucing.EventStream;
 using EventSaucing.NEventStore;
 using NEventStore;
 using NEventStore.Persistence;
-using Scalesque;
 using Failure = Akka.Actor.Status.Failure;
 
 namespace EventSaucing.StreamProcessors {
@@ -17,7 +16,7 @@ namespace EventSaucing.StreamProcessors {
         private readonly IStreamProcessorCheckpointPersister _checkpointPersister;
 
         /// <summary>
-        /// Bool. if true, the streamprocessor is in catch up mode and will stream commits to itself from <see cref="OrderedEventStreamer"/>
+        /// Bool. if true, the StreamProcessor is in catch up mode and will stream commits to itself from <see cref="OrderedEventStreamer"/>
         /// </summary>
         private bool _isCatchingUp;
 
@@ -45,7 +44,7 @@ namespace EventSaucing.StreamProcessors {
             }
 
             /// <summary>
-            ///     Tell streamprocessor to persist its checkpoint state to db
+            ///     Tell StreamProcessor to persist its checkpoint state to db
             /// </summary>
             public class PersistCheckpoint {
                 static PersistCheckpoint() {
@@ -58,7 +57,7 @@ namespace EventSaucing.StreamProcessors {
             }
 
             /// <summary>
-            /// Asks streamprocessor to send its current checkpoint. Replies with <see cref="CurrentCheckpoint"/>
+            /// Asks StreamProcessor to send its current checkpoint. Replies with <see cref="CurrentCheckpoint"/>
             /// </summary>
             public class SendCurrentCheckpoint {
                 static SendCurrentCheckpoint() {
@@ -87,12 +86,12 @@ namespace EventSaucing.StreamProcessors {
                 public Type MyType { get; }
 
                 /// <summary>
-                /// Reference to the streamprocessor
+                /// Reference to the StreamProcessor
                 /// </summary>
                 public IActorRef MyRef { get; }
 
                 /// <summary>
-                /// A list of Types of streamprocessors upon which this streamprocessor depends. If list is empty, this streamprocessor depends on no other streamprocessors.
+                /// A list of Types of StreamProcessors upon which this StreamProcessor depends. If list is empty, this StreamProcessor depends on no other StreamProcessors.
                 /// </summary>
                 public IReadOnlyList<Type> StreamProcessors { get; }
 
@@ -104,7 +103,7 @@ namespace EventSaucing.StreamProcessors {
             }
 
             /// <summary>
-            /// Message published on EventStream after the streamprocessor's checkpoint changes
+            /// Message published on EventStream after the StreamProcessor's checkpoint changes
             /// </summary>
             public class AfterStreamProcessorCheckpointStatusSet {
                 public Type MyType { get; }
@@ -120,7 +119,7 @@ namespace EventSaucing.StreamProcessors {
         private const string TimerName = "persist_checkpoint";
 
         /// <summary>
-        /// Our proceeding streamprocessors.  streamprocessor type -> last known checkpoint for that streamprocessor
+        /// Our proceeding StreamProcessors.  StreamProcessor type -> last known checkpoint for that StreamProcessor
         /// </summary>
         public Dictionary<Type, long> PreceedingStreamProcessors { get; } = new Dictionary<Type, long>();
 
@@ -148,7 +147,7 @@ namespace EventSaucing.StreamProcessors {
         /// Set initial state of actor on start up
         /// </summary>
         protected override void PreStart() {
-            Checkpoint = _checkpointPersister.GetInitialCheckpointAsync(this).Result;
+            SetCheckpoint(_checkpointPersister.GetInitialCheckpointAsync(this).Result);
             PersistCheckpointAsync().Wait(); // this ensures a persisted checkpoint on first instantiation
             StartTimer();
         }
@@ -167,9 +166,9 @@ namespace EventSaucing.StreamProcessors {
         public abstract Task<bool> ProcessAsync(ICommit commit);
 
         /// <summary>
-        /// Checks if all proceeding streamprocessors are ahead of us
+        /// Checks if all proceeding StreamProcessors are ahead of us
         /// </summary>
-        /// <returns>bool True if we have no proceeding streamprocessors or all proceeding streamprocessors have a higher checkpoint than us</returns>
+        /// <returns>bool True if we have no proceeding StreamProcessors or all proceeding StreamProcessors have a higher checkpoint than us</returns>
         protected bool AllProceedingStreamProcessorsAhead() {
             if (!PreceedingStreamProcessors.Any()) return true;
 
@@ -178,12 +177,15 @@ namespace EventSaucing.StreamProcessors {
                 .All(proceedingCheckpoint => proceedingCheckpoint > Checkpoint);
         }
 
+        /// <summary>
+        /// Gets sets the current checkpoint of the StreamProcessor.  Don't set property directly, call <see cref="SetCheckpoint"/>
+        /// </summary>
         public long Checkpoint { get; private set; }
 
         /// <summary>
-        /// Turns this streamprocessor into a sequenced streamprocessor. This streamprocessor's Checkpoint will never be greater than the proceeding streamprocessor.
+        /// Turns this StreamProcessor into a sequenced StreamProcessor. This StreamProcessor's Checkpoint will never be greater than the proceeding StreamProcessor.
         ///
-        /// This means it's safe for this streamprocessor to access the other's readmodels
+        /// This means it's safe for this StreamProcessor to access the other's read models
         /// </summary>
         /// <typeparam name="T"></typeparam>
         protected void PreceededBy<T>() where T : StreamProcessor {
@@ -192,7 +194,7 @@ namespace EventSaucing.StreamProcessors {
         }
 
         /// <summary>
-        /// Sets the streamprocessor's checkpoint and publishes the changed event to the event stream
+        /// Sets the StreamProcessor's checkpoint and publishes the changed event to the event stream
         /// </summary>
         /// <param name="checkpoint"></param>
         private void SetCheckpoint(long checkpoint) {
@@ -201,7 +203,7 @@ namespace EventSaucing.StreamProcessors {
         }
 
         /// <summary>
-        ///     Holds the timer which periodically tells streamprocessor to persist its checkpoint
+        ///     Holds the timer which periodically tells StreamProcessor to persist its checkpoint
         /// </summary>
         public ITimerScheduler Timers { get; set; }
 
@@ -238,7 +240,7 @@ namespace EventSaucing.StreamProcessors {
 
         /// <summary>
         /// Get the next commit from the commit store stream and send it to ourselves.
-        /// This way we can interleave commits, and <see cref="Messages.AfterStreamProcessorCheckpointStatusSet"/> messages from any proceeding streamprocessors.
+        /// This way we can interleave commits, and <see cref="Messages.AfterStreamProcessorCheckpointStatusSet"/> messages from any proceeding StreamProcessors.
         /// </summary>
         /// <returns></returns>
         private async Task SendNextCatchUpMessageAsync() {
@@ -257,11 +259,11 @@ namespace EventSaucing.StreamProcessors {
         }
 
         protected virtual async Task ReceivedAsync(OrderedCommitNotification msg) {
-            // never go ahead of a proceeding streamprocessor
+            // never go ahead of a proceeding StreamProcessor
             if (!AllProceedingStreamProcessorsAhead()) {
                 if (Checkpoint <= msg.PreviousCheckpoint) {
-                    // this is a commit we want but we can't project it yet as we need proceeding streamprocessor(s) to project it first
-                    // schedule this commit to be resent to us in the future, hopefully in the meantime all proceeding streamprocessors will have 
+                    // this is a commit we want but we can't project it yet as we need proceeding StreamProcessor(s) to project it first
+                    // schedule this commit to be resent to us in the future, hopefully in the meantime all proceeding StreamProcessors will have 
                     // projected it
                     Timers.StartSingleTimer(key: $"commitid:{msg.Commit.CommitId}", msg,
                         TimeSpan.FromMilliseconds(100));
@@ -271,7 +273,7 @@ namespace EventSaucing.StreamProcessors {
             }
 
             // at this point:
-            // 1. We are behind our proceeding streamprocessors, or we aren't a sequenced streamprocessor.
+            // 1. We are behind our proceeding StreamProcessor, or we aren't a sequenced StreamProcessor.
             // 2. Therefore We are allowed to try to project this commit, if we need to
 
             // if commit's previous checkpoint matches our current, project
@@ -284,7 +286,7 @@ namespace EventSaucing.StreamProcessors {
                     shouldPersistCheckpoint = await ProcessAsync(msg.Commit);
                 } catch (Exception e) {
                     Context.GetLogger().Error(e,
-                        $"Exception caught when streamprocessor {GetType().FullName} tried to project checkpoint {msg.Commit.CheckpointToken} for aggregate {msg.Commit.AggregateId()}");
+                        $"Exception caught when StreamProcessor {GetType().FullName} tried to project checkpoint {msg.Commit.CheckpointToken} for aggregate {msg.Commit.AggregateId()}");
                 } finally {
                     //advance to next checkpoint even on error
                     SetCheckpoint(msg.Commit.CheckpointToken);
