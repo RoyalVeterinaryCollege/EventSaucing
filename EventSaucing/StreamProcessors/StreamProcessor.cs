@@ -20,15 +20,14 @@ namespace EventSaucing.StreamProcessors {
         /// </summary>
         private bool _isCatchingUp;
 
-        private OrderedEventStreamer _catchupCommitStream;
-
         /// <summary>
-        /// Shared random number factory, wrapped in Lazy for thread safety.
-        ///
-        /// Sharing the Random means that there is no chance that each SP happens to get the same seed as they all initialise at the same point during startup
+        /// Used during Catchup to stream events from the commit store
         /// </summary>
-        static readonly Lazy<Random> Rnd = new Lazy<Random>(() => new Random());
-
+        private OrderedEventStreamer _catchupCommitStream;
+      
+        /// <summary>
+        /// All message types sent to and from StreamProcessors
+        /// </summary>
         public static class Messages {
             /// <summary>
             ///     Tell StreamProcessor to catch up by going to commit store to stream commits
@@ -203,7 +202,7 @@ namespace EventSaucing.StreamProcessors {
         }
 
         /// <summary>
-        ///     Holds the timer which periodically tells StreamProcessor to persist its checkpoint
+        /// Holds the timer which periodically tells StreamProcessor to persist its checkpoint
         /// </summary>
         public ITimerScheduler Timers { get; set; }
 
@@ -215,10 +214,11 @@ namespace EventSaucing.StreamProcessors {
         /// Starts timer to periodically persist checkpoint to db
         /// </summary>
         protected virtual void StartTimer() {
+            // every 5 seconds, persist our checkpoint to db
             Timers.StartPeriodicTimer(TimerName,
                 Messages.PersistCheckpoint.Message,
-                TimeSpan.FromMilliseconds(Rnd.Value.Next(2000,
-                    10000)), // random start up delay so they don't all hit DB at once
+                // random start up delay so SPs don't all hit DB at once
+                TimeSpan.FromMilliseconds(Rnd.Value.Next(2000, 10000)), 
                 TimeSpan.FromSeconds(5));
         }
 
@@ -231,8 +231,7 @@ namespace EventSaucing.StreamProcessors {
 
             //load all commits after our current checkpoint from db
             var startingCheckpoint = Checkpoint;
-            _catchupCommitStream =
-                new OrderedEventStreamer(startingCheckpoint, _persistStreams.GetFrom(startingCheckpoint));
+            _catchupCommitStream = new OrderedEventStreamer(startingCheckpoint, _persistStreams.GetFrom(startingCheckpoint));
             await SendNextCatchUpMessageAsync();
             Context.GetLogger()
                 .Info($"Catchup started from checkpoint {startingCheckpoint}");
@@ -254,6 +253,7 @@ namespace EventSaucing.StreamProcessors {
                     .Info($"Catchup finished at {Checkpoint}");
             }
             else {
+                // stream next commit to ourselves
                 Context.Self.Tell(_catchupCommitStream.Next());
             }
         }
@@ -262,9 +262,9 @@ namespace EventSaucing.StreamProcessors {
             // never go ahead of a proceeding StreamProcessor
             if (!AllProceedingStreamProcessorsAhead()) {
                 if (Checkpoint <= msg.PreviousCheckpoint) {
-                    // this is a commit we want but we can't project it yet as we need proceeding StreamProcessor(s) to project it first
+                    // this is a commit we want but we can't process it yet as we need proceeding StreamProcessor(s) to process it first
                     // schedule this commit to be resent to us in the future, hopefully in the meantime all proceeding StreamProcessors will have 
-                    // projected it
+                    // processed it
                     Timers.StartSingleTimer(key: $"commitid:{msg.Commit.CommitId}", msg,
                         TimeSpan.FromMilliseconds(100));
                 }
@@ -274,11 +274,11 @@ namespace EventSaucing.StreamProcessors {
 
             // at this point:
             // 1. We are behind our proceeding StreamProcessor, or we aren't a sequenced StreamProcessor.
-            // 2. Therefore We are allowed to try to project this commit, if we need to
+            // 2. Therefore We are allowed to try to process this commit, if we need to
 
-            // if commit's previous checkpoint matches our current, project
+            // if commit's previous checkpoint matches our current, process
             if (Checkpoint == msg.PreviousCheckpoint) {
-                // this is the next commit for us to project
+                // this is the next commit for us to process
 
                 bool shouldPersistCheckpoint = true; //defaults to true so if processing results in an exception, the checkpoint is persisted anyway
                
@@ -286,7 +286,7 @@ namespace EventSaucing.StreamProcessors {
                     shouldPersistCheckpoint = await ProcessAsync(msg.Commit);
                 } catch (Exception e) {
                     Context.GetLogger().Error(e,
-                        $"Exception caught when StreamProcessor {GetType().FullName} tried to project checkpoint {msg.Commit.CheckpointToken} for aggregate {msg.Commit.AggregateId()}");
+                        $"Exception caught when StreamProcessor {GetType().FullName} tried to process checkpoint {msg.Commit.CheckpointToken} for aggregate {msg.Commit.AggregateId()}");
                 } finally {
                     //advance to next checkpoint even on error
                     SetCheckpoint(msg.Commit.CheckpointToken);
@@ -296,14 +296,14 @@ namespace EventSaucing.StreamProcessors {
                 }
             }
             else if (Checkpoint > msg.PreviousCheckpoint) {
-                // we have already projected this commit
+                // we have already processed this commit
                 Context
                     .GetLogger()
                     .Debug(
                         $"Received a commit notification for a checkpoint which is in our past (ICommit checkpoint {msg.Commit.CheckpointToken}) behind our checkpoint ({Checkpoint})");
             }
             else {
-                // this commit is too far ahead to project it. We have fallen behind, catch up
+                // this commit is too far ahead to process it. We have fallen behind, catch up
                 if (_isCatchingUp) {
                     // we are already in catch up mode and this msg was likely sent by LocalEventStreamActor
                     // we will eventually see this commit at the right time via Catchup mode, so safe to ignore this message
@@ -321,5 +321,13 @@ namespace EventSaucing.StreamProcessors {
                 await SendNextCatchUpMessageAsync();
             }
         }
+
+        /// <summary>
+        /// Shared random number factory, used for randomly timed persistence of current checkpoint. Wrapped in Lazy for thread-safe initialisation.
+        ///
+        /// Sharing the Random means that there is no chance that each SP happens to get the same seed as they all initialise at the same point during startup
+        /// </summary>
+        static readonly Lazy<Random> Rnd = new Lazy<Random>(() => new Random());
+
     }
 }
