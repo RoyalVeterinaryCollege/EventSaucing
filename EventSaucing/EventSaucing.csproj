@@ -25,11 +25,12 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <OutputPath>bin\Debug\netstandard2.0\</OutputPath>
     <DocumentationFile>bin\Debug\netstandard2.0\EventSaucing.xml</DocumentationFile>
-    <NoWarn>1701;1702;CS1591</NoWarn>
+    <NoWarn>1701;1702;CS1591;CS0618</NoWarn>
     <LangVersion>8</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <LangVersion>8</LangVersion>
+    <NoWarn>1701;1702;CS0618</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Akka.Cluster.Sharding" Version="1.4.33" />
