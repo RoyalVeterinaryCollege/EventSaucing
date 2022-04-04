@@ -15,7 +15,7 @@ using Scalesque;
 
 namespace EventSaucing.HostedServices {
     /// <summary>
-    /// Starts and stops <see cref="StreamProcessorSupervisor"/> which supervises the projectors and reactors for this node.
+    /// Starts <see cref="StreamProcessor"/> actors for both replica-scope and cluster wide-scope <see cref="StreamProcessorSupervisor"/> 
     /// </summary>
     public class StreamProcessorService : IHostedService {
         private readonly IDbService _dbService;
@@ -82,7 +82,6 @@ namespace EventSaucing.HostedServices {
 
                 _replicaProjectorSupervisor =_actorSystem.ActorOf(CreateSupervisorProps(replicaScopedStreamProcessorsTypes)).ToSome();
                 _logger.LogInformation($"EventSaucing started supervision of replica-scoped StreamProcessors of {string.Join(", ", replicaScopedStreamProcessorsTypes.Select(x => x.Name))}");
-
             }
 
 

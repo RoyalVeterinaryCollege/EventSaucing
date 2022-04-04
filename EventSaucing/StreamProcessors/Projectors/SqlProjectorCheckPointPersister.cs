@@ -11,15 +11,11 @@ namespace EventSaucing.StreamProcessors.Projectors {
         private readonly IDbService _dbService;
         private readonly IConfiguration _config;
 
-        //todo need sql for creating sqlprojector persistent state, and need to alter the existing sql to deal with it
-
         public SqlProjectorCheckPointPersister(IDbService dbService,
             IConfiguration config) {
             _dbService = dbService;
             _config = config;
         }
-
-
 
         public async Task<long> GetInitialCheckpointAsync(StreamProcessor streamProcessor) {
             if (streamProcessor is SqlProjector sp) {
