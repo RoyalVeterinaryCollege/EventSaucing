@@ -13,14 +13,14 @@ using NUnit.Framework;
 namespace EventSaucing.StreamProcessors {
 
     /// <summary>
-    /// A projector whose projection method can be injected at run time
+    /// A SP whose Process method can be injected at run time
     /// </summary>
     public class ErrorThrowingStreamProcessor : StreamProcessor {
-        private Func<ICommit, Task<bool>> _projectionMethod;
+        private Func<ICommit, Task<bool>> _processMethod;
 
         public ErrorThrowingStreamProcessor() : base(new FakePersistStreams(), new FakeCheckpointPersister()) {
-            //allow caller to alter projection method implementation
-            Receive<Func<ICommit, Task<bool>>>(msg => _projectionMethod = msg);
+            //allow caller to alter process method implementation
+            Receive<Func<ICommit, Task<bool>>>(msg => _processMethod = msg);
         }
 
         protected override void StartTimer() {
@@ -36,15 +36,15 @@ namespace EventSaucing.StreamProcessors {
         }
 
         public override Task<bool> ProcessAsync(ICommit commit) {
-            return _projectionMethod(commit);
+            return _processMethod(commit);
         }
     }
 
     [TestFixture]
-    public abstract class ProjectorErrorHandlingTests : TestKit {
+    public abstract class ProcessorErrorHandlingTests : TestKit {
         protected IActorRef _sut;
 
-        public ProjectorErrorHandlingTests() {
+        public ProcessorErrorHandlingTests() {
             Because();
         }
 
@@ -53,7 +53,7 @@ namespace EventSaucing.StreamProcessors {
         }
     }
 
-    public class When_projector_doesnt_throw_error_during_projection : ProjectorErrorHandlingTests {
+    public class When_processor_doesnt_throw_error_during_processing : ProcessorErrorHandlingTests {
         private TestProbe _probe;
         private List<StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet> _publishedMessages;
 
@@ -91,9 +91,9 @@ namespace EventSaucing.StreamProcessors {
     }
 
 
-    // note the behaviour between When_projector_does_throw_error_during_projection and When_projector_doesnt_throw_error_during_projection is mostly the same.
-    // This is because the only difference between a projector which throws, and one which doesnt is the logging of the error
-    public class When_projector_does_throw_error_during_projection : ProjectorErrorHandlingTests {
+    // note the behaviour between When_processor_does_throw_error_during_procession and When_processor_doesnt_throw_error_during_processing is mostly the same.
+    // This is because the only difference between a processor which throws, and one which doesnt is the logging of the error
+    public class WhenProcessorDoesThrowErrorDuringProcessing : ProcessorErrorHandlingTests {
         private TestProbe _probe;
         private List<StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet> _publishedMessages;
 

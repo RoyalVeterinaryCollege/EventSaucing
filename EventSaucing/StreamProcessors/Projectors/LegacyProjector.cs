@@ -1,17 +1,12 @@
 using System;
-using System.Linq;
 using System.Threading.Tasks;
-using Dapper;
-using EventSaucing.Storage;
-using Microsoft.Extensions.Configuration;
 using NEventStore;
 using NEventStore.Persistence;
-using Scalesque;
 
 namespace EventSaucing.StreamProcessors.Projectors {
 
     /// <summary>
-    /// Obsolete replacement for ProjectorBase.  Provided for backwards compatibility only.  Prefer <see cref="SqlProjector"/> for future usage.
+    /// Obsolete replacement for ProjectorBase.  Provided for backwards compatibility only.  Prefer <see cref="SqlProjector"/> for future projectors.
     /// </summary>
     [Obsolete("Provided for backwards compatibility only.  Prefer SqlProjector for future usage")]
     public abstract class LegacyProjector : StreamProcessor {

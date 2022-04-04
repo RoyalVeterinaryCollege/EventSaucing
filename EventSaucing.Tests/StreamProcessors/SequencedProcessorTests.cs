@@ -44,15 +44,15 @@ namespace EventSaucing.StreamProcessors {
     }
 
     [TestFixture]
-    public abstract class SequencedProjectorTests : TestKit {
-        public SequencedProjectorTests() {
+    public abstract class SequencedProcessorTests : TestKit {
+        public SequencedProcessorTests() {
             Because();
         }
 
-        protected IActorRef InitialiseProjector<T>() where T : ProbingStreamProcessor, new() {
-            var projector = Sys.ActorOf<T>(typeof(T).FullName);
-            Sys.EventStream.Subscribe(projector, typeof(StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet));
-            return projector;
+        protected IActorRef InitialiseProcessor<T>() where T : ProbingStreamProcessor, new() {
+            var processor = Sys.ActorOf<T>(typeof(T).FullName);
+            Sys.EventStream.Subscribe(processor, typeof(StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet));
+            return processor;
         }
 
         protected abstract void Because();
@@ -61,9 +61,9 @@ namespace EventSaucing.StreamProcessors {
     /// <summary>
     ///     Proceeding + following start at 10, and Proceeding receives 11
     /// </summary>
-    public class When_commit_is_sent_to_proceeding_projector_only : SequencedProjectorTests {
-        private IActorRef _proceedingProjector;
-        private IActorRef _followingProjector;
+    public class WhenCommitIsSentToProceedingProcessorOnly : SequencedProcessorTests {
+        private IActorRef _proceedingProcessor;
+        private IActorRef _followingProcessor;
         private TestProbe _probe;
         private IEnumerable<StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet> _publishedMessages;
 
@@ -72,12 +72,12 @@ namespace EventSaucing.StreamProcessors {
             Sys.EventStream.Subscribe(_probe, typeof(StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet));
 
             //both initialised at checkpoint 10
-            //the order of creation matters here. We need to create follower first because otherwise it wont receive proceeder's Projector.Messages.AfterProjectorCheckpointStatusSet
-            _followingProjector = InitialiseProjector<FollowingStreamProcessor>();
-            _proceedingProjector = InitialiseProjector<ProceedingStreamProcessor>();
+            //the order of creation matters here. We need to create follower first because otherwise it wont receive proceeder's Processor.Messages.AfterProcessorCheckpointStatusSet
+            _followingProcessor = InitialiseProcessor<FollowingStreamProcessor>();
+            _proceedingProcessor = InitialiseProcessor<ProceedingStreamProcessor>();
 
             //push proceeding to 11L
-            _proceedingProjector.Tell(new OrderedCommitNotification(new FakeCommit { CheckpointToken = 11L },10L));
+            _proceedingProcessor.Tell(new OrderedCommitNotification(new FakeCommit { CheckpointToken = 11L },10L));
 
             _publishedMessages = _probe.ReceiveN(3)
                 .Select(x => (StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet)x)
@@ -106,9 +106,9 @@ namespace EventSaucing.StreamProcessors {
     /// <summary>
     ///     Proceeding + following start at 10, and Proceeding receives 11, then following receives 11
     /// </summary>
-    public class When_commit_is_sent_to_sequenced_projectors_in_order : SequencedProjectorTests {
-        private IActorRef _proceedingProjector;
-        private IActorRef _followingProjector;
+    public class WhenCommitIsSentToSequencedProcessorsInOrder : SequencedProcessorTests {
+        private IActorRef _proceedingProcessor;
+        private IActorRef _followingProcessor;
         private TestProbe _probe;
         private IEnumerable<StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet> _publishedMessages;
 
@@ -118,16 +118,16 @@ namespace EventSaucing.StreamProcessors {
 
 
             //both initialised at checkpoint 10
-            //the order of creation matters here. We need to create follower first because otherwise it wont receive proceeder's Projector.Messages.AfterProjectorCheckpointStatusSet
-            _followingProjector = InitialiseProjector<FollowingStreamProcessor>();
-            _proceedingProjector = InitialiseProjector<ProceedingStreamProcessor>();
+            //the order of creation matters here. We need to create follower first because otherwise it wont receive proceeder's Processor.Messages.AfterProcessorCheckpointStatusSet
+            _followingProcessor = InitialiseProcessor<FollowingStreamProcessor>();
+            _proceedingProcessor = InitialiseProcessor<ProceedingStreamProcessor>();
 
 
             //push commit to both in the natural order
             var orderedCommitNotification = new OrderedCommitNotification(
                 new FakeCommit { CheckpointToken = 11L }, 10L);
-            _proceedingProjector.Tell(orderedCommitNotification);
-            _followingProjector.Tell(orderedCommitNotification);
+            _proceedingProcessor.Tell(orderedCommitNotification);
+            _followingProcessor.Tell(orderedCommitNotification);
 
             _publishedMessages = _probe.ReceiveN(4)
                 .Select(x => (StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet)x)
@@ -162,17 +162,17 @@ namespace EventSaucing.StreamProcessors {
     /// <summary>
     ///     Proceeding + following start at 10, and following receives 11
     /// </summary>
-    public class When_commit_is_sent_only_to_following_projector : SequencedProjectorTests {
-        private IActorRef _proceedingProjector;
-        private IActorRef _followingProjector;
+    public class WhenCommitIsSentOnlyToFollowingProcessor : SequencedProcessorTests {
+        private IActorRef _proceedingProcessor;
+        private IActorRef _followingProcessor;
         private StreamProcessor.Messages.CurrentCheckpoint _followingCurrentCheckpoint;
         private StreamProcessor.Messages.CurrentCheckpoint _proceedingCurrentCheckpoint;
 
         protected override void Because() {
             //both initialised at checkpoint 10
-            //the order of creation matters here. We need to create follower first because otherwise it wont receive proceeder's Projector.Messages.AfterProjectorCheckpointStatusSet
-            _followingProjector = InitialiseProjector<FollowingStreamProcessor>();
-            _proceedingProjector = InitialiseProjector<ProceedingStreamProcessor>();
+            //the order of creation matters here. We need to create follower first because otherwise it wont receive proceeder's Processor.Messages.AfterProcessorCheckpointStatusSet
+            _followingProcessor = InitialiseProcessor<FollowingStreamProcessor>();
+            _proceedingProcessor = InitialiseProcessor<ProceedingStreamProcessor>();
 
 
             var newCommit = new OrderedCommitNotification(
@@ -180,11 +180,11 @@ namespace EventSaucing.StreamProcessors {
 
             //push following to 11L, it's now ahead of Proceeding
             //send commit only to following
-            _followingProjector.Tell(newCommit);
+            _followingProcessor.Tell(newCommit);
 
-            var followerCheckpoint = _followingProjector
+            var followerCheckpoint = _followingProcessor
                 .Ask<StreamProcessor.Messages.CurrentCheckpoint>(StreamProcessor.Messages.SendCurrentCheckpoint.Message);
-            var proceedingCheckPoint = _proceedingProjector
+            var proceedingCheckPoint = _proceedingProcessor
                 .Ask<StreamProcessor.Messages.CurrentCheckpoint>(StreamProcessor.Messages.SendCurrentCheckpoint.Message);
 
             Task.WaitAll(proceedingCheckPoint, followerCheckpoint);
@@ -206,31 +206,31 @@ namespace EventSaucing.StreamProcessors {
     /// <summary>
     ///     Proceeding + following start at 10. Following receives 11, then Proceeding receives 11
     /// </summary>
-    public class When_commit_is_sent_to_sequenced_projectors_out_of_order : SequencedProjectorTests {
-        private IActorRef _proceedingProjector;
-        private IActorRef _followingProjector;
+    public class WhenCommitIsSentToSequencedProcessorsOutOfOrder : SequencedProcessorTests {
+        private IActorRef _proceedingProcessor;
+        private IActorRef _followingProcessor;
         private StreamProcessor.Messages.CurrentCheckpoint _followingCurrentCheckpoint;
         private StreamProcessor.Messages.CurrentCheckpoint _proceedingCurrentCheckpoint;
 
         protected override void Because() {
             //both initialised at checkpoint 10
-            //the order of creation matters here. We need to create follower first because otherwise it wont receive proceeder's Projector.Messages.AfterProjectorCheckpointStatusSet
-            _followingProjector = InitialiseProjector<FollowingStreamProcessor>();
-            _proceedingProjector = InitialiseProjector<ProceedingStreamProcessor>();
+            //the order of creation matters here. We need to create follower first because otherwise it wont receive proceeder's Processor.Messages.AfterProcessorCheckpointStatusSet
+            _followingProcessor = InitialiseProcessor<FollowingStreamProcessor>();
+            _proceedingProcessor = InitialiseProcessor<ProceedingStreamProcessor>();
 
             var newCommit = new OrderedCommitNotification(
                 new FakeCommit { CheckpointToken = 11L }, 10L);
 
             // send to Following, then Proceeding, in that order
-            _followingProjector.Tell(newCommit);
-            _proceedingProjector.Tell(newCommit);
+            _followingProcessor.Tell(newCommit);
+            _proceedingProcessor.Tell(newCommit);
 
             // give follower time to process all the messages
             Task.Delay(1000).Wait();
 
-            var checkpointDep = _followingProjector
+            var checkpointDep = _followingProcessor
                 .Ask<StreamProcessor.Messages.CurrentCheckpoint>(StreamProcessor.Messages.SendCurrentCheckpoint.Message);
-            var checkpointInd = _proceedingProjector
+            var checkpointInd = _proceedingProcessor
                 .Ask<StreamProcessor.Messages.CurrentCheckpoint>(StreamProcessor.Messages.SendCurrentCheckpoint.Message);
 
             Task.WaitAll(checkpointInd, checkpointDep);
