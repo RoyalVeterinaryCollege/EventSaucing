@@ -5,14 +5,11 @@ using Akka.Actor;
 using Akka.TestKit;
 using Akka.TestKit.NUnit3;
 using EventSaucing.EventStream;
-using EventSaucing.StreamProcessors;
 using FluentAssertions;
 using NEventStore;
-using NEventStore.Persistence;
 using NUnit.Framework;
-using Scalesque;
 
-namespace EventSaucing.Projectors {
+namespace EventSaucing.StreamProcessors {
     public class ProbingStreamProcessor : StreamProcessor {
 
         public ProbingStreamProcessor() : base(new FakePersistStreams(), new FakeCheckpointPersister())

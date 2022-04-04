@@ -4,12 +4,9 @@ using Akka.Actor;
 using Akka.TestKit;
 using Akka.TestKit.NUnit3;
 using EventSaucing.EventStream;
-using EventSaucing.StreamProcessors;
-using EventSaucing.StreamProcessors.Projectors;
 using NUnit.Framework;
-using Scalesque;
 
-namespace EventSaucing.Projectors
+namespace EventSaucing.StreamProcessors
 {
 
     [TestFixture]

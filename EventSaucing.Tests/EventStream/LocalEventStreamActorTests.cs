@@ -2,7 +2,6 @@
 using Akka.Actor;
 using Akka.TestKit;
 using Akka.TestKit.NUnit3;
-using EventSaucing.Projectors;
 using NUnit.Framework;
 using Scalesque;
 

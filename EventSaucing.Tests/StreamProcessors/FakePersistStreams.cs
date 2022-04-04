@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using NEventStore;
 using NEventStore.Persistence;
 
-namespace EventSaucing.Projectors {
+namespace EventSaucing.StreamProcessors {
 
  
     public class FakePersistStreams : IPersistStreams {

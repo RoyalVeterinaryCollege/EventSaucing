@@ -6,13 +6,11 @@ using Akka.Actor;
 using Akka.TestKit;
 using Akka.TestKit.NUnit3;
 using EventSaucing.EventStream;
-using EventSaucing.StreamProcessors;
 using FluentAssertions;
 using NEventStore;
 using NUnit.Framework;
-using Scalesque;
 
-namespace EventSaucing.Projectors {
+namespace EventSaucing.StreamProcessors {
 
     /// <summary>
     /// A projector whose projection method can be injected at run time
