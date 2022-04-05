@@ -19,6 +19,9 @@ namespace EventSaucing.HostedServices {
         }
         public Task StartAsync(CancellationToken cancellationToken) {
             // no op, Akka must be started as a singleton via StartupExtensions.AddEventSaucing()
+            // I know this means this class is responsible for shutting down something it didn't create,
+            // but I coulsn't find a way of using IHostedServices to start Akka because they all start at once
+            // and some other hosted services depend on ActorSystem to start up..
             return Task.CompletedTask;
         }
 
