@@ -64,7 +64,7 @@ namespace EventSaucing.HostedServices
             mediator.Tell(new Subscribe(LocalEventStreamActor.PubSubCommitNotificationTopic, _localEventStreamActor));
 
             // watch for commits and publish them
-            _commitNotifierPipeline.AfterCommit += CommitNotifierPipeline_AfterCommit;
+            _commitNotifierPipeline.AfterCommit += CommitNotifierPipelineAfterCommit;
 
             _logger.LogInformation($"EventSaucing {nameof(EventStreamService)} started");
 
@@ -75,7 +75,7 @@ namespace EventSaucing.HostedServices
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void CommitNotifierPipeline_AfterCommit(object sender, global::NEventStore.ICommit e) {
+        private void CommitNotifierPipelineAfterCommit(object sender, global::NEventStore.ICommit e) {
             var msg = new CommitNotification(e);
             var mediator = DistributedPubSub.Get(_actorSystem).Mediator;
             mediator.Tell(new Publish(LocalEventStreamActor.PubSubCommitNotificationTopic, msg));

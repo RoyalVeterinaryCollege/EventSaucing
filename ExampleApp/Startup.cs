@@ -61,7 +61,6 @@ namespace ExampleApp {
             // make sure you have provided Akka config in app.config
             services.AddEventSaucing();
             //services.AddHostedService<ProjectorService>(); // optional
-            //services.AddHostedService<ReactorService>(); // optional
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env) {

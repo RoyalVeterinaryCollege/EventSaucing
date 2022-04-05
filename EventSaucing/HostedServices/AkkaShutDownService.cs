@@ -18,7 +18,7 @@ namespace EventSaucing.HostedServices {
             _logger = logger;
         }
         public Task StartAsync(CancellationToken cancellationToken) {
-            // no op, Akka started by AddEventSaucing.AddEventSaucing
+            // no op, Akka must be started as a singleton via StartupExtensions.AddEventSaucing()
             return Task.CompletedTask;
         }
 

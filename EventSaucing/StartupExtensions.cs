@@ -50,7 +50,7 @@ namespace EventSaucing {
 			return builder
 				.RegisterModule(new DatabaseConnectivityModule())
 				.RegisterModule(new NEventStoreModule())
-				.RegisterModule(new ReactorInfrastructureModule());
+				.RegisterModule(new ServicesModule());
 		}
 	}
 }
