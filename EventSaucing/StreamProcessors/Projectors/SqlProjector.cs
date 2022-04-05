@@ -24,7 +24,7 @@ namespace EventSaucing.StreamProcessors.Projectors
             var projectionMethods = _dispatcher.GetProjectionMethods(commit).ToList();
 
             if (!projectionMethods.Any()) {
-                // don't bother round tripping as we didn't do any projection for this commit
+                // don't bother persisting checkpoint as we didn't do any projection for this commit
                 return false;
             }
             using (var con = GetProjectionDb()) {

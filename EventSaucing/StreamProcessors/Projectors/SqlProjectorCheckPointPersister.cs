@@ -22,8 +22,6 @@ namespace EventSaucing.StreamProcessors.Projectors {
                 using (var conn = sp.GetProjectionDb()) {
                     await conn.OpenAsync();
 
-                   
-
                     Option<long> persistedCheckpoint =
                         (await conn.QueryAsync<long>(
                             "SELECT LastCheckPointToken FROM dbo.StreamProcessorCheckpoints WHERE StreamProcessor = @StreamProcessor",
@@ -80,7 +78,7 @@ namespace EventSaucing.StreamProcessors.Projectors {
                     await con.OpenAsync();
                     await con.ExecuteAsync(
                         SqlPersistProjectorState,
-                        new { FullName = GetPersistedName(streamProcessor), streamProcessor.Checkpoint });
+                        new { StreamProcessor = GetPersistedName(streamProcessor), streamProcessor.Checkpoint });
                 }
             }
         }

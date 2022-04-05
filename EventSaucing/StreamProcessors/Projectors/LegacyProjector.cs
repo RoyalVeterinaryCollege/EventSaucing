@@ -32,7 +32,7 @@ namespace EventSaucing.StreamProcessors.Projectors {
         /// Projects the commit synchronously
         /// </summary>
         /// <param name="commit"></param>
-        /// <returns>Bool True if projection of a readmodel occurred.  False if the projector didn't project any events in the ICommit</returns>
+        /// <returns>>Bool True if checkpoint should be persisted</returns>
         public abstract bool Project(ICommit commit);
     }
 }
