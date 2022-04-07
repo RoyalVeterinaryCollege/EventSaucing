@@ -18,28 +18,23 @@ namespace ExampleApp {
 
 
         public void ConfigureContainer(ContainerBuilder builder) {
-            string akkaHconf = File.ReadAllText("akka_hconf.txt");
-
-            //These values should be specified in a file called .env which should be kept out of source control
-            var userid = Environment.GetEnvironmentVariable("UserId") ?? "UserId_environment_variable_missing";
-            var password = Environment.GetEnvironmentVariable("Password") ?? "missing";
-
-            var data = new {
-                user_id= Environment.GetEnvironmentVariable("user_id") ?? "UserId_environment_variable_missing",
-                password = Environment.GetEnvironmentVariable("password") ?? "missing",
-                commitstore_db= Environment.GetEnvironmentVariable("CommitStore_dev"),
-                akka_persistence_db = Environment.GetEnvironmentVariable("akka_persistence_db"),
-                akka_persistence_table = Environment.GetEnvironmentVariable("akka_persistence_table"),
-                akka_snapshot_table = Environment.GetEnvironmentVariable("akka_snapshot_table"),
-                readmodel_db = Environment.GetEnvironmentVariable("readmodel_db"),
-
+            //get akka connection strings from config, and replace placeholders
+            var akkaConfig = new {
+                akka_journal_db = Configuration.GetConnectionString("AkkaJournal"),
+                akka_snapshot_db = Configuration.GetConnectionString("AkkaSnapshotStore"),
             };
+            string akkaHconf = File.ReadAllText("akka_hconf.txt")
+                .Replace("{akka_journal_db}", akkaConfig.akka_journal_db)
+                .Replace("{akka_snapshot_db}", akkaConfig.akka_snapshot_db);
+
+
 
 
             EventSaucingConfiguration eventsaucingconfiguration = new EventSaucingConfiguration  {
                 ActorSystemName = "ExampleApp",
-                //CommitStoreConnectionString = Configuration.GetConnectionString("CommitStore"), userid, password),
-                //ReplicaConnectionString = string.Format(Configuration.GetConnectionString("Readmodel"), userid, password),
+                ClusterConnectionString = Configuration.GetConnectionString("CommitStore"),
+                CommitStoreConnectionString = Configuration.GetConnectionString("CommitStore"),
+                ReplicaConnectionString = Configuration.GetConnectionString("Replica"),
                 AkkaConfig = ConfigurationFactory.ParseString(akkaHconf)
             };
 

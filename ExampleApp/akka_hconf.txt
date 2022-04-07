@@ -14,47 +14,48 @@ akka {
         sharding.state-store-mode = persistence
 
         # This tells Akka which role this node belongs to
-        roles=[shopping] 
+        roles=[api] 
     }
     persistence {
 	    journal {
 	            plugin = "akka.persistence.journal.sql-server"
 
                 sql-server {
-			    # qualified type name of the SQL Server persistence journal actor
-			    class = "Akka.Persistence.SqlServer.Journal.SqlServerJournal, Akka.Persistence.SqlServer"
+			        # qualified type name of the SQL Server persistence journal actor
+			        class = "Akka.Persistence.SqlServer.Journal.SqlServerJournal, Akka.Persistence.SqlServer"
 
-			    # dispatcher used to drive journal actor
-			    plugin-dispatcher = "akka.actor.default-dispatcher"
+			        # dispatcher used to drive journal actor
+			        plugin-dispatcher = "akka.actor.default-dispatcher"
 
-			    # connection string used for database access
-			    connection-string = "Server=hhsrvdione.rvc.ac.uk;Database=CRIS3_Migration;Integrated Security=SSPI;Application Name=ShardPlay;"
+			        # connection string used for database access
+                    # todo replace with env variable
+			        connection-string = "{akka_journal_db}"
 
-			    # default SQL commands timeout
-			    connection-timeout = 30s
+			        # default SQL commands timeout
+			        connection-timeout = 30s
 
-                # SQL server schema name to table corresponding with persistent journal
-                schema-name = dbo
+                    # SQL server schema name to table corresponding with persistent journal
+                    schema-name = dbo
 
-                # SQL server table corresponding with persistent journal
-                table-name = AkkaEventJournal
+                    # SQL server table corresponding with persistent journal
+                    table-name = AkkaEventJournal
 
-                # should corresponding journal table be initialized automatically
-                auto-initialize = on
+                    # should corresponding journal table be initialized automatically
+                    auto-initialize = on
 
-                # timestamp provider used for generation of journal entries timestamps
-                timestamp-provider = "Akka.Persistence.Sql.Common.Journal.DefaultTimestampProvider, Akka.Persistence.Sql.Common"
+                    # timestamp provider used for generation of journal entries timestamps
+                    timestamp-provider = "Akka.Persistence.Sql.Common.Journal.DefaultTimestampProvider, Akka.Persistence.Sql.Common"
 
-			    # metadata table
-			    metadata-table-name = AkkaMetadata
+			        # metadata table
+			        metadata-table-name = AkkaMetadata
 
-                # Recommended: change default circuit breaker settings
-                # By uncommenting below and using Connection Timeout + Command Timeout
-                circuit-breaker.call-timeout=60s
-        }
-    }
-    snapshot-store {
-        plugin = "akka.persistence.snapshot-store.sql-server"
+                    # Recommended: change default circuit breaker settings
+                    # By uncommenting below and using Connection Timeout + Command Timeout
+                    circuit-breaker.call-timeout=60s
+                }
+            }
+        snapshot-store {
+            plugin = "akka.persistence.snapshot-store.sql-server"
             sql-server {
                 # qualified type name of the SQL Server persistence journal actor
                 class = "Akka.Persistence.SqlServer.Snapshot.SqlServerSnapshotStore, Akka.Persistence.SqlServer"
@@ -63,7 +64,8 @@ akka {
                 plugin-dispatcher = ""akka.actor.default-dispatcher""
 
                 # connection string used for database access
-                connection-string = "Server=hhsrvdione.rvc.ac.uk;Database=CRIS3_Migration;Integrated Security=SSPI;Application Name=ShardPlay;"
+                # todo replace with env variable
+                connection-string = "{akka_snapshot_db}"
 
                 # default SQL commands timeout
                 connection-timeout = 30s

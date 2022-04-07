@@ -6,7 +6,7 @@ using NEventStore.Persistence.Sql;
 namespace EventSaucing.DependencyInjection.Autofac {
 
     /// <summary>
-    /// Registers EventSaucing connectivity services.  Don't register yourself, use <see cref="ModuleRegistrationExtensions.RegisterEventSaucingModules"/> 
+    /// Registers EventSaucing connectivity services.  Don't register yourself, use <see cref="StartupExtensions.RegisterEventSaucingModules"/> 
     /// </summary>
 	public class DatabaseConnectivityModule : Module {
 		protected override void Load(ContainerBuilder builder) {
