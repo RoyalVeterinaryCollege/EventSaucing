@@ -1,7 +1,7 @@
 version: '3.4'
  
 services:
-  exampleapp:
+  exampleapp1:
     image: ${DOCKER_REGISTRY-}exampleapp
     ports:
       - '5055:5055'
@@ -9,10 +9,15 @@ services:
       context: .
       dockerfile: ExampleApp/Dockerfile
     environment:
+        # you need to use __ instead of :
+        # https://docs.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?tabs=basicconfiguration&view=aspnetcore-6.0#environment-variables
         - "ConnectionStrings__Replica=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Replica1_dev;MultipleActiveResultSets=true;Application Name=Example App Instance 1;"
         - "ConnectionStrings__CommitStore=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;Integrated Security=SSPI;Application Name=Example App Instance 1;"
         - "ConnectionStrings__AkkaJournal=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;Integrated Security=SSPI;Application Name=Example App Instance 1;"
         - "ConnectionStrings__AkkaSnapshotStore=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;Integrated Security=SSPI;Application Name=Example App Instance 1;"
-        - "Akka__ClusterIP=exampleapp-replica-1"
+        - "Akka__ClusterIP=exampleapp1"
         - "Akka__ClusterPort=5055"
-        - "Akka__ClusterSeeds=akka.tcp://ExampleApp@exampleapp-replica-1:5055"
+        - "Akka__ClusterSeeds=akka.tcp://ExampleApp@exampleapp1:5055"
+
+
+    

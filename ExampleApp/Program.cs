@@ -1,28 +1,57 @@
 using Autofac;
 using Autofac.Extensions.DependencyInjection;
-using ExampleApp;
 using Serilog;
+using Serilog.Events;
 
-var builder = WebApplication
-    .CreateBuilder(args);
+namespace ExampleApp; 
 
-//use autofac for DI
-builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory());
+public class Program {
+    public static int Main(string[] args) {
 
-//use serilog for logging
-builder.Host.UseSerilog();
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
+            .Enrich.FromLogContext()
+            .WriteTo.Console()
+            .CreateLogger();
 
-// Add services to the container.
-builder.Services.AddRazorPages();
 
-var startup = new Startup(builder.Configuration);
+        try {
+            Log.Information("Starting web host");
+            RunApp(args);
+            return 0;
+        }
+        catch (Exception ex) {
+            Log.Fatal(ex, "Host terminated unexpectedly");
+            return 1;
+        }
+        finally {
+            Log.CloseAndFlush();
+        }
+    }
 
-// Register services directly with Autofac here. Don't
-// call builder.Populate(), that happens in AutofacServiceProviderFactory.
-builder.Host.ConfigureContainer<ContainerBuilder>(b => startup.ConfigureContainer(b));
+    public static void RunApp(string[] args) {
+        var builder = WebApplication
+            .CreateBuilder(args);
 
-startup.ConfigureServices(builder.Services);
+        //use autofac for DI
+        builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory());
 
-var app = builder.Build();
-startup.Configure(app, app.Environment);
-app.Run();
+        //use serilog for logging
+        builder.Host.UseSerilog();
+
+        // Add services to the container.
+        builder.Services.AddRazorPages();
+
+        var startup = new Startup(builder.Configuration);
+
+        // Register services directly with Autofac here. Don't
+        // call builder.Populate(), that happens in AutofacServiceProviderFactory.
+        builder.Host.ConfigureContainer<ContainerBuilder>(b => startup.ConfigureContainer(b));
+
+        startup.ConfigureServices(builder.Services);
+
+        var app = builder.Build();
+        startup.Configure(app, app.Environment);
+        app.Run();
+    }
+}
