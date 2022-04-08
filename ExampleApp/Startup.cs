@@ -16,18 +16,25 @@ namespace ExampleApp {
 
         public IConfiguration Configuration { get; }
 
-
         public void ConfigureContainer(ContainerBuilder builder) {
-            //get akka connection strings from config, and replace placeholders
+            //get akka settings from config, and replace placeholders
             var akkaConfig = new {
                 akka_journal_db = Configuration.GetConnectionString("AkkaJournal"),
                 akka_snapshot_db = Configuration.GetConnectionString("AkkaSnapshotStore"),
+                cluster_ip  = Configuration.GetValue<string>("Akka:ClusterIP"),
+                cluster_port = Configuration.GetValue<string>("Akka:ClusterPort"),
+                // split this on , and insert quotes around each
+                cluster_seeds = Configuration.GetValue<string>("Akka:ClusterSeeds")
+                    .Split(",")
+                    .Select(x => $"\"{x}\"")
             };
+
             string akkaHconf = File.ReadAllText("akka_hconf.txt")
-                .Replace("{akka_journal_db}", akkaConfig.akka_journal_db)
-                .Replace("{akka_snapshot_db}", akkaConfig.akka_snapshot_db);
-
-
+                .Replace("{AkkaJournal}", akkaConfig.akka_journal_db)
+                .Replace("{AkkaSnapshotStore}", akkaConfig.akka_snapshot_db)
+                .Replace("{AkkaClusterIP}", akkaConfig.cluster_ip)
+                .Replace("{AkkaClusterPort}", akkaConfig.cluster_port)
+                .Replace("{AkkaClusterSeeds}", "["  + string.Join(",",akkaConfig.cluster_seeds) + "]");
 
 
             EventSaucingConfiguration eventsaucingconfiguration = new EventSaucingConfiguration  {

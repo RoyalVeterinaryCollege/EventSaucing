@@ -4,13 +4,13 @@ akka {
 
     remote {
         dot-netty.tcp {
-            port = 63479
-            hostname = localhost
+            port = {AkkaClusterPort}
+            hostname = {AkkaClusterIP}
         }
     }
     cluster {
-        seed-nodes =  ["akka.tcp://seed@localhost:63478", "akka.tcp://seed@localhost:63479"]
-        min-nr-of-members = 2
+        seed-nodes = {AkkaClusterSeeds}  #["akka.tcp://seed@localhost:63478", "akka.tcp://seed@localhost:63479"]
+        min-nr-of-members = 1
         sharding.state-store-mode = persistence
 
         # This tells Akka which role this node belongs to
@@ -29,7 +29,7 @@ akka {
 
 			        # connection string used for database access
                     # todo replace with env variable
-			        connection-string = "{akka_journal_db}"
+			        connection-string = "{AkkaJournal}"
 
 			        # default SQL commands timeout
 			        connection-timeout = 30s
@@ -65,7 +65,7 @@ akka {
 
                 # connection string used for database access
                 # todo replace with env variable
-                connection-string = "{akka_snapshot_db}"
+                connection-string = "{AkkaSnapshotStore}"
 
                 # default SQL commands timeout
                 connection-timeout = 30s

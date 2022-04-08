@@ -3,12 +3,16 @@ version: '3.4'
 services:
   exampleapp:
     image: ${DOCKER_REGISTRY-}exampleapp
+    ports:
+      - '5055:5055'
     build:
       context: .
       dockerfile: ExampleApp/Dockerfile
     environment:
-        - "ConnectionStrings:Replica=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Replica1_dev;MultipleActiveResultSets=true;Application Name=Example App Instance 1;"
-        - "ConnectionStrings:CommitStore=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;Integrated Security=SSPI;Application Name=Example App Instance 1;"
-        - "ConnectionStrings:AkkaJournal=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;Integrated Security=SSPI;Application Name=Example App Instance 1;"
-        - "ConnectionStrings:AkkaSnapshotStore=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;Integrated Security=SSPI;Application Name=Example App Instance 1;"
-
+        - "ConnectionStrings__Replica=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Replica1_dev;MultipleActiveResultSets=true;Application Name=Example App Instance 1;"
+        - "ConnectionStrings__CommitStore=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;Integrated Security=SSPI;Application Name=Example App Instance 1;"
+        - "ConnectionStrings__AkkaJournal=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;Integrated Security=SSPI;Application Name=Example App Instance 1;"
+        - "ConnectionStrings__AkkaSnapshotStore=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;Integrated Security=SSPI;Application Name=Example App Instance 1;"
+        - "Akka__ClusterIP=exampleapp-replica-1"
+        - "Akka__ClusterPort=5055"
+        - "Akka__ClusterSeeds=akka.tcp://ExampleApp@exampleapp-replica-1:5055"
