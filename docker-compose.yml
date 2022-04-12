@@ -2,6 +2,7 @@ version: '3.4'
  
 services:
   exampleapp1:
+    container_name: ExampleApp01
     image: ${DOCKER_REGISTRY-}exampleapp
     ports:
       - '5055'
@@ -20,6 +21,7 @@ services:
         - "Akka__ClusterSeeds=akka.tcp://ExampleApp@exampleapp1:5055,akka.tcp://ExampleApp@exampleapp2:5055,akka.tcp://ExampleApp@exampleapp3:5055"
 
   exampleapp2:
+    container_name: ExampleApp02
     image: ${DOCKER_REGISTRY-}exampleapp
     ports:
       - '5055'
@@ -38,6 +40,7 @@ services:
         - "Akka__ClusterSeeds=akka.tcp://ExampleApp@exampleapp1:5055,akka.tcp://ExampleApp@exampleapp2:5055,akka.tcp://ExampleApp@exampleapp3:5055"
 
   exampleapp3:
+    container_name: ExampleApp03
     image: ${DOCKER_REGISTRY-}exampleapp
     ports:
       - '5055'
