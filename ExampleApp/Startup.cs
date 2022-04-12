@@ -44,7 +44,7 @@ namespace ExampleApp {
                 ReplicaConnectionString = Configuration.GetConnectionString("Replica"),
                 AkkaConfig = ConfigurationFactory.ParseString(akkaHconf)
             };
-
+             
             // register EventSaucingModules in ConfigureContainer
             builder.RegisterEventSaucingModules(eventsaucingconfiguration);
 

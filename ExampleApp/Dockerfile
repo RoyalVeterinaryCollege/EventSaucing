@@ -10,6 +10,9 @@ WORKDIR /src
 COPY ["nuget.config", "."]
 COPY ["ExampleApp/ExampleApp.csproj", "ExampleApp/"]
 COPY ["EventSaucing/EventSaucing.csproj", "EventSaucing/"]
+COPY ["ExampleApp.Domain/ExampleApp.Domain.csproj", "ExampleApp.Domain/"]
+COPY ["ExampleApp.Events/ExampleApp.Events.csproj", "ExampleApp.Events/"]
+
 RUN dotnet restore "ExampleApp/ExampleApp.csproj"
 COPY . .
 WORKDIR "/src/ExampleApp"
