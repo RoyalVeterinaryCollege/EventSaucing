@@ -10,6 +10,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="akka_hconf.txt" />
+    <None Remove="SqlUpgradeScripts\Script0001 - Create Initial db.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="akka_hconf.txt">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Autofac" Version="6.3.0" />
     <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="7.2.0" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.15.0" />
@@ -18,13 +29,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\ExampleApp.Events\ExampleApp.Events.csproj" />
     <ProjectReference Include="..\EventSaucing\EventSaucing.csproj" />
+    <ProjectReference Include="..\ExampleApp.Domain\ExampleApp.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="akka_hconf.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <Resource Include="SqlUpgradeScripts\Script0001 - Create Initial db.sql" />
   </ItemGroup>
 
 </Project>
