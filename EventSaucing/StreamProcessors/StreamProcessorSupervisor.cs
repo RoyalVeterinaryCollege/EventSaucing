@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Akka.Actor;
+using Akka.Dispatch.SysMsg;
 using Akka.Routing;
 using EventSaucing.EventStream;
 using Scalesque;
@@ -20,6 +21,13 @@ namespace EventSaucing.StreamProcessors {
             InitialiseStreamProcessors(streamProcessorFactory);
 
             Receive<OrderedCommitNotification>(msg => _streamProcessorBroadCastRouter.Tell(msg, Self));
+            ReceiveAsync<Stop>(async stop => {
+                Context.System.EventStream.Unsubscribe(Self, typeof(OrderedCommitNotification));
+
+                // _streamProcessorBroadCastRouter.Tell(new Broadcast(new Stop()));
+                var shutdown = await _streamProcessorBroadCastRouter.GracefulStop(TimeSpan.FromSeconds(5), new Stop());
+                return;
+            });
         }
 
         protected override void PreStart() {
@@ -28,7 +36,7 @@ namespace EventSaucing.StreamProcessors {
         }
 
         protected override void PostRestart(Exception reason) {
-            // override to avoid duplicate subscription
+            // override to avoid duplicate subscription to OrderedCommitNotification
         }
 
         /// <summary>

@@ -18,6 +18,7 @@ namespace EventSaucing.HostedServices {
             _logger = logger;
         }
         public Task StartAsync(CancellationToken cancellationToken) {
+            _logger.LogInformation($"EventSaucing {nameof(AkkaShutDownService)} started.");
             // no op, Akka must be started as a singleton via StartupExtensions.AddEventSaucing()
             // I know this means this class is responsible for shutting down something it didn't create,
             // but I coulsn't find a way of using IHostedServices to start Akka because they all start at once

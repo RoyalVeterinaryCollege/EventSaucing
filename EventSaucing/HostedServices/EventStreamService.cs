@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Akka;
 using Akka.Actor;
 using Akka.Cluster.Tools.PublishSubscribe;
 using Akka.DependencyInjection;
 using Akka.Dispatch.SysMsg;
-using Autofac;
 using EventSaucing.EventStream;
 using EventSaucing.NEventStore;
 using Microsoft.Extensions.Hosting;
@@ -15,7 +13,7 @@ using Microsoft.Extensions.Logging;
 namespace EventSaucing.HostedServices
 {
     /// <summary>
-    /// Starts EventSaucing event stream.  
+    /// Starts EventSaucing event stream on this node.  You must start this even if your node has no local or clustered StreamProcessors.  
     /// 
     /// Starts and stops <see cref="LocalEventStreamActor"/> which produces a stream of serialised (in-order) commits for local and cluster usage
     /// </summary>
@@ -59,7 +57,7 @@ namespace EventSaucing.HostedServices
                 .Props<LocalEventStreamActor>(pollerMaker); 
             _localEventStreamActor = _actorSystem.ActorOf(streamerProps);
 
-            //subscribe actor to distributed commit notification messages
+            //subscribe actor to distributed commit notification messages (always remember to unsubscribe from PubSub to avoid messages being sent to DeadLetter queue)
             var mediator = DistributedPubSub.Get(_actorSystem).Mediator;
             mediator.Tell(new Subscribe(LocalEventStreamActor.PubSubCommitNotificationTopic, _localEventStreamActor));
 
@@ -88,7 +86,14 @@ namespace EventSaucing.HostedServices
         /// <returns></returns>
         public Task StopAsync(CancellationToken cancellationToken) {
             _logger.LogInformation($"EventSaucing {nameof(EventStreamService)} stop requested.");
+
+            // unsubscribe actor from the EventStream
+            var mediator = DistributedPubSub.Get(_actorSystem).Mediator;
+            mediator.Tell(new Remove(_localEventStreamActor.Path.ToString()));
+
+            // and stop actor
             _logger.LogInformation($"EventSaucing {nameof(EventStreamService)} sending Stop to {nameof(LocalEventStreamActor)} @ {_localEventStreamActor.Path}");
+
             return _localEventStreamActor
                 .GracefulStop(TimeSpan.FromSeconds(5), new Stop())
                 .ContinueWith(t => _logger.LogInformation($"{nameof(LocalEventStreamActor)} is stopped"), cancellationToken);

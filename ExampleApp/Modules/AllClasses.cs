@@ -1,5 +1,6 @@
 ﻿using Autofac;
 using EventSaucing.StreamProcessors;
+using ExampleApp.Services;
 
 namespace ExampleApp.Modules
 {
@@ -8,7 +9,7 @@ namespace ExampleApp.Modules
         protected override void Load(ContainerBuilder builder) {
 
 
-            //builder.RegisterType<StreamProcessorTypeProvider>().As<IStreamProcessorTypeProvider>();
+            builder.RegisterType<StreamProcessorTypeProvider>().As<IStreamProcessorTypeProvider>();
         }
     }
 }

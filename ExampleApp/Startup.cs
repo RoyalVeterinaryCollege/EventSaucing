@@ -62,7 +62,7 @@ namespace ExampleApp {
             // add EventSaucing services.  Then add the HostedServices in any order
             // make sure you have provided Akka config in app.config
             services.AddEventSaucing();
-            //services.AddHostedService<ProjectorService>(); // optional
+            services.AddHostedService<StreamProcessorService>(); // optional stream processor service.  This starts and hosts your stream processors
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env) {

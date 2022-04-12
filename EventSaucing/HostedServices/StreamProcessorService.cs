@@ -26,7 +26,7 @@ namespace EventSaucing.HostedServices {
         /// <summary>
         /// Optional Actor of type <see cref="StreamProcessorSupervisor"/> which manages the replica-scoped <see cref="StreamProcessor"/> actors
         /// </summary>
-        private Option<IActorRef> _replicaProjectorSupervisor = Option.None();
+        private Option<IActorRef> _replicaStreamProcessorSupervisor = Option.None();
 
         /// <summary>
         /// Optional Proxy to actor of type <see cref="StreamProcessorSupervisor"/>, which is a cluster singleton which manages the cluster-scoped <see cref="StreamProcessor"/> actors
@@ -80,7 +80,7 @@ namespace EventSaucing.HostedServices {
                     await ProjectorHelper.InitialiseProjectorStatusStore(dbConnection);
                 }
 
-                _replicaProjectorSupervisor =_actorSystem.ActorOf(CreateSupervisorProps(replicaScopedStreamProcessorsTypes)).ToSome();
+                _replicaStreamProcessorSupervisor =_actorSystem.ActorOf(CreateSupervisorProps(replicaScopedStreamProcessorsTypes)).ToSome();
                 _logger.LogInformation($"EventSaucing started supervision of replica-scoped StreamProcessors of {string.Join(", ", replicaScopedStreamProcessorsTypes.Select(x => x.Name))}");
             }
 
@@ -108,19 +108,19 @@ namespace EventSaucing.HostedServices {
         }
 
         /// <summary>
-        /// Stops <see cref="StreamProcessorSupervisor"/>
+        /// Stops replica-scoped <see cref="StreamProcessorSupervisor"/>
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public Task StopAsync(CancellationToken cancellationToken) {
             _logger.LogInformation($"EventSaucing {nameof(StreamProcessorService)} stop requested");
 
-            if (_replicaProjectorSupervisor.HasValue) {
-                // from https://petabridge.com/blog/how-to-stop-an-actor-akkadotnet/
-                // targetActorRef is sent a PoisonPill by default
-                // and returns a task whose result confirms shutdown within 5 seconds
-                var actorRef = _replicaProjectorSupervisor.Get();
-                Task<bool> stopTask =  actorRef.GracefulStop(TimeSpan.FromSeconds(5));
+            if (_replicaStreamProcessorSupervisor.HasValue) {
+
+                _logger.LogInformation($"EventSaucing {nameof(StreamProcessorService)} stopping replica scoped {nameof(StreamProcessorSupervisor)}"); 
+                //send stop which stops the actor as soon as it has finished processing the current message //https://petabridge.com/blog/how-to-stop-an-actor-akkadotnet/
+                var actorRef = _replicaStreamProcessorSupervisor.Get();
+                _actorSystem.Stop(actorRef);  
             }
 
             // i don't think we should shut the cluster-scoped supervisor down, as we don't actually know that the whole cluster is being stopped at this point

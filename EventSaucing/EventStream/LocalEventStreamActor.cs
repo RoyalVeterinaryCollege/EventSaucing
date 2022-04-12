@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Akka.Actor;
+using Akka.Dispatch.SysMsg;
 using Akka.Event;
 using Scalesque;
 
@@ -45,6 +46,7 @@ namespace EventSaucing.EventStream {
 
             Receive<CommitNotification>(Received);
             Receive<OrderedCommitNotification>(Received);
+            Receive<Stop>(stop => Context.Stop(Self));
         }
 
         /// <summary>
