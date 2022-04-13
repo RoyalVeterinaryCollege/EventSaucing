@@ -10,16 +10,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="akka_hconf.txt" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Include="akka_hconf.txt">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </EmbeddedResource>
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Autofac" Version="6.3.0" />
     <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="7.2.0" />
     <PackageReference Include="dbup-sqlserver" Version="4.5.0" />
@@ -44,6 +34,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="akka_hconf.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="SqlUpgradeScripts\Replica\Script0001 - Create Initial db.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
