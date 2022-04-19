@@ -31,7 +31,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="SqlUpgradeScripts\Cluster\" />
+    <Folder Include="SqlUpgradeScripts\CommitStore\" />
   </ItemGroup>
 
   <ItemGroup>

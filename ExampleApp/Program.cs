@@ -1,7 +1,10 @@
 using System.Reflection;
 using Autofac;
 using Autofac.Extensions.DependencyInjection;
+using Dapper;
 using DbUp;
+using DbUp.Engine;
+using Microsoft.Data.SqlClient;
 using Serilog;
 using Serilog.Events;
 
@@ -14,10 +17,6 @@ public class Program {
             .Enrich.FromLogContext()
             .WriteTo.Console()
             .CreateLogger();
-
-
-       
-
 
         try {
             Log.Information("Starting web host");
@@ -36,36 +35,15 @@ public class Program {
         var builder = WebApplication
             .CreateBuilder(args);
 
-      
-
         //use autofac for DI
         builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory());
 
         //use serilog for logging
         builder.Host.UseSerilog();
 
-
-        Console.WriteLine(builder.Configuration.GetConnectionString("Replica"));
-        Console.WriteLine(builder.Configuration.GetConnectionString("Replica"));
-        Console.WriteLine(builder.Configuration.GetConnectionString("Replica"));
-
-        Console.WriteLine(builder.Configuration.GetConnectionString("Replica"));
-
-
-        //upgrade replica db
-        var upgradeReplicaDb =
-            DeployChanges.To
-                .SqlDatabase(builder.Configuration.GetConnectionString("Replica"))
-                .WithScriptsFromFileSystem("SqlUpgradeScripts/Replica")
-                .LogToConsole()
-                .Build();
-
-        var result = upgradeReplicaDb.PerformUpgrade();
-
-        if (!result.Successful) {
-            Log.Logger.Fatal($"Failed to upgrade replica db {result.Error}");
-            return -1;
-        }
+        // upgrade db
+        if (!UpgradeDb(builder.Configuration.GetConnectionString("Replica"), "SqlUpgradeScripts/Replica")) return -1;
+        if (!UpgradeDb(builder.Configuration.GetConnectionString("CommitStore"), "SqlUpgradeScripts/CommitStore")) return -1;
 
         // Add services to the container.
         builder.Services.AddRazorPages();
@@ -82,5 +60,21 @@ public class Program {
         startup.Configure(app, app.Environment);
         app.Run();
         return 0;
+    }
+
+    private static bool UpgradeDb(string connectionString, string fileSystemLocationForUpgradeScripts) {
+        var upgrade = DeployChanges.To
+            .SqlDatabase(connectionString)
+            .WithScriptsFromFileSystem("SqlUpgradeScripts/Replica")
+            .LogToConsole()
+            .Build();
+
+        var result = upgrade.PerformUpgrade();
+
+        if (!result.Successful) { Log.Logger.Fatal($"Failed to upgrade db {result.Error}");
+           return false;
+        }
+
+        return true;
     }
 }

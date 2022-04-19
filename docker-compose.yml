@@ -12,30 +12,11 @@ services:
     environment:
         # you need to use __ instead of :
         # https://docs.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?tabs=basicconfiguration&view=aspnetcore-6.0#environment-variables
-        #- "ConnectionStrings__Replica=Server=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Replica1_dev;MultipleActiveResultSets=true;Application Name=Example App Instance 1;"
-        # - "ConnectionStrings__Replica=Server=hhsrvdione.rvc.ac.uk;Database=notworking;User Id=dooom"
-        - "ConnectionStrings__CommitStore=Server=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;Integrated Security=SSPI;Application Name=Example App Instance 1;"
-        - "ConnectionStrings__AkkaJournal=Server=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;Integrated Security=SSPI;Application Name=Example App Instance 1;"
-        - "ConnectionStrings__AkkaSnapshotStore=Server=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;Integrated Security=SSPI;Application Name=Example App Instance 1;"
+        - "ConnectionStrings__Replica=Server=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;User id=${exampleappsqluser};Password=${exampleappsqlpassword};Application Name=Example App Instance 1;"
+        - "ConnectionStrings__CommitStore=Server=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;User id=${exampleappsqluser};Password=${exampleappsqlpassword};Application Name=Example App Instance 1;"
+        - "ConnectionStrings__AkkaJournal=Server=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;User id=${exampleappsqluser};Password=${exampleappsqlpassword};Application Name=Example App Instance 1;"
+        - "ConnectionStrings__AkkaSnapshotStore=Server=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;User id=${exampleappsqluser};Password=${exampleappsqlpassword};Application Name=Example App Instance 1;"
         - "Akka__ClusterIP=exampleapp1"
         - "Akka__ClusterPort=5055"
         - "Akka__ClusterSeeds=akka.tcp://ExampleApp@exampleapp1:5055,akka.tcp://ExampleApp@exampleapp2:5055"
 
-  exampleapp2:
-    container_name: ExampleApp02
-    image: ${DOCKER_REGISTRY-}exampleapp
-    ports:
-      - '5055'
-    build:
-      context: .
-      dockerfile: ExampleApp/Dockerfile
-    environment:
-        # you need to use __ instead of :
-        # https://docs.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?tabs=basicconfiguration&view=aspnetcore-6.0#environment-variables
-        - "ConnectionStrings__Replica=Server=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Replica2_dev;MultipleActiveResultSets=true;Application Name=Example App Instance 2;"
-        - "ConnectionStrings__CommitStore=Server=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;Integrated Security=SSPI;Application Name=Example App Instance 2;"
-        - "ConnectionStrings__AkkaJournal=Server=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;Integrated Security=SSPI;Application Name=Example App Instance 2;"
-        - "ConnectionStrings__AkkaSnapshotStore=Server=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;Integrated Security=SSPI;Application Name=Example App Instance 2;"
-        - "Akka__ClusterIP=exampleapp2"
-        - "Akka__ClusterPort=5055"
-        - "Akka__ClusterSeeds=akka.tcp://ExampleApp@exampleapp1:5055,akka.tcp://ExampleApp@exampleapp2:5055"
