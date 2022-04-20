@@ -52,25 +52,26 @@ namespace EventSaucing.StreamProcessors.Projectors {
         }
 
         private bool IsInitialisedAtHead(StreamProcessor streamProcessor) {
-            return _config
+            var strings = _config
                 .GetSection("EventSaucing:Projectors:InitialiseAtHead")
-                .Get<string[]>()
+                .Get<string[]>();
+            if (strings is null) return false;
+            return strings
                 .Contains(streamProcessor.GetType().FullName);
         }
 
         private static string GetPersistedName(StreamProcessor streamProcessor) {
-            return streamProcessor.GetType().FullName.Substring(0, 800); //only 800 characters for db persistence
+            var fullName = streamProcessor.GetType().FullName;
+            return fullName.Length <= 800 ? fullName : fullName.Substring(0, 800);//only 800 characters for db persistence
         }
 
         const string SqlPersistProjectorState = @"
-			MERGE dbo.StreamProcessorCheckpoints AS target
-			USING (SELECT @StreamProcessor, @Checkpoint) AS source (StreamProcessor, Checkpoint)
-			ON (target.StreamProcessor = source.StreamProcessor)
-			WHEN MATCHED THEN 
-				UPDATE SET LastCheckpointToken = source.Checkpoint
-			WHEN NOT MATCHED THEN	
-				INSERT (StreamProcessor, LastCheckpointToken)
-				VALUES (source.StreamProcessor, source.Checkpoint);";
+INSERT dbo.StreamProcessorCheckpoints (StreamProcessor, LastCheckpointToken)
+SELECT @StreamProcessor, @Checkpoint
+WHERE NOT EXISTS(SELECT 1 FROM dbo.StreamProcessorCheckpoints WHERE StreamProcessor = @StreamProcessor);
+UPDATE dbo.StreamProcessorCheckpoints
+    SET LastCheckpointToken = @Checkpoint 
+WHERE StreamProcessor = @StreamProcessor;";
 
         public async Task PersistCheckpointAsync(StreamProcessor streamProcessor, long checkpoint) {
             if (streamProcessor is SqlProjector sp) {

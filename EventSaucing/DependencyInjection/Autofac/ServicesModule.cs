@@ -1,6 +1,7 @@
 ﻿using Autofac;
 using Dapper;
 using EventSaucing.EventStream;
+using EventSaucing.StreamProcessors.Projectors;
 using Scalesque;
 
 namespace EventSaucing.DependencyInjection.Autofac {
@@ -14,6 +15,8 @@ namespace EventSaucing.DependencyInjection.Autofac {
             SqlMapper.AddTypeHandler(typeof(Option<long>), new Storage.OptionHandler());
             builder.RegisterType<InMemoryCommitSerialiserCache>()
                 .As<IInMemoryCommitSerialiserCache>();
+
+            builder.RegisterType<SqlProjectorCheckPointPersister>().AsSelf().SingleInstance();
         }
     }
 }

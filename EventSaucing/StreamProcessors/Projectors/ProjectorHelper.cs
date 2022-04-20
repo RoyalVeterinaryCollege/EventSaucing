@@ -64,32 +64,36 @@ namespace EventSaucing.StreamProcessors.Projectors {
 
 
 		const string SqlInitialiseStreamProcessorCheckpointsTable = @"
+BEGIN TRANSACTION;
+
 -- get an exclusive lock on creating this table. It's possible for multiple nodes to start up at the same time and each will try to create this table
 -- @result = 0 = we got the lock
 -- @result = 1 = we got the lock after someone released it
 -- @result < 0 = we didn't get the lock
+DECLARE @result int
 
 EXEC @result = sp_getapplock @resource='dbo.StreamProcessorCheckpoints', @lockmode='Exclusive', @LockOwner='Session', @LockTimeout=0;
 
-IF (@result >=0 AND NOT EXISTS (SELECT * 
-     FROM INFORMATION_SCHEMA.TABLES 
+IF (@result >=0) 
+BEGIN
+	IF NOT EXISTS (SELECT *  FROM INFORMATION_SCHEMA.TABLES 
      WHERE TABLE_SCHEMA = 'dbo' 
-     AND TABLE_NAME = 'StreamProcessorCheckpoints'))
-BEGIN
-	CREATE TABLE [dbo].[StreamProcessorCheckpoints](
-		[StreamProcessor] [nvarchar](800) NOT NULL,
-		[LastCheckpointToken] [bigint] NOT NULL,
-		CONSTRAINT [PK_StreamProcessor] PRIMARY KEY CLUSTERED 
-		(
-			[StreamProcessor] ASC
+     AND TABLE_NAME = 'StreamProcessorCheckpoints')
+	BEGIN
+		CREATE TABLE [dbo].[StreamProcessorCheckpoints](
+			[StreamProcessor] [nvarchar](800) NOT NULL,
+			[LastCheckpointToken] [bigint] NOT NULL,
+			CONSTRAINT [PK_StreamProcessor] PRIMARY KEY CLUSTERED 
+			(
+				[StreamProcessor] ASC
+			) ON [PRIMARY]
 		) ON [PRIMARY]
-	) ON [PRIMARY]
-END
+	END
 
-IF (@result >=0 )
-BEGIN
-    sp_releaseapplock @Resource = 'dbo.StreamProcessorCheckpoints';
+    COMMIT;
 END
+ELSE
+    ROLLBACK
 ";
 
         /// <summary>

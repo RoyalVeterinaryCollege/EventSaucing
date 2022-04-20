@@ -24,12 +24,9 @@ namespace ExampleApp.OrderCounting
         // projection method must start with 'On', have 3 parameters(1st = IDbTransaction, 2nd ICommit, 3rd type of event projected) and return Task.
 
         public async Task OnOrderPlacedForItem(IDbTransaction tx, ICommit commit, OrderPlacedForItem @evt) {
-            using (var con = _dbService.GetReplica()) {
-                await con.OpenAsync();
+            var args = new { ItemName=@evt.name, @evt.quantity, OrderId = commit.AggregateId() };
 
-                var args = new { @evt.name, @evt.quantity, OrderId = commit.AggregateId() };
-
-                await con.ExecuteAsync(@"
+            await tx.Connection.ExecuteAsync(@"
 INSERT INTO [dbo].[OrderCounts]
     ([OrderId]
     ,[ItemName]
@@ -41,10 +38,8 @@ SELECT
 WHERE NOT EXISTS(SELECT 1 FROM dbo.OrderCounts WHERE OrderId = @OrderId AND @ItemName = @ItemName)
 UPDATE dbo.OrderCounts
 SET Quantity = Quantity + @Quantity
- WHERE OrderId = @OrderId AND @ItemName = @ItemName
+WHERE OrderId = @OrderId AND @ItemName = @ItemName
 ", args, tx);
-
-            }
         }
     }
 }
