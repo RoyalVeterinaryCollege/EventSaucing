@@ -67,7 +67,8 @@ public class Program {
         var upgrade = DeployChanges.To
             .SqlDatabase(connectionString)
             .WithScriptsFromFileSystem(fileSystemLocationForUpgradeScripts)
-            .LogToConsole()
+            .WithTransactionPerScript()
+            .LogToAutodetectedLog()
             .Build();
 
         var result = upgrade.PerformUpgrade();

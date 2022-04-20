@@ -5,9 +5,9 @@ services:
     container_name: ExampleApp01
     image: ${DOCKER_REGISTRY-}exampleapp
     ports:
-      - "5055"
-      - "80:80"
-      - "443:443"
+      - "5055" # akka port open only to other containers
+      - "80:80" # http port open to both containers and network
+      - "443:443" # https port open to both containers and network
     build:
       context: .
       dockerfile: ExampleApp/Dockerfile
@@ -22,5 +22,22 @@ services:
         - "Akka__ClusterPort=5055"
         - "Akka__ClusterSeeds=akka.tcp://ExampleApp@exampleapp1:5055,akka.tcp://ExampleApp@exampleapp2:5055"
 
-
+  exampleapp2:
+    container_name: ExampleApp02
+    image: ${DOCKER_REGISTRY-}exampleapp
+    ports:
+      - "5055"
+    build:
+      context: .
+      dockerfile: ExampleApp/Dockerfile
+    environment:
+        # you need to use __ instead of :
+        # https://docs.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?tabs=basicconfiguration&view=aspnetcore-6.0#environment-variables
+        - "ConnectionStrings__Replica=Server=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Replica2_dev;User id=${exampleappsqluser};Password=${exampleappsqlpassword};Application Name=Example App Instance 1;"
+        - "ConnectionStrings__CommitStore=Server=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;User id=${exampleappsqluser};Password=${exampleappsqlpassword};Application Name=Example App Instance 1;"
+        - "ConnectionStrings__AkkaJournal=Server=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;User id=${exampleappsqluser};Password=${exampleappsqlpassword};Application Name=Example App Instance 1;"
+        - "ConnectionStrings__AkkaSnapshotStore=Server=hhsrvdione.rvc.ac.uk;Database=ExampleApp_Cluster_dev;User id=${exampleappsqluser};Password=${exampleappsqlpassword};Application Name=Example App Instance 1;"
+        - "Akka__ClusterIP=exampleapp2"
+        - "Akka__ClusterPort=5055"
+        - "Akka__ClusterSeeds=akka.tcp://ExampleApp@exampleapp1:5055,akka.tcp://ExampleApp@exampleapp2:5055"
 

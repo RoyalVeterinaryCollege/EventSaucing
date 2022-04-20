@@ -4,11 +4,9 @@ using ExampleApp.Services;
 
 namespace ExampleApp.Modules
 {
-    public class AllClasses : Module
+    public class ServicesModule : Module
     {
         protected override void Load(ContainerBuilder builder) {
-
-
             builder.RegisterType<StreamProcessorTypeProvider>().As<IStreamProcessorTypeProvider>();
         }
     }

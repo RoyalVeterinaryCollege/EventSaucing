@@ -1,3 +1,3 @@
 ﻿namespace ExampleApp.Events;
 
-public readonly record struct ItemOrdered(string name, int quantity);
+public readonly record struct OrderPlacedForItem(string name, int quantity);

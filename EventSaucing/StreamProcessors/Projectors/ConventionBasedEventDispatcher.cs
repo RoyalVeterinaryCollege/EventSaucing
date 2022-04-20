@@ -26,7 +26,7 @@ namespace EventSaucing.StreamProcessors.Projectors
         }
 
         /// <summary>
-        /// Determines if a method meets the convention for the dispatcher.  Method must start with 'On', have 3 parameters (1st = IDbTransaction, 2nd ICommit) and return Task.
+        /// Determines if a method meets the convention for the dispatcher.  Method must start with 'On', have 3 parameters (1st = IDbTransaction, 2nd ICommit, 3rd type of event projected) and return Task.
         /// </summary>
         /// <param name="method">MethodInfo</param>
         /// <returns>bool true if the methos</returns>

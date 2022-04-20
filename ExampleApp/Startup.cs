@@ -6,6 +6,7 @@ using EventSaucing.HostedServices;
 using ExampleApp.Modules;
 using System.Configuration;
 using Akka.Configuration;
+using ExampleApp.Services;
 using ConfigurationManager = System.Configuration.ConfigurationManager;
 
 namespace ExampleApp {
@@ -51,7 +52,9 @@ namespace ExampleApp {
             // Register your own things directly with Autofac here. Don't
             // call builder.Populate(), that happens in AutofacServiceProviderFactory
             // for you.
-            builder.RegisterModule<AllClasses>();
+            builder.RegisterModule<LoggingModule>(); // you must implement a logging module like this, EventSaucing wont register a logger for you, but expects one to be available
+            builder.RegisterModule<ServicesModule>();
+
         }
 
 
@@ -63,6 +66,7 @@ namespace ExampleApp {
             // make sure you have provided Akka config in app.config
             services.AddEventSaucing();
             services.AddHostedService<StreamProcessorService>(); // optional stream processor service.  This starts and hosts your stream processors
+            services.AddHostedService<UserActivitySimulatorService>(); // host which simulates user activity in the front end
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env) {

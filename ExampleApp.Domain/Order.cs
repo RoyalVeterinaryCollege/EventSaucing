@@ -12,8 +12,8 @@ public class Order : Aggregate
 
     readonly Dictionary<string, int> items = new Dictionary<string, int>();
     public void AddItem(string itemName, int quantity) {
-        RaiseEvent(new ItemOrdered(itemName, quantity));
+        RaiseEvent(new OrderPlacedForItem(itemName, quantity));
     }
 
-    void Apply(ItemOrdered @evt) => items[@evt.name] = items.GetOrElse(evt.name,()=>0) + @evt.quantity;
+    void Apply(OrderPlacedForItem @evt) => items[@evt.name] = items.GetOrElse(evt.name,()=>0) + @evt.quantity;
 }
