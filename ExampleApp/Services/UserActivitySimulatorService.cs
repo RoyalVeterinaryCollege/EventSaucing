@@ -4,6 +4,9 @@ using NEventStore.Domain.Persistence;
 
 namespace ExampleApp.Services
 {
+    /// <summary>
+    /// Every so often, this loads up an order aggregate and adds a new item to the order.  It simulates user activity.
+    /// </summary>
     public class UserActivitySimulatorService : BackgroundService
     {
         private readonly IRepository _repository;

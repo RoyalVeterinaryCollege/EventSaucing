@@ -39,7 +39,7 @@ namespace EventSaucing.StreamProcessors.Projectors
                             await projectionMethod(tx, commit, @evt);
                         }
                         catch (Exception error) {
-                            _logger.Error(error.InnerException, $"{GetType().FullName} caught exception in method {projectionMethod.Method.Name} when trying to project event {@evt.GetType()} in commit {commit.CommitId}  at checkpoint {commit.CheckpointToken} for aggregate {commit.AggregateId()}");
+                            _logger.Error(error, $"{GetType().FullName} caught exception in method {projectionMethod.Method.Name} when trying to project event {@evt.GetType()} in commit {commit.CommitId}  at checkpoint {commit.CheckpointToken} for aggregate {commit.AggregateId()}");
                             throw; 
                         }
                     }

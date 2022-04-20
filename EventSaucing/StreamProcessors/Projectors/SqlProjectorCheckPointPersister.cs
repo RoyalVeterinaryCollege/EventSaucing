@@ -11,8 +11,7 @@ namespace EventSaucing.StreamProcessors.Projectors {
         private readonly IDbService _dbService;
         private readonly IConfiguration _config;
 
-        public SqlProjectorCheckPointPersister(IDbService dbService,
-            IConfiguration config) {
+        public SqlProjectorCheckPointPersister(IDbService dbService, IConfiguration config) {
             _dbService = dbService;
             _config = config;
         }

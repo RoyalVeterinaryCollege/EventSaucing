@@ -31,14 +31,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="SqlUpgradeScripts\CommitStore\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Update="akka_hconf.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="ExampleApp.pfx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="SqlUpgradeScripts\CommitStore\Script0001 - Create item counts.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="SqlUpgradeScripts\CommitStore\Touch.txt">

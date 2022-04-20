@@ -9,6 +9,6 @@ public class StreamProcessorTypeProvider : IStreamProcessorTypeProvider {
     }
 
     public IEnumerable<Type> GetClusterScopedStreamProcessorsTypes() {
-        return new List<Type>();
+        return new List<Type>() { typeof(ItemCountingClusterStreamProcessor) };
     }
 }
