@@ -16,12 +16,22 @@ namespace EventSaucing.DependencyInjection.Autofac {
     /// </summary>
     public class NEventStoreModule : Module {
         protected override void Load(ContainerBuilder builder) {
-            builder.RegisterType<PostCommitNotifierPipeline>().SingleInstance();
+            builder.RegisterType<PostCommitNotifierPipeline>().AsSelf().SingleInstance();
+
+
             builder.Register(c => {
-                Wireup wireup =
-                    Wireup
-                        .Init()
-                        .HookIntoPipelineUsing(c.Resolve<PostCommitNotifierPipeline>(), c.ResolveOptional<CustomPipelineHook>());
+                var optionalHook = c.ResolveOptional<CustomPipelineHook>();
+                Wireup wireup;
+                if (optionalHook is null) {
+                    wireup = Wireup
+                            .Init()
+                            .HookIntoPipelineUsing(c.Resolve<PostCommitNotifierPipeline>());
+                } else {
+                    wireup = Wireup
+                            .Init()
+                            .HookIntoPipelineUsing(c.Resolve<PostCommitNotifierPipeline>(), optionalHook);
+                }
+
                 var eventStore = wireup
                     .WithLoggerFactory(c.Resolve<ILoggerFactory>())
                     .UsingSqlPersistence(c.Resolve<IConnectionFactory>())
@@ -45,7 +55,6 @@ namespace EventSaucing.DependencyInjection.Autofac {
             builder.RegisterType<EventStoreRepository>()
                 .As<IRepository>()
                 .InstancePerDependency();
-          
         }
     }
 }
