@@ -8,6 +8,7 @@ using Microsoft.Data.SqlClient;
 using Serilog;
 using Serilog.Events;
 
+
 namespace ExampleApp; 
 
 public class Program {
@@ -65,7 +66,7 @@ public class Program {
     private static bool UpgradeDb(string connectionString, string fileSystemLocationForUpgradeScripts) {
         var upgrade = DeployChanges.To
             .SqlDatabase(connectionString)
-            .WithScriptsFromFileSystem("SqlUpgradeScripts/Replica")
+            .WithScriptsFromFileSystem(fileSystemLocationForUpgradeScripts)
             .LogToConsole()
             .Build();
 
