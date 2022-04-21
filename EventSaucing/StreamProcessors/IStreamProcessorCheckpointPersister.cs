@@ -6,7 +6,7 @@ namespace EventSaucing.StreamProcessors {
     /// </summary>
     public interface IStreamProcessorCheckpointPersister {
         /// <summary>
-        /// Gets a previously persisted Checkpoint state from the db.  If StreamProcessor has never had a checkpoint persisted, return 0L
+        /// Gets a previously persisted Checkpoint state from the db.  To initialise the StreamProcessor at the first commit, return 0L
         /// </summary>
         /// <param name="streamProcessor"></param>
         /// <returns></returns>
