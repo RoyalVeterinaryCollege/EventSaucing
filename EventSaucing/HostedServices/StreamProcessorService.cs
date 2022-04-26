@@ -5,7 +5,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Cluster.Tools.Singleton;
-using Akka.DependencyInjection;
 using EventSaucing.Storage;
 using EventSaucing.StreamProcessors;
 using EventSaucing.StreamProcessors.Projectors;
@@ -69,23 +68,23 @@ namespace EventSaucing.HostedServices {
             _logger.LogInformation($"EventSaucing {nameof(StreamProcessorService)} starting");
 
             // start projector supervisor(s) for both replica scoped StreamProcessors and clusters scoped StreamProcessors
-            var replicaScopedStreamProcessorsTypes = _streamProcessorPropsProvider.GetReplicaScopedStreamProcessorsTypes().ToList();
+            var replicaScopedStreamProcessorsProps = _streamProcessorPropsProvider.GetReplicaScopedStreamProcessorsProps().ToList();
 
-            if (replicaScopedStreamProcessorsTypes.Any()) {
+            if (replicaScopedStreamProcessorsProps.Any()) {
                 // Ensure the StreamProcessor checkpoint table is created in the replica db
                 // nb this is the data structure expected by SqlProjector, not LegacyProjector as we shouldn't be creating LeagacyProjectors in future
                 using (var dbConnection = _dbService.GetReplica()) {
                     await ProjectorHelper.InitialiseProjectorStatusStore(dbConnection);
                 }
 
-                _replicaStreamProcessorSupervisor =_actorSystem.ActorOf(CreateSupervisorProps(replicaScopedStreamProcessorsTypes)).ToSome();
-                _logger.LogInformation($"EventSaucing started supervision of replica-scoped StreamProcessors of {string.Join(", ", replicaScopedStreamProcessorsTypes.Select(x => x.TypeName))}");
+                _replicaStreamProcessorSupervisor =_actorSystem.ActorOf(CreateSupervisorProps(replicaScopedStreamProcessorsProps)).ToSome();
+                _logger.LogInformation($"EventSaucing started supervision of replica-scoped StreamProcessors of {string.Join(", ", replicaScopedStreamProcessorsProps.Select(x => x.TypeName))}");
             }
 
 
-            var clusterScopedStreamProcessorTypes = _streamProcessorPropsProvider.GetClusterScopedStreamProcessorsTypes().ToList();
+            var clusterScopedStreamProcessorProps = _streamProcessorPropsProvider.GetClusterScopedStreamProcessorsProps().ToList();
 
-            if (clusterScopedStreamProcessorTypes.Any()) {
+            if (clusterScopedStreamProcessorProps.Any()) {
                 // Ensure the StreamProcessor checkpoint table is created in the cluster db
                 // nb this is the data structure expected by SqlProjector, not LegacyProjector as we shouldn't be creating LeagacyProjectors in future
                 using (var dbConnection = _dbService.GetCluster()) {
@@ -93,12 +92,12 @@ namespace EventSaucing.HostedServices {
                 }
 
                 _clusterProjectorSupervisor =  _actorSystem.ActorOf(ClusterSingletonManager.Props(
-                        singletonProps: CreateSupervisorProps(clusterScopedStreamProcessorTypes),
+                        singletonProps: CreateSupervisorProps(clusterScopedStreamProcessorProps),
                         terminationMessage: PoisonPill.Instance,
                         settings: ClusterSingletonManagerSettings.Create(_actorSystem).WithRole("api")),
                     name: "streamprocessor-supervisor").ToSome();
 
-                _logger.LogInformation($"EventSaucing started supervision of cluster-scoped StreamProcessors of {string.Join(", ", clusterScopedStreamProcessorTypes.Select(x => x.TypeName))}");
+                _logger.LogInformation($"EventSaucing started supervision of cluster-scoped StreamProcessors of {string.Join(", ", clusterScopedStreamProcessorProps.Select(x => x.TypeName))}");
 
             }
 

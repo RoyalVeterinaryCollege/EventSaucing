@@ -11,12 +11,12 @@ namespace EventSaucing.StreamProcessors {
         /// Returns all the Types of StreamProcessors which are scoped to a replica
         /// </summary>
         /// <returns></returns>
-        IEnumerable<Props> GetReplicaScopedStreamProcessorsTypes();
+        IEnumerable<Props> GetReplicaScopedStreamProcessorsProps();
 
         /// <summary>
         /// Returns all the Types which of StreamProcessors which are scoped to the cluster
         /// </summary>
         /// <returns></returns>
-        IEnumerable<Props> GetClusterScopedStreamProcessorsTypes();
+        IEnumerable<Props> GetClusterScopedStreamProcessorsProps();
     }
 }
