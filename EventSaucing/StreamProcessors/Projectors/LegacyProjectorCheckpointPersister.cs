@@ -56,7 +56,7 @@ namespace EventSaucing.StreamProcessors.Projectors {
 
         private bool IsInitialisedAtHead(StreamProcessor streamProcessor) {
             return _config
-                .GetSection("EventSaucing:Projectors:InitialiseAtHead")
+                .GetSection("EventSaucing:StreamProcessors:InitialiseAtHead")
                 .Get<string[]>()
                 .Contains(streamProcessor.GetType().FullName);
         }
