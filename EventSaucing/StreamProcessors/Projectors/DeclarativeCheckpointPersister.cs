@@ -71,12 +71,12 @@ namespace EventSaucing.StreamProcessors.Projectors {
             _dbService = dbService;
         }
 
-        public DeclarativeCheckpointPersister InitialiseFrom<T>(T initialisationOption) where T : InitialisationOption {
+        public DeclarativeCheckpointPersister TryInitialiseFrom<T>(T initialisationOption) where T : InitialisationOption {
             options.Add(initialisationOption);
             return this;
         }
 
-        public DeclarativeCheckpointPersister InitialiseFrom<T>() where T : InitialisationOption, new() {
+        public DeclarativeCheckpointPersister TryInitialiseFrom<T>() where T : InitialisationOption, new() {
             options.Add(new T());
             return this;
         }
