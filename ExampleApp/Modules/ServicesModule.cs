@@ -7,7 +7,7 @@ namespace ExampleApp.Modules
     public class ServicesModule : Module
     {
         protected override void Load(ContainerBuilder builder) {
-            builder.RegisterType<StreamProcessorTypeProvider>().As<IStreamProcessorTypeProvider>();
+            builder.RegisterType<StreamProcessorPropsProvider>().As<IStreamProcessorPropsProvider>();
         }
     }
 }
