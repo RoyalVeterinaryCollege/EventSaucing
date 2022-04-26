@@ -21,7 +21,7 @@ namespace EventSaucing.HostedServices {
         private readonly IDbService _dbService;
         private readonly ActorSystem _actorSystem;
         private readonly ILogger<StreamProcessorService> _logger;
-        private readonly IStreamProcessorTypeProvider _streamProcessorTypeProvider;
+        private readonly IStreamProcessorPropsProvider _streamProcessorPropsProvider;
 
         /// <summary>
         /// Optional Actor of type <see cref="StreamProcessorSupervisor"/> which manages the replica-scoped <see cref="StreamProcessor"/> actors
@@ -39,13 +39,13 @@ namespace EventSaucing.HostedServices {
         /// <param name="dbService"></param>
         /// <param name="actorSystem"></param>
         /// <param name="logger"></param>
-        /// <param name="streamProcessorTypeProvider"></param>
+        /// <param name="streamProcessorPropsProvider"></param>
         public StreamProcessorService(IDbService dbService, ActorSystem actorSystem,
-            ILogger<StreamProcessorService> logger, IStreamProcessorTypeProvider streamProcessorTypeProvider) {
+            ILogger<StreamProcessorService> logger, IStreamProcessorPropsProvider streamProcessorPropsProvider) {
             _dbService = dbService;
             _actorSystem = actorSystem;
             _logger = logger;
-            _streamProcessorTypeProvider = streamProcessorTypeProvider;
+            _streamProcessorPropsProvider = streamProcessorPropsProvider;
         }
 
         /// <summary>
@@ -53,14 +53,12 @@ namespace EventSaucing.HostedServices {
         /// </summary>
         /// <param name="streamProcessorTypes"></param>
         /// <returns></returns>
-        private Props CreateSupervisorProps(IEnumerable<Type> streamProcessorTypes) {
+        private Props CreateSupervisorProps(IEnumerable<Props> streamProcessorTypes) {
             Func<IUntypedActorContext, IEnumerable<IActorRef>> func;
             func = ctx =>
-                streamProcessorTypes.Select(type => DependencyResolver.For(_actorSystem).Props(type))
-                    .Select(props => ctx.ActorOf(props));
+                streamProcessorTypes.Select(props => ctx.ActorOf(props));
             return Props.Create<StreamProcessorSupervisor>(func);
         }
-
 
         /// <summary>
         /// Starts <see cref="StreamProcessorSupervisor"/>
@@ -71,7 +69,7 @@ namespace EventSaucing.HostedServices {
             _logger.LogInformation($"EventSaucing {nameof(StreamProcessorService)} starting");
 
             // start projector supervisor(s) for both replica scoped StreamProcessors and clusters scoped StreamProcessors
-            var replicaScopedStreamProcessorsTypes = _streamProcessorTypeProvider.GetReplicaScopedStreamProcessorsTypes().ToList();
+            var replicaScopedStreamProcessorsTypes = _streamProcessorPropsProvider.GetReplicaScopedStreamProcessorsTypes().ToList();
 
             if (replicaScopedStreamProcessorsTypes.Any()) {
                 // Ensure the StreamProcessor checkpoint table is created in the replica db
@@ -81,11 +79,11 @@ namespace EventSaucing.HostedServices {
                 }
 
                 _replicaStreamProcessorSupervisor =_actorSystem.ActorOf(CreateSupervisorProps(replicaScopedStreamProcessorsTypes)).ToSome();
-                _logger.LogInformation($"EventSaucing started supervision of replica-scoped StreamProcessors of {string.Join(", ", replicaScopedStreamProcessorsTypes.Select(x => x.Name))}");
+                _logger.LogInformation($"EventSaucing started supervision of replica-scoped StreamProcessors of {string.Join(", ", replicaScopedStreamProcessorsTypes.Select(x => x.TypeName))}");
             }
 
 
-            var clusterScopedStreamProcessorTypes = _streamProcessorTypeProvider.GetClusterScopedStreamProcessorsTypes().ToList();
+            var clusterScopedStreamProcessorTypes = _streamProcessorPropsProvider.GetClusterScopedStreamProcessorsTypes().ToList();
 
             if (clusterScopedStreamProcessorTypes.Any()) {
                 // Ensure the StreamProcessor checkpoint table is created in the cluster db
@@ -100,7 +98,7 @@ namespace EventSaucing.HostedServices {
                         settings: ClusterSingletonManagerSettings.Create(_actorSystem).WithRole("api")),
                     name: "streamprocessor-supervisor").ToSome();
 
-                _logger.LogInformation($"EventSaucing started supervision of cluster-scoped StreamProcessors of {string.Join(", ", clusterScopedStreamProcessorTypes.Select(x => x.Name))}");
+                _logger.LogInformation($"EventSaucing started supervision of cluster-scoped StreamProcessors of {string.Join(", ", clusterScopedStreamProcessorTypes.Select(x => x.TypeName))}");
 
             }
 
