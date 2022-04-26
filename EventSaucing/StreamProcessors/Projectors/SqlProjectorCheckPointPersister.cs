@@ -16,7 +16,7 @@ namespace EventSaucing.StreamProcessors.Projectors {
             _config = config;
         }
 
-        public async Task<long> GetInitialCheckpointAsync(StreamProcessor streamProcessor) {
+        public virtual async Task<long> GetInitialCheckpointAsync(StreamProcessor streamProcessor) {
             if (streamProcessor is SqlProjector sp) {
                 using (var conn = sp.GetProjectionDb()) {
                     await conn.OpenAsync();
@@ -43,7 +43,7 @@ namespace EventSaucing.StreamProcessors.Projectors {
             }
         }
 
-        public async Task<long> GetCommitstoreHeadAsync() {
+        public virtual async Task<long> GetCommitstoreHeadAsync() {
             using (var conn = _dbService.GetCommitStore()) {
                 await conn.OpenAsync();
                 return await conn.ExecuteScalarAsync<long>("SELECT MAX(CheckpointNumber) FROM dbo.Commits");
@@ -59,7 +59,7 @@ namespace EventSaucing.StreamProcessors.Projectors {
                 .Contains(streamProcessor.GetType().FullName);
         }
 
-        private static string GetPersistedName(StreamProcessor streamProcessor) {
+        public static string GetPersistedName(StreamProcessor streamProcessor) {
             var fullName = streamProcessor.GetType().FullName;
             return fullName.Length <= 800 ? fullName : fullName.Substring(0, 800);//only 800 characters for db persistence
         }
@@ -72,7 +72,7 @@ UPDATE dbo.StreamProcessorCheckpoints
     SET LastCheckpointToken = @Checkpoint 
 WHERE StreamProcessor = @StreamProcessor;";
 
-        public async Task PersistCheckpointAsync(StreamProcessor streamProcessor, long checkpoint) {
+        public virtual async Task PersistCheckpointAsync(StreamProcessor streamProcessor, long checkpoint) {
             if (streamProcessor is SqlProjector sp) {
                 using (var con = sp.GetProjectionDb()) {
                     await con.OpenAsync();
