@@ -13,11 +13,11 @@ using Microsoft.Extensions.Logging;
 namespace EventSaucing.HostedServices
 {
     /// <summary>
-    /// Starts EventSaucing event stream on this node.  You must start this even if your node has no local or clustered StreamProcessors.  
+    /// Starts EventSaucing event stream on this node. Started by framework automatically.
     /// 
     /// Starts and stops <see cref="LocalEventStreamActor"/> which produces a stream of serialised (in-order) commits for local and cluster usage
     /// </summary>
-    public class EventStreamService : IHostedService {
+    internal class EventStreamService : IHostedService {
         private ActorSystem _actorSystem;
         private readonly PostCommitNotifierPipeline _commitNotifierPipeline;
         private readonly ILogger<EventStreamService> _logger;

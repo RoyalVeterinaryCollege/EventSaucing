@@ -14,7 +14,9 @@ using Scalesque;
 
 namespace EventSaucing.HostedServices {
     /// <summary>
-    /// Starts <see cref="StreamProcessor"/> actors for both replica-scope and cluster wide-scope <see cref="StreamProcessorSupervisor"/> 
+    /// Starts <see cref="StreamProcessor"/> actors for both replica-scope and cluster wide-scope <see cref="StreamProcessorSupervisor"/>.
+    ///
+    /// This is optional,  you must register this yourself if you intend to use <see cref="StreamProcessor"/> actors
     /// </summary>
     public class StreamProcessorService : IHostedService {
         private readonly IDbService _dbService;

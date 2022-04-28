@@ -54,7 +54,7 @@ namespace EventSaucing.DependencyInjection.Autofac {
                 .SingleInstance();
             builder.RegisterType<EventStoreRepository>()
                 .As<IRepository>()
-                .InstancePerDependency();
+                .InstancePerDependency(); // this class is not threadsafe
         }
     }
 }

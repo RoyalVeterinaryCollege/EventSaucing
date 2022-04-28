@@ -7,13 +7,13 @@ using Microsoft.Extensions.Logging;
 
 namespace EventSaucing.HostedServices {
     /// <summary>
-    /// A hosted service that shuts Akka down gracefully
+    /// A hosted service that shuts Akka down gracefully. Started by framework automatically.
     /// </summary>
-    public class AkkaShutDownService : IHostedService {
+    internal class AkkaShutDownService : IHostedService {
         private readonly ActorSystem _actorSystem;
-        private readonly ILogger<EventStreamService> _logger;
+        private readonly ILogger<AkkaShutDownService> _logger;
 
-        public AkkaShutDownService(ActorSystem actorSystem, ILogger<EventStreamService> logger) {
+        public AkkaShutDownService(ActorSystem actorSystem, ILogger<AkkaShutDownService> logger) {
             _actorSystem = actorSystem;
             _logger = logger;
         }
@@ -21,7 +21,7 @@ namespace EventSaucing.HostedServices {
             _logger.LogInformation($"EventSaucing {nameof(AkkaShutDownService)} started.");
             // no op, Akka must be started as a singleton via StartupExtensions.AddEventSaucing()
             // I know this means this class is responsible for shutting down something it didn't create,
-            // but I coulsn't find a way of using IHostedServices to start Akka because they all start at once
+            // but I couldn't find a way of using IHostedServices to start Akka because they all start at once
             // and some other hosted services depend on ActorSystem to start up..
             return Task.CompletedTask;
         }
