@@ -13,6 +13,8 @@ namespace EventSaucing.NEventStore
     /// Based on https://github.com/NEventStore/NEventStore/blob/V5.2.0/src/NEventStore/CommonDomain/Persistence/EventStore/EventStoreRepository.cs
     /// We had to create our own copy as we found commit events could be persisted as null.
     /// We filter out any null values coming out of the store and guard against any going in.
+    ///
+    /// This class is not thread safe as it caches snapshots and event streams in mem in a non-thread safe collection
     /// </summary>
     public class EventStoreRepository : IRepository {
         private const string AggregateTypeHeader = "AggregateType";
