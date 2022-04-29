@@ -63,7 +63,6 @@ namespace ExampleApp {
             services.AddSingleton<IConfiguration>(Configuration);
 
             // add EventSaucing services.  Then add the HostedServices in any order
-            // make sure you have provided Akka config in app.config
             services.AddEventSaucing();
             services.AddHostedService<StreamProcessorService>(); // optional stream processor service.  This starts and hosts your stream processors
             services.AddHostedService<UserActivitySimulatorService>(); // host which simulates user activity in the front end
