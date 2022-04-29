@@ -22,7 +22,7 @@ namespace EventSaucing.HostedServices {
         private readonly IDbService _dbService;
         private readonly ActorSystem _actorSystem;
         private readonly ILogger<StreamProcessorService> _logger;
-        private readonly IStreamProcessorPropsProvider _streamProcessorPropsProvider;
+        private readonly IStreamProcessorInitialisation _streamProcessorInitialisation;
 
         /// <summary>
         /// Optional Actor of type <see cref="StreamProcessorSupervisor"/> which manages the replica-scoped <see cref="StreamProcessor"/> actors
@@ -40,13 +40,13 @@ namespace EventSaucing.HostedServices {
         /// <param name="dbService"></param>
         /// <param name="actorSystem"></param>
         /// <param name="logger"></param>
-        /// <param name="streamProcessorPropsProvider"></param>
+        /// <param name="streamProcessorInitialisation"></param>
         public StreamProcessorService(IDbService dbService, ActorSystem actorSystem,
-            ILogger<StreamProcessorService> logger, IStreamProcessorPropsProvider streamProcessorPropsProvider) {
+            ILogger<StreamProcessorService> logger, IStreamProcessorInitialisation streamProcessorInitialisation) {
             _dbService = dbService;
             _actorSystem = actorSystem;
             _logger = logger;
-            _streamProcessorPropsProvider = streamProcessorPropsProvider;
+            _streamProcessorInitialisation = streamProcessorInitialisation;
         }
 
         /// <summary>
@@ -70,7 +70,7 @@ namespace EventSaucing.HostedServices {
             _logger.LogInformation($"EventSaucing {nameof(StreamProcessorService)} starting");
 
             // start projector supervisor(s) for both replica scoped StreamProcessors and clusters scoped StreamProcessors
-            var replicaScopedStreamProcessorsProps = _streamProcessorPropsProvider.GetReplicaScopedStreamProcessorsProps().ToList();
+            var replicaScopedStreamProcessorsProps = _streamProcessorInitialisation.GetReplicaScopedStreamProcessorProps().ToList();
 
             if (replicaScopedStreamProcessorsProps.Any()) {
                 // Ensure the StreamProcessor checkpoint table is created in the replica db
@@ -84,23 +84,25 @@ namespace EventSaucing.HostedServices {
             }
 
 
-            var clusterScopedStreamProcessorProps = _streamProcessorPropsProvider.GetClusterScopedStreamProcessorsProps().ToList();
+            var clusterScopedStreamProcessors = _streamProcessorInitialisation.GetClusterScopedStreamProcessorsInitialisationParameters().ToList();
 
-            if (clusterScopedStreamProcessorProps.Any()) {
+            if (clusterScopedStreamProcessors.Any()) {
                 // Ensure the StreamProcessor checkpoint table is created in the cluster db
-                // nb this is the data structure expected by SqlProjector, not LegacyProjector as we shouldn't be creating LeagacyProjectors in future
                 using (var dbConnection = _dbService.GetCluster()) {
                     await ProjectorHelper.InitialiseProjectorStatusStore(dbConnection);
                 }
 
-                _clusterProjectorSupervisor =  _actorSystem.ActorOf(ClusterSingletonManager.Props(
-                        singletonProps: CreateSupervisorProps(clusterScopedStreamProcessorProps),
-                        terminationMessage: PoisonPill.Instance,
-                        settings: ClusterSingletonManagerSettings.Create(_actorSystem).WithRole("api")),
-                    name: "streamprocessor-supervisor").ToSome();
+                // foreach akka node role, create the cluster singletons
+                foreach (var g in clusterScopedStreamProcessors.GroupBy(x => x.ClusterRole)) {
+                    _clusterProjectorSupervisor = _actorSystem.ActorOf(
+                        ClusterSingletonManager.Props(
+                            singletonProps: CreateSupervisorProps(g.Select(x=>x.Props)),
+                            terminationMessage: PoisonPill.Instance,
+                            settings: ClusterSingletonManagerSettings.Create(_actorSystem).WithRole(g.Key)
+                            ), name: $"streamprocessor-supervisor-{g.Key}").ToSome();
 
-                _logger.LogInformation($"EventSaucing started supervision of cluster-scoped StreamProcessors of {string.Join(", ", clusterScopedStreamProcessorProps.Select(x => x.TypeName))}");
-
+                    _logger.LogInformation($"EventSaucing started supervision of cluster-scoped StreamProcessors of {string.Join(", ", g.Select(x => x.Props).Select(x => x.TypeName))}");
+                }
             }
 
             _logger.LogInformation($"EventSaucing {nameof(StreamProcessorService)} started");
