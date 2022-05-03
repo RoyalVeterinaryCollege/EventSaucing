@@ -89,7 +89,7 @@ namespace EventSaucing.StreamProcessors.Projectors {
         /// <param name="commit"></param>
         public void Project(IDbTransaction tx, ICommit commit) {
             foreach (var eventMessage in commit.Events) {
-                //  guard null events in the commit.  Not sure at this point how null events get into a commit, bug in neventstore??
+                //  guard null events in the commit.  Not sure at this point how null events get into a commit, fixes b u g in neventstore??
                 if (eventMessage == null) {
 					_nullEventMessageHandler(commit);
                     continue;

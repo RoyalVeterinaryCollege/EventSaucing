@@ -105,7 +105,7 @@ namespace EventSaucing.StreamProcessors {
 
 
             // impl which does error
-            Func<ICommit, Task<bool>> parp = msg => throw new NotImplementedException();
+            Func<ICommit, Task<bool>> parp = msg => throw new Exception();
             _sut.Tell(parp);
 
             //send the commit
