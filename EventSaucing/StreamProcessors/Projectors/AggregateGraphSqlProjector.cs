@@ -26,7 +26,7 @@ namespace EventSaucing.StreamProcessors.Projectors
             using (var con = GetProjectionDb()) {
                 await con.OpenAsync();
 
-                var results = await con.QueryAsync<int>("SELECT TOP 1 * FROM dbo.AggregateGraph WHERE CheckpointNumber = @CheckpointToken",
+                var results = await con.QueryAsync<int>("SELECT TOP 1 1 FROM dbo.AggregateGraph WHERE CheckpointNumber = @CheckpointToken",
                     new { commit.CheckpointToken });
                 if (results.Any()) return true;
             }
@@ -35,8 +35,9 @@ namespace EventSaucing.StreamProcessors.Projectors
 
             // find all the properties on the events which are Guids referring to aggregates in the commit store
             var aggregateProperties = commit.Events
+                .Select(evt => evt.Body)
                 .Select(evt => new {
-                    Event = evt.Body, Properties = evt.Body.GetType()
+                    Event = evt, Properties = evt.GetType()
                         .GetProperties()
                         .AsParallel()
                         .Where(propertyInfo => propertyInfo.PropertyType == typeof(Guid))
@@ -47,14 +48,18 @@ namespace EventSaucing.StreamProcessors.Projectors
                                 var targetGuid = (Guid)propertyInfo.GetValue(evt);
 
                                 var results = con.Query<int>(
-                                    "SELECT TOP 1 FROM dbo.Commits WHERE BucketId=@BucketId AND StreamId = @StreamId",
+                                    "SELECT TOP 1 1 FROM dbo.Commits WHERE BucketId=@BucketId AND StreamId = @StreamId",
                                     new { commit.BucketId, StreamId = hasher.GetHash(targetGuid.ToString()) }
                                 );
                                 return results.Any();
                             }
                         }).ToList()
                 })
-                .Where(a => a.Properties.Any()); //guard there are properties which correspond to aggregates in the commit store
+                .Where(a => a.Properties.Any()).ToList(); //guard there are properties which correspond to aggregates in the commit store
+            
+            //nothing to project
+            if (!aggregateProperties.Any())
+                return false;
 
             var sb = new StringBuilder(@"
 INSERT INTO [dbo].[AggregateGraph]
@@ -65,6 +70,8 @@ INSERT INTO [dbo].[AggregateGraph]
     ,[CheckpointNumber])
 VALUES
 ");
+
+            var first = true;
             foreach (var eventAggregateProperties in aggregateProperties) {
                 foreach (var propertyInfo in eventAggregateProperties.Properties) {
                     var sourceId = commit.AggregateId();
@@ -72,7 +79,8 @@ VALUES
                     var eventName = eventAggregateProperties.Event.GetType().Name;
                     var label = propertyInfo.Name.Length < 500 ? propertyInfo.Name : propertyInfo.Name.Substring(0,500);
                     var checkpointNumber = commit.CheckpointToken;
-                    sb.AppendLine($"('{sourceId}', '{targetId}', '{eventName}', '{label}', {checkpointNumber})");
+                    sb.AppendLine($"{(!first ? "," : "")}('{sourceId}', '{targetId}', '{eventName}', '{label}', {checkpointNumber})");
+                    first = false;
                 }
             }
             using (var con = GetProjectionDb()) {
