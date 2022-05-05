@@ -26,7 +26,7 @@ namespace EventSaucing.StreamProcessors.Projectors
             using (var con = GetProjectionDb()) {
                 await con.OpenAsync();
 
-                var results = await con.QueryAsync<int>("SELECT TOP 1 FROM dbo.AggregateGraph WHERE CheckpointNumber = @CheckpointToken",
+                var results = await con.QueryAsync<int>("SELECT TOP 1 * FROM dbo.AggregateGraph WHERE CheckpointNumber = @CheckpointToken",
                     new { commit.CheckpointToken });
                 if (results.Any()) return true;
             }
