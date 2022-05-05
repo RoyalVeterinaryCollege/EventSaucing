@@ -32,11 +32,20 @@ namespace EventSaucing.StreamProcessors {
 
         protected override void PreStart() {
             base.PreStart();
+            //subscribe to ordered event stream and checkpoint changes
             Context.System.EventStream.Subscribe(Self, typeof(OrderedCommitNotification));
+            Context.System.EventStream.Subscribe(_streamProcessorBroadCastRouter,
+                typeof(StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet));
         }
 
         protected override void PostRestart(Exception reason) {
             // override to avoid duplicate subscription to OrderedCommitNotification
+        }
+
+        protected override void PostStop() {
+            //unsubscribe to ordered event stream and checkpoint changes
+            Context.System.EventStream.Unsubscribe(Self);
+            Context.System.EventStream.Unsubscribe(_streamProcessorBroadCastRouter);
         }
 
         /// <summary>
