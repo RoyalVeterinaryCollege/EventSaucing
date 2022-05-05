@@ -1,25 +1,28 @@
 ﻿using System;
 using System.Collections.Generic;
 using Akka.Actor;
+using Scalesque;
 
 namespace EventSaucing.StreamProcessors {
     /// <summary>
     /// Cluster-scoped StreamProcessors can move between Akka nodes.  This limits that movement to only the nodes which have the role the Actor needs.
     /// </summary>
     public class ClusterStreamProcessorInitialisation {
-        public ClusterStreamProcessorInitialisation(Props props, string clusterRole) {
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="props">Props of the actor</param>
+        /// <param name="actorName">Name of the actor inside the ActorSystem. Not optional for cluster-scoped SPs and ignored for replica-scoped SPs</param>
+        /// <param name="clusterRole">The role of the Akka node which can host your singleton actor</param>
+        public ClusterStreamProcessorInitialisation(Props props, string actorName, Option<string> clusterRole) {
             Props = props;
+            ActorName = actorName;
             ClusterRole = clusterRole;
         }
 
-        /// <summary>
-        /// Props of the actor
-        /// </summary>
         public Props Props { get; }
-        /// <summary>
-        /// The role of the Akka node which can host your singleton actor
-        /// </summary>
-        public string ClusterRole { get;  }
+        public string ActorName { get; }
+        public Option<string> ClusterRole { get;  }
 
     }
     /// <summary>
@@ -27,10 +30,10 @@ namespace EventSaucing.StreamProcessors {
     /// </summary>
     public interface IStreamProcessorInitialisation {
         /// <summary>
-        /// Returns all the Props of StreamProcessors which are scoped to a replica
+        /// Returns all the ClusterStreamProcessorInitialisation of StreamProcessors which are scoped to a replica
         /// </summary>
         /// <returns></returns>
-        IEnumerable<Props> GetReplicaScopedStreamProcessorProps();
+        IEnumerable<ClusterStreamProcessorInitialisation> GetReplicaScopedStreamProcessorProps();
 
         /// <summary>
         /// Returns all the ClusterStreamProcessorInitialisation which of StreamProcessors which are scoped to the cluster

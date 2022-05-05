@@ -54,10 +54,10 @@ namespace EventSaucing.HostedServices {
         /// </summary>
         /// <param name="streamProcessorTypes"></param>
         /// <returns></returns>
-        private Props CreateSupervisorProps(IEnumerable<Props> streamProcessorTypes) {
+        private Props CreateSupervisorProps(IEnumerable<ClusterStreamProcessorInitialisation> streamProcessorTypes) {
             Func<IUntypedActorContext, IEnumerable<IActorRef>> func;
             func = ctx =>
-                streamProcessorTypes.Select(props => ctx.ActorOf(props));
+                streamProcessorTypes.Select(ix => ctx.ActorOf(ix.Props, ix.ActorName));
             return Props.Create<StreamProcessorSupervisor>(func);
         }
 
@@ -79,8 +79,8 @@ namespace EventSaucing.HostedServices {
                     await ProjectorHelper.InitialiseProjectorStatusStore(dbConnection);
                 }
 
-                _replicaStreamProcessorSupervisor =_actorSystem.ActorOf(CreateSupervisorProps(replicaScopedStreamProcessorsProps)).ToSome();
-                _logger.LogInformation($"EventSaucing started supervision of replica-scoped StreamProcessors of {string.Join(", ", replicaScopedStreamProcessorsProps.Select(x => x.TypeName))}");
+                _replicaStreamProcessorSupervisor =_actorSystem.ActorOf(CreateSupervisorProps(replicaScopedStreamProcessorsProps), "replica-scoped-streamprocessor-supervisor").ToSome();
+                _logger.LogInformation($"EventSaucing started supervision of replica-scoped StreamProcessors of {string.Join(", ", replicaScopedStreamProcessorsProps.Select(x => x.ActorName))}");
             }
 
 
@@ -93,13 +93,13 @@ namespace EventSaucing.HostedServices {
                 }
 
                 // foreach akka node role, create the cluster singletons
-                foreach (var g in clusterScopedStreamProcessors.GroupBy(x => x.ClusterRole)) {
+                foreach (var g in clusterScopedStreamProcessors.GroupBy(x => x.ClusterRole.Get())) {
                     _clusterProjectorSupervisor = _actorSystem.ActorOf(
                         ClusterSingletonManager.Props(
-                            singletonProps: CreateSupervisorProps(g.Select(x=>x.Props)),
+                            singletonProps: CreateSupervisorProps(g.Select(x=>x)),
                             terminationMessage: PoisonPill.Instance,
                             settings: ClusterSingletonManagerSettings.Create(_actorSystem).WithRole(g.Key)
-                            ), name: $"streamprocessor-supervisor-{g.Key}").ToSome();
+                            ), name: $"cluster-scoped-streamprocessor-supervisor-{g.Key}").ToSome();
 
                     _logger.LogInformation($"EventSaucing started supervision of cluster-scoped StreamProcessors of {string.Join(", ", g.Select(x => x.Props).Select(x => x.TypeName))}");
                 }
