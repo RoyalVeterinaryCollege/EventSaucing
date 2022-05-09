@@ -49,7 +49,10 @@ namespace EventSaucing.StreamProcessors.Projectors
 
                                 var results = con.Query<int>(
                                     "SELECT TOP 1 1 FROM dbo.Commits WHERE BucketId=@BucketId AND StreamId = @StreamId",
-                                    new { commit.BucketId, StreamId = hasher.GetHash(targetGuid.ToString()) }
+                                    new { 
+                                        BucketId = new DbString { Value = commit.BucketId, IsFixedLength = false, Length = 40, IsAnsi = true},
+                                        StreamId = new DbString { Value = hasher.GetHash(targetGuid.ToString()), IsFixedLength = true, Length = 40, IsAnsi = true }
+                                    }
                                 );
                                 return results.Any();
                             }
