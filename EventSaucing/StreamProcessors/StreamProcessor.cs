@@ -232,7 +232,7 @@ namespace EventSaucing.StreamProcessors {
 
             //load all commits after our current checkpoint from db
             var startingCheckpoint = Checkpoint;
-            _catchupCommitStream = new OrderedEventStreamer(startingCheckpoint, _persistStreams.GetFrom(startingCheckpoint));
+            _catchupCommitStream = new OrderedEventStreamer(startingCheckpoint, _persistStreams);
             await SendNextCatchUpMessageAsync();
             Context.GetLogger()
                 .Info($"Catchup started from checkpoint {startingCheckpoint}");
