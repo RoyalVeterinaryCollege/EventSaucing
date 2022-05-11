@@ -1,55 +1,38 @@
-﻿using System;
-using System.Collections.Generic;
-using NEventStore;
+﻿using System.Collections.Generic;
 using NEventStore.Persistence;
 
 namespace EventSaucing.EventStream {
 
     /// <summary>
-    /// Creates a stream of <see cref="OrderedCommitNotification"/> from an IEnumerable ICommit such as the one returned by IPersistStreams
+    /// Creates a stream of <see cref="OrderedCommitNotification"/> from IPersistStreams
     /// </summary>
-    public class OrderedEventStreamer : IDisposable {
+    public class OrderedEventStreamer {
         readonly IPersistStreams _persistStreams;
-        IEnumerator<ICommit> _enumerator;
         long _previousCheckpoint;
+        readonly Queue<OrderedCommitNotification> _queue = new Queue<OrderedCommitNotification>();
 
         public OrderedEventStreamer(long startingCheckpoint, IPersistStreams persistStreams) {
             _persistStreams = persistStreams;
-            // from is excluded from this, to is included 
-            _enumerator =  persistStreams.GetFromTo(startingCheckpoint, startingCheckpoint + 512).GetEnumerator();
-            IsFinished = !_enumerator.MoveNext();
             _previousCheckpoint = startingCheckpoint;
+            FetchNextPage();
         }
+        private void FetchNextPage()  {
+            //fill queue with next page. 'from' is excluded from this, 'to' is included 
+            foreach (var commit in _persistStreams.GetFromTo(from: _previousCheckpoint, to: _previousCheckpoint + 512)) {
+                _queue.Enqueue(new OrderedCommitNotification(commit, _previousCheckpoint));
+                _previousCheckpoint = commit.CheckpointToken;
+            }
 
+            IsFinished = _queue.Count == 0;
+        }
         public bool IsFinished { get; private set; }
 
         public OrderedCommitNotification Next() {
-            var orderedCommitNotification = new OrderedCommitNotification(_enumerator.Current, _previousCheckpoint);
-
-            //store this for next iteration
-            _previousCheckpoint = orderedCommitNotification.Commit.CheckpointToken;
-
-            if (!_enumerator.MoveNext()) {
-                // if the current enumeration has completed, fetch the next page from the db
-
-                // from is excluded from this, to is included
-                _enumerator = _persistStreams.GetFromTo(orderedCommitNotification.Commit.CheckpointToken, orderedCommitNotification.Commit.CheckpointToken + 512).GetEnumerator();
-                IsFinished = !_enumerator.MoveNext(); //only finished if the final page fetch is empty
+            var nextCommit = _queue.Dequeue();
+            if (_queue.Count == 0)   {
+                FetchNextPage();
             }
-            return orderedCommitNotification;
-
-            /*
-            long previous = _previousCheckpoint;
-            ICommit commit = _enumerator.Current;
-            _previousCheckpoint = commit.CheckpointToken;
-            var result = new OrderedCommitNotification(commit, previous);
-            IsFinished = !_enumerator.MoveNext();
-            return result;
-            */
-        }
-
-        void IDisposable.Dispose() {
-            _enumerator.Dispose();
+            return nextCommit;
         }
     }
 }
