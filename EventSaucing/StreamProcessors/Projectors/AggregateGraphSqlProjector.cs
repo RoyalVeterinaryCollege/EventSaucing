@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Data.Common;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,27 +8,25 @@ using EventSaucing.Storage;
 using NEventStore;
 using NEventStore.Persistence;
 using NEventStore.Persistence.Sql;
-using Guid = System.Guid;
 
-namespace EventSaucing.StreamProcessors.Projectors
-{
-    public abstract class AggregateGraphSqlProjector : SqlProjector
-    {
+namespace EventSaucing.StreamProcessors.Projectors {
+    public abstract class AggregateGraphSqlProjector : SqlProjector {
         private readonly IDbService _dbService;
-        public AggregateGraphSqlProjector(IPersistStreams persistStreams, IStreamProcessorCheckpointPersister checkpointPersister, IDbService dbService) : base(persistStreams, checkpointPersister) {
+
+        public AggregateGraphSqlProjector(IPersistStreams persistStreams,IStreamProcessorCheckpointPersister checkpointPersister, IDbService dbService) : base(persistStreams, checkpointPersister) {
             _dbService = dbService;
         }
 
         public override async Task<bool> ProcessAsync(ICommit commit) {
-            /* commented out to speed up catch up
             // make this idempotent
             using (var con = GetProjectionDb()) {
                 await con.OpenAsync();
 
-                var results = await con.QueryAsync<int>("SELECT TOP 1 1 FROM dbo.AggregateGraph WHERE CheckpointNumber = @CheckpointToken",
+                var results = await con.QueryAsync<int>(
+                    "SELECT TOP 1 1 FROM dbo.AggregateGraph WHERE CheckpointNumber = @CheckpointToken",
                     new { commit.CheckpointToken });
                 if (results.Any()) return true;
-            }*/
+            }
 
             var hasher = new Sha1StreamIdHasher();
 
@@ -50,9 +46,14 @@ namespace EventSaucing.StreamProcessors.Projectors
 
                                 var results = con.Query<int>(
                                     "SELECT TOP 1 1 FROM dbo.Commits WHERE BucketId=@BucketId AND StreamId = @StreamId AND StreamIdOriginal = @AggregateId",
-                                    new { 
-                                        BucketId = new DbString { Value = commit.BucketId, IsFixedLength = false, Length = 40, IsAnsi = true}, //nb IsAnsi seems to toggle to nvarchar/nchar vs varchar/nvarchar
-                                        StreamId = new DbString { Value = hasher.GetHash(targetGuid.ToString()), IsFixedLength = true, Length = 40, IsAnsi = true },
+                                    new {
+                                        BucketId = new DbString {
+                                            Value = commit.BucketId, IsFixedLength = false, Length = 40, IsAnsi = true
+                                        }, //nb IsAnsi seems to toggle to nvarchar/nchar vs varchar/nvarchar
+                                        StreamId = new DbString {
+                                            Value = hasher.GetHash(targetGuid.ToString()), IsFixedLength = true,
+                                            Length = 40, IsAnsi = true
+                                        },
                                         AggregateId = targetGuid.ToString() //this confirms existence as StreamId is a hash 
                                     }
                                 );
@@ -60,8 +61,9 @@ namespace EventSaucing.StreamProcessors.Projectors
                             }
                         }).ToList()
                 })
-                .Where(a => a.Properties.Any()).ToList(); //guard there are properties which correspond to aggregates in the commit store
-            
+                .Where(a => a.Properties.Any())
+                .ToList(); //guard there are properties which correspond to aggregates in the commit store
+
             //nothing to project
             if (!aggregateProperties.Any())
                 return false;
@@ -85,11 +87,14 @@ VALUES ");
                     var sourceStreamId = hasher.GetHash(commit.AggregateId().ToString());
                     var sourceAggregateType = (string)commit.Headers["AggregateType"];
                     var eventName = eventAggregateProperties.Event.GetType().Name;
-                    var label = propertyInfo.Name.Length < 500 ? propertyInfo.Name : propertyInfo.Name.Substring(0,500);
+                    var label = propertyInfo.Name.Length < 500
+                        ? propertyInfo.Name
+                        : propertyInfo.Name.Substring(0, 500);
                     var targetId = (Guid)propertyInfo.GetValue(eventAggregateProperties.Event);
                     var targetStreamId = hasher.GetHash(targetId.ToString());
                     var checkpointNumber = commit.CheckpointToken;
-                    sb.AppendLine($"{(!first ? "," : "")}('{sourceId}','{sourceStreamId}','{sourceAggregateType}', '{eventName}', '{label}','{targetId}', '{targetStreamId}', {checkpointNumber})");
+                    sb.AppendLine(
+                        $"{(!first ? "," : "")}('{sourceId}','{sourceStreamId}','{sourceAggregateType}', '{eventName}', '{label}','{targetId}', '{targetStreamId}', {checkpointNumber})");
                     first = false;
                 }
             }
