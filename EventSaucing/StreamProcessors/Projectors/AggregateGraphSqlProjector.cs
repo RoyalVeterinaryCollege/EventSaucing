@@ -8,12 +8,14 @@ using EventSaucing.Storage;
 using NEventStore;
 using NEventStore.Persistence;
 using NEventStore.Persistence.Sql;
+using Serilog;
 
 namespace EventSaucing.StreamProcessors.Projectors {
     public abstract class AggregateGraphSqlProjector : SqlProjector {
         private readonly IDbService _dbService;
 
-        public AggregateGraphSqlProjector(IPersistStreams persistStreams,IStreamProcessorCheckpointPersister checkpointPersister, IDbService dbService) : base(persistStreams, checkpointPersister) {
+        public AggregateGraphSqlProjector(IPersistStreams persistStreams, ILogger logger, IStreamProcessorCheckpointPersister checkpointPersister, IDbService dbService) : 
+            base(persistStreams, logger, checkpointPersister) {
             _dbService = dbService;
         }
 

@@ -13,11 +13,12 @@ namespace EventSaucing.StreamProcessors.Projectors
     
     public abstract class SqlProjector : StreamProcessor  {
         protected readonly ConventionBasedEventDispatcher _dispatcher;
-        protected readonly ILogger _logger;
+        protected ILogger _logger;
 
 
-        public SqlProjector(IPersistStreams persistStreams, IStreamProcessorCheckpointPersister checkpointPersister) :base(persistStreams, checkpointPersister){
+        public SqlProjector(IPersistStreams persistStreams, ILogger logger, IStreamProcessorCheckpointPersister checkpointPersister) :base(persistStreams, checkpointPersister){
             _dispatcher = new ConventionBasedEventDispatcher(this);
+            _logger = logger.ForContext(GetType());
         }
 
         public override async Task<bool> ProcessAsync(ICommit commit) {
