@@ -300,8 +300,7 @@ namespace EventSaucing.StreamProcessors {
                 // we have already processed this commit
                 Context
                     .GetLogger()
-                    .Debug(
-                        $"Received a commit notification for a checkpoint which is in our past (ICommit checkpoint {msg.Commit.CheckpointToken}) behind our checkpoint ({Checkpoint})");
+                    .Debug($"Received a commit notification for a checkpoint which is in our past (ICommit checkpoint {msg.Commit.CheckpointToken}) behind our checkpoint ({Checkpoint})");
             }
             else {
                 // this commit is too far ahead to process it. We have fallen behind, catch up
@@ -310,7 +309,7 @@ namespace EventSaucing.StreamProcessors {
                     // we will eventually see this commit at the right time via Catchup mode, so safe to ignore this message
                     Context
                         .GetLogger()
-                        .Info($"Received a commit notification for a checkpoint which is in our future, but dropped it as we were in catch-up mode (ICommit checkpoint {msg.Commit.CheckpointToken}) ahead of our checkpoint ({Checkpoint}). This ICommit was likely sent by LocalEventStreamActor and doesn't represent a failure.");
+                        .Debug($"Received a commit notification for a checkpoint which is in our future, but dropped it as we were in catch-up mode (ICommit checkpoint {msg.Commit.CheckpointToken}) ahead of our checkpoint ({Checkpoint}). This ICommit was likely sent by LocalEventStreamActor and doesn't represent a failure.");
                 } else {
                     // go into catch up mode
                     await CatchUpAsync();
