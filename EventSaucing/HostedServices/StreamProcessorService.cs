@@ -56,8 +56,7 @@ namespace EventSaucing.HostedServices {
         /// <returns></returns>
         private Props CreateSupervisorProps(IEnumerable<ClusterStreamProcessorInitialisation> streamProcessorTypes) {
             Func<IUntypedActorContext, IEnumerable<IActorRef>> func;
-            func = ctx =>
-                streamProcessorTypes.Select(ix => ctx.ActorOf(ix.Props, ix.ActorName));
+            func = ctx => streamProcessorTypes.Select(ix => ctx.ActorOf(ix.Props, ix.ActorName));
             return Props.Create<StreamProcessorSupervisor>(func);
         }
 
