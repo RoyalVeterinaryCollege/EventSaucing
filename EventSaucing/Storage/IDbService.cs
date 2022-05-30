@@ -16,14 +16,7 @@ namespace EventSaucing.Storage {
 		/// <returns></returns>
         DbConnection GetCommitStore();
 
-		/// <summary>
-		/// Legacy. Gets connection to db.
-		/// </summary>
-		/// <returns></returns>
-        [Obsolete("Replace all usage with GetReplica(), GetCommitStore(), or GetCluster() as appropriate")]
-		DbConnection GetConnection();
-
-		/// <summary>
+        /// <summary>
 		/// Gets the cluster db shared by all replicas
 		/// </summary>
 		/// <returns></returns>

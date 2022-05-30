@@ -14,7 +14,6 @@ namespace EventSaucing.Storage.Sql {
             this._replicaConnectionString = configuration.ReplicaConnectionString;
             this._commitStoreConnectionString = configuration.CommitStoreConnectionString;
             this._clusterConnectionString = configuration.ClusterConnectionString;
-
         }
 
         public DbConnection GetConnection(string connectionString) {
@@ -27,10 +26,6 @@ namespace EventSaucing.Storage.Sql {
 
         public DbConnection GetCommitStore() {
             return GetConnection(_commitStoreConnectionString);
-        }
-
-        public DbConnection GetConnection() {
-            return GetReplica();
         }
 
         public DbConnection GetCluster() {
