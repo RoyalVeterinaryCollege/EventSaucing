@@ -9,25 +9,24 @@ namespace EventSaucing.StreamProcessors.Projectors {
     /// Represents a way of initialising a StreamProcessor
     /// </summary>
     public abstract class InitialisationOption {
-        public abstract Task<Option<long>> GetInitialCheckpointAsync(StreamProcessor streamProcessor,
-            IDbService dbService);
+        public abstract Task<Option<long>> GetInitialCheckpointAsync(StreamProcessor streamProcessor,IDbService dbService);
     }
     /// <summary>
     /// Gets the checkpoint from the dbo.StreamProcessorCheckpoints table
     /// </summary>
     public class PersistedSqlProjectorCheckpoint : InitialisationOption {
-        public override async Task<Option<long>> GetInitialCheckpointAsync(StreamProcessor streamProcessor,
-            IDbService dbService) {
+        public override async Task<Option<long>> GetInitialCheckpointAsync(StreamProcessor streamProcessor, IDbService dbService) {
             if (streamProcessor is SqlProjector sp) {
                 using (var conn = sp.GetProjectionDb()) {
                     await conn.OpenAsync();
 
+                    var args = new {
+                        StreamProcessor = SqlProjectorCheckPointPersister.GetPersistedName(streamProcessor)
+                    };
                     Option<long> persistedCheckpoint =
                         (await conn.QueryAsync<long>(
                             "SELECT LastCheckPointToken FROM dbo.StreamProcessorCheckpoints WHERE StreamProcessor = @StreamProcessor",
-                            new {
-                                StreamProcessor = SqlProjectorCheckPointPersister.GetPersistedName(streamProcessor)
-                            }))
+                            args))
                         .HeadOption();
 
                     return persistedCheckpoint;
