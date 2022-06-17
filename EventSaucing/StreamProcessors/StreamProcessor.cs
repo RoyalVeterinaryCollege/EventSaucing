@@ -250,6 +250,7 @@ namespace EventSaucing.StreamProcessors {
                 _catchupCommitStream = null;
                 await PersistCheckpointAsync();
 
+                await OnCatchupFinishedAsync();
                 Context.GetLogger()
                     .Info($"Catchup finished at {Checkpoint}");
             }
@@ -257,6 +258,13 @@ namespace EventSaucing.StreamProcessors {
                 // stream next commit to ourselves
                 Context.Self.Tell(_catchupCommitStream.Next());
             }
+        }
+        /// <summary>
+        /// Method called when catch up has finished
+        /// </summary>
+        /// <returns></returns>
+        protected virtual Task OnCatchupFinishedAsync() {
+            return Task.CompletedTask;
         }
 
         protected virtual async Task ReceivedAsync(OrderedCommitNotification msg) {
