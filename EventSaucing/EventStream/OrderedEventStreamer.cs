@@ -4,7 +4,7 @@ using NEventStore.Persistence;
 namespace EventSaucing.EventStream {
 
     /// <summary>
-    /// Creates a stream of <see cref="OrderedCommitNotification"/> from IPersistStreams
+    /// Creates a stream of <see cref="OrderedCommitNotification"/> from IPersistStreams.  The NEventStore implementation slows down after a few pages.
     /// </summary>
     public class OrderedEventStreamer {
         readonly IPersistStreams _persistStreams;
