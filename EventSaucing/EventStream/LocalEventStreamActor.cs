@@ -91,7 +91,7 @@ namespace EventSaucing.EventStream {
             var currentCheckpoint = _lastStreamedCheckpoint.Map(x => x.ToString()).GetOrElse("no currentcommit");
 
             Context.GetLogger()
-                   .Debug($"Received a commit notification (checkpoint {msg.Commit.CheckpointToken}) whilst currentCheckpoint={currentCheckpoint}.  Commit couldn't be serialised via the cache so polling dbo.Commits with @backlog count={_backlogCommitCount}");
+                   .Debug($"Received a commit notification (checkpoint {msg.Commit.CheckpointToken}) whilst currentCheckpoint={currentCheckpoint}.  Commit couldn't be ordered via the cache so polling dbo.Commits with @backlog count={_backlogCommitCount}");
 
             // this actor stops itself after it has processed the msg
             var eventStorePollerActor = _pollerMaker(Context);
