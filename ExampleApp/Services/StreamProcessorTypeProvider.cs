@@ -2,6 +2,7 @@
 using Akka.DependencyInjection;
 using EventSaucing.StreamProcessors;
 using ExampleApp.OrderCounting;
+using Scalesque;
 
 namespace ExampleApp.Services;
 
@@ -11,19 +12,44 @@ public class StreamProcessorPropsProvider : IStreamProcessorInitialisation {
     public StreamProcessorPropsProvider(ActorSystem system) {
         _system = system;
     }
-    /*
-    public IEnumerable<Props> GetReplicaScopedStreamProcessorProps() {
-        return new List<Props>() { DependencyResolver.For(_system).Props<OrderCountingStreamProcessor>() };
-    }
 
-    public IEnumerable<ClusterStreamProcessorInitialisation> GetClusterScopedStreamProcessorsInitialisationParameters() {
-        return new List<Props> { DependencyResolver.For(_system).Props<ItemCountingClusterStreamProcessor>() }.Select(x=> new ClusterStreamProcessorInitialisation(x, "Cluster"));
-    }*/
     public IEnumerable<ClusterStreamProcessorInitialisation> GetReplicaScopedStreamProcessorProps() {
-        throw new NotImplementedException();
+        var replicaScopedProcessors = new List<ClusterStreamProcessorInitialisation> {
+            GetIoC<OrderCountingStreamProcessor>()
+        };
+
+        return replicaScopedProcessors;
     }
 
     public IEnumerable<ClusterStreamProcessorInitialisation> GetClusterScopedStreamProcessorsInitialisationParameters() {
-        throw new NotImplementedException();
+        var clusterRole = "api".ToSome();
+
+        var clusterScopedStreamProcessors = new List<ClusterStreamProcessorInitialisation> {
+            GetIoC<ItemCountingClusterStreamProcessor>(clusterRole)
+        };
+
+        return clusterScopedStreamProcessors;
     }
+
+    /// <summary>
+    /// Gets ClusterStreamProcessorInitialisation with IoC ctor parameters only
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <returns></returns>
+    private ClusterStreamProcessorInitialisation GetIoC<T>() => GetIoC<T>(Option.None());
+
+    /// <summary>
+    /// Gets ClusterStreamProcessorInitialisation with IoC ctor parameters only
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="clusterRole"></param>
+    /// <returns></returns>
+    private ClusterStreamProcessorInitialisation GetIoC<T>(Option<string> clusterRole) =>
+        new(
+            props: DependencyResolver
+                .For(_system)
+                .Props(typeof(T)),
+            actorName: typeof(T).FullName,
+            clusterRole: clusterRole
+        );
 }
