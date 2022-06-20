@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Akka.Actor;
@@ -24,8 +22,10 @@ namespace EventSaucing.EventStream {
         private OrderedCommitNotification _firstCommit;
 
         protected override void Because() {
-            sut = new OrderedEventStreamer(10L,
-                (new[] { 11L, 12L, 13L }).Select(x => new FakeCommit() { CheckpointToken = x }));
+            sut = new OrderedEventStreamer(
+                10L,
+                new FakePersistStreams((new[] { 11L, 12L, 13L }).Select(x => new FakeCommit { CheckpointToken = x }))
+            );
 
             _firstCommit = sut.Next();
         }
@@ -50,8 +50,10 @@ namespace EventSaucing.EventStream {
         private OrderedCommitNotification _firstCommit;
 
         protected override void Because() {
-            sut = new OrderedEventStreamer(10L,
-                (new[] { 12L, 13L }).Select(x => new FakeCommit() { CheckpointToken = x }));
+            sut = new OrderedEventStreamer(
+                10L,
+                new FakePersistStreams((new[] { 12L, 13L }).Select(x => new FakeCommit() { CheckpointToken = x }))
+            );
 
             _firstCommit = sut.Next();
         }
@@ -76,8 +78,10 @@ namespace EventSaucing.EventStream {
         private OrderedCommitNotification _last;
 
         protected override void Because() {
-            sut = new OrderedEventStreamer(10L,
-                (new[] { 11L, 12L, 13L }).Select(x => new FakeCommit() { CheckpointToken = x }));
+            sut = new OrderedEventStreamer(
+                10L,
+                new FakePersistStreams((new[] { 11L, 12L, 13L }).Select(x => new FakeCommit() { CheckpointToken = x }))
+            );
 
             sut.Next();
             sut.Next();
