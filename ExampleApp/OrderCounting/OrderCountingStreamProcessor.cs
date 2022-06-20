@@ -13,8 +13,10 @@ namespace ExampleApp.OrderCounting
     public class OrderCountingStreamProcessor : SqlProjector {
         private readonly IDbService _dbService;
 
-        public OrderCountingStreamProcessor(IDbService dbService, IPersistStreams persistStreams,
-            SqlProjectorCheckPointPersister persister) : base(persistStreams, persister) {
+        public OrderCountingStreamProcessor(IDbService dbService, IPersistStreams persistStreams, Serilog.ILogger logger) : base(persistStreams, logger
+            , checkpointPersister: new DeclarativeCheckpointPersister(dbService)
+                .TryInitialiseFrom<PersistedSqlProjectorCheckpoint>()
+                .TryInitialiseFrom<FirstCommit>()) {
             _dbService = dbService;
         }
 

@@ -13,8 +13,11 @@ namespace ExampleApp.OrderCounting
     public class ItemCountingClusterStreamProcessor : SqlProjector {
         private readonly IDbService _dbService;
 
-        public ItemCountingClusterStreamProcessor(IDbService dbService, IPersistStreams persistStreams,
-            SqlProjectorCheckPointPersister persister) : base(persistStreams, persister) {
+        public ItemCountingClusterStreamProcessor(IDbService dbService, IPersistStreams persistStreams, Serilog.ILogger logger) : 
+            base(persistStreams, logger
+            , checkpointPersister: new DeclarativeCheckpointPersister(dbService)
+                .TryInitialiseFrom<PersistedSqlProjectorCheckpoint>()
+                .TryInitialiseFrom<FirstCommit>()  ) {
             _dbService = dbService;
         }
 

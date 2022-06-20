@@ -11,12 +11,19 @@ public class StreamProcessorPropsProvider : IStreamProcessorInitialisation {
     public StreamProcessorPropsProvider(ActorSystem system) {
         _system = system;
     }
-
+    /*
     public IEnumerable<Props> GetReplicaScopedStreamProcessorProps() {
         return new List<Props>() { DependencyResolver.For(_system).Props<OrderCountingStreamProcessor>() };
     }
 
     public IEnumerable<ClusterStreamProcessorInitialisation> GetClusterScopedStreamProcessorsInitialisationParameters() {
         return new List<Props> { DependencyResolver.For(_system).Props<ItemCountingClusterStreamProcessor>() }.Select(x=> new ClusterStreamProcessorInitialisation(x, "Cluster"));
+    }*/
+    public IEnumerable<ClusterStreamProcessorInitialisation> GetReplicaScopedStreamProcessorProps() {
+        throw new NotImplementedException();
+    }
+
+    public IEnumerable<ClusterStreamProcessorInitialisation> GetClusterScopedStreamProcessorsInitialisationParameters() {
+        throw new NotImplementedException();
     }
 }
