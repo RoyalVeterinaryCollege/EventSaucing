@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using NEventStore.Persistence;
 
 namespace EventSaucing.EventStream {
@@ -16,9 +17,10 @@ namespace EventSaucing.EventStream {
             _previousCheckpoint = startingCheckpoint;
             FetchNextPage();
         }
-        private void FetchNextPage()  {
-            //fill queue with next page. 'from' is excluded from this, 'to' is included 
-            foreach (var commit in _persistStreams.GetFromTo(from: _previousCheckpoint, to: _previousCheckpoint + 512)) {
+        private void FetchNextPage() {
+            // fill queue with next page. 'from' is excluded from this
+            // we can't simply stream the whole commit store here as a performance issue in NEventstore makes it run extremely slowly
+            foreach (var commit in _persistStreams.GetFrom(_previousCheckpoint).Take(512)) {
                 _queue.Enqueue(new OrderedCommitNotification(commit, _previousCheckpoint));
                 _previousCheckpoint = commit.CheckpointToken;
             }
