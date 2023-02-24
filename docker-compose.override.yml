@@ -1,0 +1,21 @@
+version: '3.4'
+# i think the idea behind the override file is that this is extra config for development only
+services:
+  exampleapp1:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=https://+:443;http://+:80
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=./ExampleApp.pfx
+      - ASPNETCORE_Kestrel__Certificates__Default__Password=Mk6pp4tEEEyyK33ARMTzyzMq
+    # this is how to mount volumes, eg to get access to certs
+    #volumes:
+      #- ${APPDATA}/ASP.NET/Https:/https:ro
+  exampleapp2:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=https://+:443;http://+:80
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=./ExampleApp.pfx
+      - ASPNETCORE_Kestrel__Certificates__Default__Password=Mk6pp4tEEEyyK33ARMTzyzMq
+    # this is how to mount volumes, eg to get access to certs
+    #volumes:
+      #- ${APPDATA}/ASP.NET/Https:/https:ro

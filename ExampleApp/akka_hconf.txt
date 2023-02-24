@@ -1,0 +1,88 @@
+akka {
+    # We need to tell Akka to provide us cluster enabled actors
+    actor.provider = cluster
+
+    remote {
+        dot-netty.tcp {
+            port = {AkkaClusterPort}
+            hostname = {AkkaClusterIP}
+        }
+    }
+    cluster {
+        seed-nodes = {AkkaClusterSeeds}  # example ["akka.tcp://seed@localhost:63478", "akka.tcp://seed@localhost:63479"]
+        min-nr-of-members = 1
+        sharding.state-store-mode = persistence
+
+        # This tells Akka which role this node belongs to
+        roles=[api] 
+    }
+    persistence {
+	    journal {
+	            plugin = "akka.persistence.journal.sql-server"
+
+                sql-server {
+			        # qualified type name of the SQL Server persistence journal actor
+			        class = "Akka.Persistence.SqlServer.Journal.SqlServerJournal, Akka.Persistence.SqlServer"
+
+			        # dispatcher used to drive journal actor
+			        plugin-dispatcher = "akka.actor.default-dispatcher"
+
+			        # connection string used for database access
+                    # todo replace with env variable
+			        connection-string = "{AkkaJournal}"
+
+			        # default SQL commands timeout
+			        connection-timeout = 30s
+
+                    # SQL server schema name to table corresponding with persistent journal
+                    schema-name = dbo
+
+                    # SQL server table corresponding with persistent journal
+                    table-name = AkkaEventJournal
+
+                    # should corresponding journal table be initialized automatically
+                    auto-initialize = on
+
+                    # timestamp provider used for generation of journal entries timestamps
+                    timestamp-provider = "Akka.Persistence.Sql.Common.Journal.DefaultTimestampProvider, Akka.Persistence.Sql.Common"
+
+			        # metadata table
+			        metadata-table-name = AkkaMetadata
+
+                    # Recommended: change default circuit breaker settings
+                    # By uncommenting below and using Connection Timeout + Command Timeout
+                    circuit-breaker.call-timeout=60s
+                }
+            }
+        snapshot-store {
+            plugin = "akka.persistence.snapshot-store.sql-server"
+            sql-server {
+                # qualified type name of the SQL Server persistence journal actor
+                class = "Akka.Persistence.SqlServer.Snapshot.SqlServerSnapshotStore, Akka.Persistence.SqlServer"
+
+                # dispatcher used to drive journal actor
+                plugin-dispatcher = ""akka.actor.default-dispatcher""
+
+                # connection string used for database access
+                # todo replace with env variable
+                connection-string = "{AkkaSnapshotStore}"
+
+                # default SQL commands timeout
+                connection-timeout = 30s
+      
+			    # SQL server schema name to table corresponding with persistent journal
+			    schema-name = dbo
+
+			    # SQL server table corresponding with persistent journal
+			    table-name = AkkaSnapshotStore
+
+			    # should corresponding journal table be initialized automatically
+			    auto-initialize = on
+			    
+			    # Recommended: change default circuit breaker settings
+			    # By uncommenting below and using Connection Timeout + Command Timeout
+			    circuit-breaker.call-timeout=60s
+		    }
+	    }
+    }
+}
