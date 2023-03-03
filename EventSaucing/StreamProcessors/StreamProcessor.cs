@@ -197,7 +197,7 @@ namespace EventSaucing.StreamProcessors {
         /// Sets the StreamProcessor's checkpoint and publishes the changed event to the event stream
         /// </summary>
         /// <param name="checkpoint"></param>
-        private void SetCheckpoint(long checkpoint) {
+        protected void SetCheckpoint(long checkpoint) {
             Checkpoint = checkpoint;
             Context.System.EventStream.Publish(new Messages.AfterStreamProcessorCheckpointStatusSet(GetType(), checkpoint));
         }
