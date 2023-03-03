@@ -30,11 +30,6 @@ namespace EventSaucing.HostedServices {
         private Option<IActorRef> _replicaStreamProcessorSupervisor = Option.None();
 
         /// <summary>
-        /// Optional Proxy to actor of type <see cref="StreamProcessorSupervisor"/>, which is a cluster singleton which manages the cluster-scoped <see cref="StreamProcessor"/> actors
-        /// </summary>
-        private Option<IActorRef> _clusterProjectorSupervisor = Option.None();
-
-        /// <summary>
         /// Instantiates
         /// </summary>
         /// <param name="dbService"></param>
@@ -54,7 +49,7 @@ namespace EventSaucing.HostedServices {
         /// </summary>
         /// <param name="streamProcessorTypes"></param>
         /// <returns></returns>
-        private Props CreateSupervisorProps(IEnumerable<ClusterStreamProcessorInitialisation> streamProcessorTypes) {
+        private Props CreateSupervisorProps(IEnumerable<ReplicaStreamProcessorInitialisation> streamProcessorTypes) {
             Func<IUntypedActorContext, IEnumerable<IActorRef>> func;
             func = ctx => streamProcessorTypes.Select(ix => ctx.ActorOf(ix.Props, ix.ActorName));
             return Props.Create<StreamProcessorSupervisor>(func);
@@ -92,13 +87,13 @@ namespace EventSaucing.HostedServices {
                 }
 
                 // foreach akka node role, create the cluster singletons
-                foreach (var g in clusterScopedStreamProcessors.GroupBy(x => x.ClusterRole.Get())) {
-                    _clusterProjectorSupervisor = _actorSystem.ActorOf(
+                foreach (var g in clusterScopedStreamProcessors.GroupBy(x => x.ClusterRole)) {
+                    var actor = _actorSystem.ActorOf(
                         ClusterSingletonManager.Props(
-                            singletonProps: CreateSupervisorProps(g.Select(x=>x)),
+                            singletonProps: CreateSupervisorProps(g.Select(x => x)),
                             terminationMessage: PoisonPill.Instance,
                             settings: ClusterSingletonManagerSettings.Create(_actorSystem).WithRole(g.Key)
-                            ), name: $"cluster-scoped-streamprocessor-supervisor-{g.Key}").ToSome();
+                        ), name: $"cluster-scoped-streamprocessor-supervisor-{g.Key}");
 
                     _logger.LogInformation($"EventSaucing started supervision of cluster-scoped StreamProcessors of {string.Join(", ", g.Select(x => x.Props).Select(x => x.TypeName))}");
                 }
@@ -116,7 +111,6 @@ namespace EventSaucing.HostedServices {
             _logger.LogInformation($"EventSaucing {nameof(StreamProcessorService)} stop requested");
 
             if (_replicaStreamProcessorSupervisor.HasValue) {
-
                 _logger.LogInformation($"EventSaucing {nameof(StreamProcessorService)} stopping replica scoped {nameof(StreamProcessorSupervisor)}"); 
                 //send stop which stops the actor as soon as it has finished processing the current message //https://petabridge.com/blog/how-to-stop-an-actor-akkadotnet/
                 var actorRef = _replicaStreamProcessorSupervisor.Get();
