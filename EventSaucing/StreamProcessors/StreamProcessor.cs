@@ -289,17 +289,21 @@ namespace EventSaucing.StreamProcessors {
             if (Checkpoint == msg.PreviousCheckpoint) {
                 // this is the next commit for us to process
 
-                bool shouldPersistCheckpoint = true; //defaults to true so if processing results in an exception, the checkpoint is persisted anyway
                
                 try {
-                    shouldPersistCheckpoint = await ProcessAsync(msg.Commit);
+                    bool shouldPersistCheckpoint = await ProcessAsync(msg.Commit);
+
+                    // advance to next checkpoint
+                    SetCheckpoint(msg.Commit.CheckpointToken);
+
+                    // save the checkpoint, if we processed it
+                    if (shouldPersistCheckpoint) await PersistCheckpointAsync();
                 } catch (Exception e) {
                     Context.GetLogger().Error(e,
                         $"Exception caught when StreamProcessor {GetType().FullName} tried to process checkpoint {msg.Commit.CheckpointToken} for aggregate {msg.Commit.AggregateId()}");
-                } finally {
-                    // save the checkpoint, even on error
-                    if (shouldPersistCheckpoint) await PersistCheckpointAsync();
-                }
+                    // save checkpoint on error, so status table reflects state of StreamProcessor
+                    await PersistCheckpointAsync();
+                } 
             }
             else if (Checkpoint > msg.PreviousCheckpoint) {
                 // we have already processed this commit
