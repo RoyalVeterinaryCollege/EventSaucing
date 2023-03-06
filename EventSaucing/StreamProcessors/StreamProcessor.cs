@@ -297,9 +297,6 @@ namespace EventSaucing.StreamProcessors {
                     Context.GetLogger().Error(e,
                         $"Exception caught when StreamProcessor {GetType().FullName} tried to process checkpoint {msg.Commit.CheckpointToken} for aggregate {msg.Commit.AggregateId()}");
                 } finally {
-                    //advance to next checkpoint even on error
-                    SetCheckpoint(msg.Commit.CheckpointToken);
-
                     // save the checkpoint, even on error
                     if (shouldPersistCheckpoint) await PersistCheckpointAsync();
                 }
