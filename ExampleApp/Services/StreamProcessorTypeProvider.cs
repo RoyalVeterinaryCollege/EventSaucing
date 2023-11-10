@@ -13,19 +13,19 @@ public class StreamProcessorPropsProvider : IStreamProcessorInitialisation {
         _system = system;
     }
 
-    public IEnumerable<ClusterStreamProcessorInitialisation> GetReplicaScopedStreamProcessorProps() {
-        var replicaScopedProcessors = new List<ClusterStreamProcessorInitialisation> {
-            GetIoC<OrderCountingStreamProcessor>()
+    public IEnumerable<ReplicaStreamProcessorInitialisation> GetReplicaScopedStreamProcessorProps() {
+        var replicaScopedProcessors = new List<ReplicaStreamProcessorInitialisation> {
+            GetReplicaStreamProcessor<OrderCountingStreamProcessor>()
         };
 
         return replicaScopedProcessors;
     }
 
     public IEnumerable<ClusterStreamProcessorInitialisation> GetClusterScopedStreamProcessorsInitialisationParameters() {
-        var clusterRole = "api".ToSome();
+        var clusterRole = "api";
 
         var clusterScopedStreamProcessors = new List<ClusterStreamProcessorInitialisation> {
-            GetIoC<ItemCountingClusterStreamProcessor>(clusterRole)
+            GetClusterStreamProcessor<ItemCountingClusterStreamProcessor>(clusterRole)
         };
 
         return clusterScopedStreamProcessors;
@@ -35,21 +35,22 @@ public class StreamProcessorPropsProvider : IStreamProcessorInitialisation {
     /// Gets ClusterStreamProcessorInitialisation with IoC ctor parameters only
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    /// <returns></returns>
-    private ClusterStreamProcessorInitialisation GetIoC<T>() => GetIoC<T>(Option.None());
-
-    /// <summary>
-    /// Gets ClusterStreamProcessorInitialisation with IoC ctor parameters only
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
     /// <param name="clusterRole"></param>
     /// <returns></returns>
-    private ClusterStreamProcessorInitialisation GetIoC<T>(Option<string> clusterRole) =>
+    private ClusterStreamProcessorInitialisation GetClusterStreamProcessor<T>(string clusterRole) =>
         new(
             props: DependencyResolver
                 .For(_system)
                 .Props(typeof(T)),
             actorName: typeof(T).FullName,
             clusterRole: clusterRole
+        );
+
+    private ReplicaStreamProcessorInitialisation GetReplicaStreamProcessor<T>() =>
+        new(
+            props: DependencyResolver
+                .For(_system)
+                .Props(typeof(T)),
+            actorName: typeof(T).FullName
         );
 }
