@@ -17,7 +17,7 @@ namespace EventSaucing.StreamProcessors {
 			this.eventDispatcher = new ConventionBasedEventDispatcher(this);
 		}
 
-		public sealed override async Task<bool> ProcessAsync(ICommit commit) {
+		public override async Task<bool> ProcessAsync(ICommit commit) {
 
 			var streamProcessorMethods = eventDispatcher.GetStreamProcessorMethods(commit).ToList();
 
