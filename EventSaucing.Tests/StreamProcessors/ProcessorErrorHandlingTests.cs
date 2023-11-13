@@ -120,13 +120,19 @@ namespace EventSaucing.StreamProcessors {
         [Test]
         public void Should_start_at_10() {
             _publishedMessages
-                .Should().ContainSingle(x => x.Checkpoint == 10L && x.MyType == typeof(ErrorThrowingStreamProcessor));
+                .First()
+                .Should()
+                .BeOfType<StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet>()
+                .Which.Checkpoint.Should().Be(10L);
         }
 
         [Test]
-        public void Should_advance_checkpoint_to_11_as_commit_received_and_error_thrown_should_be_handled() {
+        public void Should_stay_at_10_after_erroring() {
             _publishedMessages
-                .Should().ContainSingle(x => x.Checkpoint == 11L && x.MyType == typeof(ErrorThrowingStreamProcessor));
+                .Last()
+                .Should()
+                .BeOfType<StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet>()
+                .Which.Checkpoint.Should().Be(10L);
         }
     }
 }
