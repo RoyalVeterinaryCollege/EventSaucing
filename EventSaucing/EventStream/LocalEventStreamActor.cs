@@ -69,7 +69,19 @@ namespace EventSaucing.EventStream {
                     cachedCommits.ForEach(StreamCommit);
                 } else {
                     //local cache can't ensure we have all the commits in order, go to db
-                    PollEventStoreWithExponentialBackoff(msg, _lastStreamedCheckpoint.Get());
+
+                    //we poll exponentially, on the size of the backlog of unprojected commits
+                    if (!IsPowerOfTwo((ulong)_backlogCommitCount))
+                        return;
+
+                    //log that we are going to db.  Situation is entirely normal and expected in distributed cluster
+                    var currentCheckpoint = _lastStreamedCheckpoint.Map(x => x.ToString()).GetOrElse("no current commit");
+
+                    Context.GetLogger()
+                        .Debug(
+                            $"Received a commit notification (checkpoint {msg.Commit.CheckpointToken}) whilst currentCheckpoint={currentCheckpoint}.  Commit couldn't be ordered via the cache so polling dbo.Commits with @backlog count={_backlogCommitCount}");
+
+                    PollEventStore(_lastStreamedCheckpoint.Get());
                 }
             }
         }
@@ -81,23 +93,15 @@ namespace EventSaucing.EventStream {
         /// <returns></returns>
         /// <remarks>https://stackoverflow.com/questions/600293/how-to-check-if-a-number-is-a-power-of-2</remarks>
         bool IsPowerOfTwo(ulong x) => (x & (x - 1)) == 0;
-    
-        private void PollEventStoreWithExponentialBackoff(CommitNotification msg, long afterCheckpoint) {
-            //we poll exponentially, on the size of the backlog of unprojected commits
-            if (!IsPowerOfTwo((ulong)_backlogCommitCount))
-                return;
 
-            //log that we are going to db.  Situation is entirely normal and expected in distributed cluster
-            var currentCheckpoint = _lastStreamedCheckpoint.Map(x => x.ToString()).GetOrElse("no currentcommit");
-
-            Context.GetLogger()
-                   .Debug($"Received a commit notification (checkpoint {msg.Commit.CheckpointToken}) whilst currentCheckpoint={currentCheckpoint}.  Commit couldn't be ordered via the cache so polling dbo.Commits with @backlog count={_backlogCommitCount}");
-
+        private void PollEventStore(long afterCheckpoint) {
             // this actor stops itself after it has processed the msg
             var eventStorePollerActor = _pollerMaker(Context);
 
             //ask the poller to get the commits directly from the store
-            eventStorePollerActor.Tell(new EventStorePollerActor.Messages.SendCommitAfterCurrentHeadCheckpointMessage(afterCheckpoint,_backlogCommitCount.ToSome()));
+            eventStorePollerActor.Tell(
+                new EventStorePollerActor.Messages.SendCommitAfterCurrentHeadCheckpointMessage(afterCheckpoint,
+                    _backlogCommitCount.ToSome()));
         }
 
         /// <summary>
