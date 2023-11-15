@@ -53,11 +53,17 @@ namespace EventSaucing.EventStream {
         protected override void PreStart() {
             base.PreStart();
 
+            InitialiseFromHeadCommit();
+        }
+
+        /// <summary>
+        /// Initialises the actor from the head commit in dbo.Commits
+        /// </summary>
+        private void InitialiseFromHeadCommit() {
             // this actor stops itself after it has processed the msg
             var eventStorePollerActor = _pollerMaker(Context);
             eventStorePollerActor.Tell(new EventStorePollerActor.Messages.SendHeadCommit());
         }
-
 
         /// <summary>
         /// This message is sent from a node after a commit is created on any node.  Commits can be received out of order.  
@@ -68,10 +74,8 @@ namespace EventSaucing.EventStream {
             _backlogCommitCount++;
 
             if (!_lastStreamedCheckpoint.HasValue) {
-                // The first commit we receive can't be ordered by this actor because we don't know the Checkpoint number which proceeds it
-                // we simply store it and wait for the next commit.  If the next commit follows it, we can send them both out together. 
-                // if it doesn't we go to the commit store instead
-                _lastStreamedCheckpoint = msg.Commit.CheckpointToken.ToSome(); //this commit is now considered the head
+                // we haven't initialised yet, so we can't order this commit.  We need to go to the db to find the head commit
+                InitialiseFromHeadCommit();
             } else {
                 List<OrderedCommitNotification> cachedCommits = _cache.GetCommitsAfter(_lastStreamedCheckpoint.Get());
                 if (cachedCommits.Count > 0) {
