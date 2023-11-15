@@ -46,14 +46,17 @@ namespace EventSaucing.EventStream {
             Receive<Messages.SendHeadCommit>(Received);
         }
 
-        private void Receive<T>(Action<Messages.SendCommitAfterCurrentHeadCheckpointMessage> msg) {
+        private void Received(Messages.SendHeadCommit msg) {
             using (var con = _dbService.GetCommitStore()) {
                 // get the head-1 checkpoint from the db
                 var currentHeadCheckpoints = con.Query<long>("SELECT TOP 2 CheckpointToken FROM dbo.Commit ORDER BY CheckpointToken DESC").ToList();
 
                 // reply with the head of the commit store
-                Received(new Messages.SendCommitAfterCurrentHeadCheckpointMessage(currentHeadCheckpoint:currentHeadCheckpoints.Last(),1.ToSome()));
+                var commit = _persistStreams.GetFrom(currentHeadCheckpoints.First()).First();
+                Context.Sender.Tell(new OrderedCommitNotification(commit,currentHeadCheckpoints.Last()));
             }
+
+            Context.Stop(Self);
         }
 
         private void Received(Messages.SendCommitAfterCurrentHeadCheckpointMessage msg) {
