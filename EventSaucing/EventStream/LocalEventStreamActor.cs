@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Akka.Actor;
 using Akka.Dispatch.SysMsg;
 using Akka.Event;
-using NEventStore.Persistence;
 using Scalesque;
 
 namespace EventSaucing.EventStream {
@@ -122,6 +121,7 @@ namespace EventSaucing.EventStream {
         private void Received(OrderedCommitNotification msg)  {
             // if we haven't sent a message yet, send this one, else only send the commit if it follows the last streamed checkpoint, else just ignore it
             if (_lastStreamedCheckpoint.IsEmpty) {
+                _cache.Cache(msg.Commit);
                 StreamCommit(msg);
             } else if(_lastStreamedCheckpoint.Map(x=> x == msg.PreviousCheckpoint).GetOrElse(false)){
                 StreamCommit(msg);

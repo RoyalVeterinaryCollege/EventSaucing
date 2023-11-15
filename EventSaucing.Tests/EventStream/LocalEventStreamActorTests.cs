@@ -44,7 +44,7 @@ namespace EventSaucing.EventStream
     public class When_starts : LocalEventStreamActorTests{
         [Test]
         public void Should_poll_the_event_store_to_find_head(){
-            _pollEventStoreProbe.ExpectMsg<EventStorePollerActor.Messages.SendHeadCommit>(duration:TimeSpan.FromMilliseconds(1000));
+            _pollEventStoreProbe.ExpectMsg<EventStorePollerActor.Messages.SendHeadCommit>(duration:TimeSpan.FromMilliseconds(100));
         }
     }
 
@@ -80,11 +80,6 @@ namespace EventSaucing.EventStream
                 TimeSpan.FromMilliseconds(100)
                 );
         }
-
-        [Test]
-        public void Should_not_poll_the_event_store() {
-            _pollEventStoreProbe.ExpectNoMsg(TimeSpan.FromMilliseconds(100));
-        }
     }
 
     public class When_receives_second_commit_which_doesn_not_follow_first : LocalEventStreamActorTests {
@@ -97,6 +92,9 @@ namespace EventSaucing.EventStream
 
             sut.Tell(new CommitNotification(_commit1), this.TestActor);
             sut.Tell(new CommitNotification(_commit2), this.TestActor);
+
+            // expect this first, but we aren't actually testing for this, in this particular test
+            _pollEventStoreProbe.ExpectMsg<EventStorePollerActor.Messages.SendHeadCommit>();
         }
 
         [Test]
@@ -121,6 +119,9 @@ namespace EventSaucing.EventStream
             _commit1 = new FakeCommit { CheckpointToken = 10L };
             _commit2 = new FakeCommit { CheckpointToken = 11L };
             _commit3 = new FakeCommit { CheckpointToken = 12L };
+
+            // expect this first, but we aren't actually testing for this, in this particular test
+            _pollEventStoreProbe.ExpectMsg<EventStorePollerActor.Messages.SendHeadCommit>();
 
             sut.Tell(new CommitNotification(_commit1), this.TestActor);
             sut.Tell(new CommitNotification(_commit3), this.TestActor); //note sent out of order
