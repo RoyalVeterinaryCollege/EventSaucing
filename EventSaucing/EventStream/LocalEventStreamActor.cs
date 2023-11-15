@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Akka.Actor;
 using Akka.Dispatch.SysMsg;
 using Akka.Event;
+using NEventStore.Persistence;
 using Scalesque;
 
 namespace EventSaucing.EventStream {
@@ -40,6 +41,7 @@ namespace EventSaucing.EventStream {
         /// </summary>
         /// <param name="cache">IInMemoryCommitSerialiserCache</param>
         /// <param name="pollerMaker">Func to create <see cref="EventStorePollerActor"/> actor</param>
+        /// <param name="persistStreams"></param>
         public LocalEventStreamActor(IInMemoryCommitSerialiserCache cache, Func<IUntypedActorContext, IActorRef> pollerMaker) {
             _cache = cache;
             _pollerMaker = pollerMaker;
@@ -48,6 +50,15 @@ namespace EventSaucing.EventStream {
             Receive<OrderedCommitNotification>(Received);
             Receive<Stop>(stop => Context.Stop(Self));
         }
+
+        protected override void PreStart() {
+            base.PreStart();
+
+            // this actor stops itself after it has processed the msg
+            var eventStorePollerActor = _pollerMaker(Context);
+            eventStorePollerActor.Tell(new EventStorePollerActor.Messages.SendHeadCommit());
+        }
+
 
         /// <summary>
         /// This message is sent from a node after a commit is created on any node.  Commits can be received out of order.  
@@ -109,8 +120,10 @@ namespace EventSaucing.EventStream {
         /// </summary>
         /// <param name="msg"></param>
         private void Received(OrderedCommitNotification msg)  {
-            // only send the commit if it follows the last streamed checkpoint, else just ignore it
-            if(_lastStreamedCheckpoint.Map(x=> x == msg.PreviousCheckpoint).GetOrElse(false)){
+            // if we haven't sent a message yet, send this one, else only send the commit if it follows the last streamed checkpoint, else just ignore it
+            if (_lastStreamedCheckpoint.IsEmpty) {
+                StreamCommit(msg);
+            } else if(_lastStreamedCheckpoint.Map(x=> x == msg.PreviousCheckpoint).GetOrElse(false)){
                 StreamCommit(msg);
             }
         }

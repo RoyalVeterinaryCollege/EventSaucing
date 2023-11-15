@@ -1,7 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Akka.Actor;
+using Dapper;
+using EventSaucing.Storage;
 using NEventStore;
 using NEventStore.Persistence;
 using Scalesque;
@@ -13,6 +16,10 @@ namespace EventSaucing.EventStream {
     public class EventStorePollerActor : ReceiveActor {
 
         public static class Messages {
+
+            public class SendHeadCommit {
+
+            }
             /// <summary>
             /// Message sent to ask for a commit notification to be ordered
             /// </summary>
@@ -30,10 +37,23 @@ namespace EventSaucing.EventStream {
             }
         }
         private readonly IPersistStreams _persistStreams;
+        private readonly IDbService _dbService;
 
-        public EventStorePollerActor(IPersistStreams persistStreams) {
+        public EventStorePollerActor(IPersistStreams persistStreams, IDbService dbService) {
             _persistStreams = persistStreams;
+            _dbService = dbService;
             Receive<Messages.SendCommitAfterCurrentHeadCheckpointMessage>(Received);
+            Receive<Messages.SendHeadCommit>(Received);
+        }
+
+        private void Receive<T>(Action<Messages.SendCommitAfterCurrentHeadCheckpointMessage> msg) {
+            using (var con = _dbService.GetCommitStore()) {
+                // get the head-1 checkpoint from the db
+                var currentHeadCheckpoints = con.Query<long>("SELECT TOP 2 CheckpointToken FROM dbo.Commit ORDER BY CheckpointToken DESC").ToList();
+
+                // reply with the head of the commit store
+                Received(new Messages.SendCommitAfterCurrentHeadCheckpointMessage(currentHeadCheckpoint:currentHeadCheckpoints.Last(),1.ToSome()));
+            }
         }
 
         private void Received(Messages.SendCommitAfterCurrentHeadCheckpointMessage msg) {

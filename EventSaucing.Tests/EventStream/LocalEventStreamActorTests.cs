@@ -3,7 +3,6 @@ using Akka.Actor;
 using Akka.TestKit;
 using Akka.TestKit.NUnit3;
 using NUnit.Framework;
-using Scalesque;
 
 namespace EventSaucing.EventStream
 {
@@ -34,29 +33,32 @@ namespace EventSaucing.EventStream
             sut = Sys.ActorOf(Props.Create<LocalEventStreamActor>(cache, maker));
 
 
-           Because();
+            Because();
         }
+
 
         protected virtual void Because() { }
 
     }
 
-    public class When_receives_first_commit  : LocalEventStreamActorTests
+    public class When_starts : LocalEventStreamActorTests{
+        [Test]
+        public void Should_poll_the_event_store_to_find_head(){
+            _pollEventStoreProbe.ExpectMsg<EventStorePollerActor.Messages.SendHeadCommit>(duration:TimeSpan.FromMilliseconds(1000));
+        }
+    }
+
+    public class When_receives_first_ordered_commit_from_poller : LocalEventStreamActorTests
     {
-        private FakeCommit _commit1;
+        private OrderedCommitNotification _commit1;
 
         protected override void Because() {
-            _commit1 = new FakeCommit() { CheckpointToken = 10L };
-            sut.Tell(new CommitNotification(_commit1), this.TestActor);
+            _commit1 = new OrderedCommitNotification(new FakeCommit{CheckpointToken = 10L}, previousCheckpoint:9L);
+            sut.Tell(_commit1, this.TestActor);
         }
 
-        [Test] public void Should_not_stream_the_commit_because_it_cant_be_ordered_as_we_dont_know_the_earlier_commit() {
-            _eventBusStoreProbe.ExpectNoMsg(TimeSpan.FromMilliseconds(100)); 
-        }
-
-        [Test]
-        public void Should_not_poll_the_event_store(){
-            _pollEventStoreProbe.ExpectNoMsg(TimeSpan.FromMilliseconds(100));
+        [Test] public void Should_stream_the_commit() {
+            _eventBusStoreProbe.ExpectMsg(_commit1, TimeSpan.FromMilliseconds(100)); 
         }
     }
     public class When_receives_second_commit_which_follows_first : LocalEventStreamActorTests {
