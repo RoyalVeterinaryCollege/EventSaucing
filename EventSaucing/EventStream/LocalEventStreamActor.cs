@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using Akka.Actor;
 using Akka.Dispatch.SysMsg;
 using Akka.Event;
+using EventSaucing.HostedServices;
+using Microsoft.Extensions.Logging;
 using Scalesque;
 
 namespace EventSaucing.EventStream {
@@ -25,6 +27,8 @@ namespace EventSaucing.EventStream {
         /// </summary>
         private readonly Func<IUntypedActorContext, IActorRef> _pollerMaker;
 
+        private readonly ILogger<LocalEventStreamActor> _logger;
+
         /// <summary>
         /// Holds a pointer to the latest checkpoint we streamed.  None = not projected anything yet
         /// </summary>
@@ -41,9 +45,11 @@ namespace EventSaucing.EventStream {
         /// <param name="cache">IInMemoryCommitSerialiserCache</param>
         /// <param name="pollerMaker">Func to create <see cref="EventStorePollerActor"/> actor</param>
         /// <param name="persistStreams"></param>
-        public LocalEventStreamActor(IInMemoryCommitSerialiserCache cache, Func<IUntypedActorContext, IActorRef> pollerMaker) {
+        /// <param name="logger"></param>
+        public LocalEventStreamActor(IInMemoryCommitSerialiserCache cache, Func<IUntypedActorContext, IActorRef> pollerMaker, ILogger<LocalEventStreamActor> logger) {
             _cache = cache;
             _pollerMaker = pollerMaker;
+            _logger = logger;
 
             Receive<CommitNotification>(Received);
             Receive<OrderedCommitNotification>(Received);
@@ -52,7 +58,7 @@ namespace EventSaucing.EventStream {
 
         protected override void PreStart() {
             base.PreStart();
-
+            _logger.LogInformation("Starting");
             InitialiseFromHeadCommit();
         }
 
@@ -109,6 +115,7 @@ namespace EventSaucing.EventStream {
         bool IsPowerOfTwo(ulong x) => (x & (x - 1)) == 0;
 
         private void PollEventStore(long afterCheckpoint) {
+            _logger.LogDebug($"Polling event store after checkpoint {afterCheckpoint}");
             // this actor stops itself after it has processed the msg
             var eventStorePollerActor = _pollerMaker(Context);
 
@@ -125,6 +132,7 @@ namespace EventSaucing.EventStream {
         private void Received(OrderedCommitNotification msg)  {
             // if we haven't sent a message yet, send this one, else only send the commit if it follows the last streamed checkpoint, else just ignore it
             if (_lastStreamedCheckpoint.IsEmpty) {
+                _logger.LogInformation($"Streamed first commit {msg.Commit.CheckpointToken}");
                 _cache.Cache(msg.Commit);
                 StreamCommit(msg);
             } else if(_lastStreamedCheckpoint.Map(x=> x == msg.PreviousCheckpoint).GetOrElse(false)){
