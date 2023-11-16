@@ -38,12 +38,12 @@
     <PackageReference Include="Akka.DependencyInjection" Version="1.5.14" />
     <PackageReference Include="Akka.Persistence" Version="1.5.14" />
     <PackageReference Include="Akka.Persistence.SqlServer" Version="1.5.13" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="5.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="3.0.3" />
-    <PackageReference Include="Dapper" Version="2.0.123" />
-    <PackageReference Include="NEventStore.Domain" Version="9.0.1" />
-    <PackageReference Include="NEventStore.Persistence.Sql" Version="9.0.1" />
-    <PackageReference Include="NEventStore.Serialization.Json" Version="9.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageReference Include="Dapper" Version="2.1.21" />
+    <PackageReference Include="NEventStore.Domain" Version="9.1.1" />
+    <PackageReference Include="NEventStore.Persistence.Sql" Version="9.1.2" />
+    <PackageReference Include="NEventStore.Serialization.Json" Version="9.1.1" />
     <PackageReference Include="Akka.Logger.Serilog" Version="1.5.12.1" />
     <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="8.0.0" />
     <PackageReference Include="Scalesque" Version="1.0.3" />

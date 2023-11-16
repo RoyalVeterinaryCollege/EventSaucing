@@ -46,19 +46,8 @@ namespace EventSaucing.StreamProcessors.Projectors {
                     return persistedCheckpoint.Get();
                 }
 
-                if (IsInitialisedAtHead(streamProcessor)) {
-                    return await GetCommitstoreHeadAsync();
-                }
-
                 return 0L;
             }
-        }
-
-        private bool IsInitialisedAtHead(StreamProcessor streamProcessor) {
-            return _config
-                .GetSection("EventSaucing:StreamProcessors:InitialiseAtHead")
-                .Get<string[]>()
-                .Contains(streamProcessor.GetType().FullName);
         }
 
         const string SqlPersistProjectorState = @"

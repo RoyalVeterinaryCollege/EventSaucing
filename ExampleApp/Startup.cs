@@ -25,7 +25,7 @@ namespace ExampleApp {
                 cluster_ip  = Configuration.GetValue<string>("Akka:ClusterIP"),
                 cluster_port = Configuration.GetValue<string>("Akka:ClusterPort"),
                 // split this on , and insert quotes around each
-                cluster_seeds = Configuration.GetValue<string>("Akka:ClusterSeeds")
+                cluster_seeds = Configuration.GetValue<string>("Akka:ClusterSeeds")!
                     .Split(",")
                     .Select(x => $"\"{x}\"")
             };

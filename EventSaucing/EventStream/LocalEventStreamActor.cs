@@ -44,7 +44,6 @@ namespace EventSaucing.EventStream {
         /// </summary>
         /// <param name="cache">IInMemoryCommitSerialiserCache</param>
         /// <param name="pollerMaker">Func to create <see cref="EventStorePollerActor"/> actor</param>
-        /// <param name="persistStreams"></param>
         /// <param name="logger"></param>
         public LocalEventStreamActor(IInMemoryCommitSerialiserCache cache, Func<IUntypedActorContext, IActorRef> pollerMaker, ILogger<LocalEventStreamActor> logger) {
             _cache = cache;
