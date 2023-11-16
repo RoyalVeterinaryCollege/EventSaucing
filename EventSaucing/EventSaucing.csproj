@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Copyright>� The Royal Veterinary College. All Rights Reserved 2017</Copyright>
+    <Copyright>� The Royal Veterinary College. All Rights Reserved 2023</Copyright>
     <AssemblyTitle>Event Saucing</AssemblyTitle>
     <VersionPrefix>1.0.2</VersionPrefix>
     <TargetFramework>netstandard2.0</TargetFramework>
@@ -10,16 +10,18 @@
     <GenerateAssemblyCompanyAttribute>false</GenerateAssemblyCompanyAttribute>
     <GenerateAssemblyProductAttribute>false</GenerateAssemblyProductAttribute>
     <GenerateAssemblyCopyrightAttribute>false</GenerateAssemblyCopyrightAttribute>
-    <Version>1.0.29</Version>
+    <Version>2.0.0</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageProjectUrl>https://github.com/RoyalVeterinaryCollege/EventSaucing</PackageProjectUrl>
     <PackageLicenseUrl></PackageLicenseUrl>
     <RepositoryUrl>https://github.com/RoyalVeterinaryCollege/EventSaucing</RepositoryUrl>
-    <PackageReleaseNotes>Fixed SQL injection attack vulnerability</PackageReleaseNotes>
-    <AssemblyVersion>1.0.29.0</AssemblyVersion>
-    <FileVersion>1.0.29.0</FileVersion>
+    <PackageReleaseNotes>EventSaucing 2.  Distributed framework built on Akka. Mulitple instances possible. Better conventions for projects.  Projectors can depend on each other.  </PackageReleaseNotes>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
     <Description>An event source stack based on NEventStore and Akka</Description>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <Title>EventSaucing 2.0</Title>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DefineConstants>DEBUG;TRACE</DefineConstants>
@@ -33,19 +35,19 @@
     <NoWarn>1701;1702;CS0618</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Akka.Cluster.Sharding" Version="1.4.35" />
-    <PackageReference Include="Akka.Cluster.Tools" Version="1.4.35" />
-    <PackageReference Include="Akka.DependencyInjection" Version="1.4.35" />
-    <PackageReference Include="Akka.Persistence" Version="1.4.35" />
-    <PackageReference Include="Akka.Persistence.SqlServer" Version="1.4.35" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="5.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="3.0.3" />
-    <PackageReference Include="Dapper" Version="2.0.123" />
-    <PackageReference Include="NEventStore.Domain" Version="9.0.1" />
-    <PackageReference Include="NEventStore.Persistence.Sql" Version="9.0.1" />
-    <PackageReference Include="NEventStore.Serialization.Json" Version="9.0.1" />
-    <PackageReference Include="Akka.Logger.Serilog" Version="1.4.26" />
-    <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="7.2.0" />
+    <PackageReference Include="Akka.Cluster.Sharding" Version="1.5.14" />
+    <PackageReference Include="Akka.Cluster.Tools" Version="1.5.14" />
+    <PackageReference Include="Akka.DependencyInjection" Version="1.5.14" />
+    <PackageReference Include="Akka.Persistence" Version="1.5.14" />
+    <PackageReference Include="Akka.Persistence.SqlServer" Version="1.5.13" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageReference Include="Dapper" Version="2.1.21" />
+    <PackageReference Include="NEventStore.Domain" Version="9.1.1" />
+    <PackageReference Include="NEventStore.Persistence.Sql" Version="9.1.2" />
+    <PackageReference Include="NEventStore.Serialization.Json" Version="9.1.1" />
+    <PackageReference Include="Akka.Logger.Serilog" Version="1.5.12.1" />
+    <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="8.0.0" />
     <PackageReference Include="Scalesque" Version="1.0.3" />
   </ItemGroup>
   <ItemGroup Condition=" '$(TargetFramework)' == 'net452' ">
@@ -53,6 +55,10 @@
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
     <None Include="LICENSE.txt">
       <Pack>True</Pack>
       <PackagePath></PackagePath>

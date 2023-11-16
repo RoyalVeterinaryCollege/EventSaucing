@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using Akka.Actor;
 using Akka.Dispatch.SysMsg;
 using Akka.Event;
+using EventSaucing.HostedServices;
+using Microsoft.Extensions.Logging;
 using Scalesque;
 
 namespace EventSaucing.EventStream {
@@ -25,6 +27,8 @@ namespace EventSaucing.EventStream {
         /// </summary>
         private readonly Func<IUntypedActorContext, IActorRef> _pollerMaker;
 
+        private readonly ILogger<LocalEventStreamActor> _logger;
+
         /// <summary>
         /// Holds a pointer to the latest checkpoint we streamed.  None = not projected anything yet
         /// </summary>
@@ -40,13 +44,30 @@ namespace EventSaucing.EventStream {
         /// </summary>
         /// <param name="cache">IInMemoryCommitSerialiserCache</param>
         /// <param name="pollerMaker">Func to create <see cref="EventStorePollerActor"/> actor</param>
-        public LocalEventStreamActor(IInMemoryCommitSerialiserCache cache, Func<IUntypedActorContext, IActorRef> pollerMaker) {
+        /// <param name="logger"></param>
+        public LocalEventStreamActor(IInMemoryCommitSerialiserCache cache, Func<IUntypedActorContext, IActorRef> pollerMaker, ILogger<LocalEventStreamActor> logger) {
             _cache = cache;
             _pollerMaker = pollerMaker;
+            _logger = logger;
 
             Receive<CommitNotification>(Received);
             Receive<OrderedCommitNotification>(Received);
             Receive<Stop>(stop => Context.Stop(Self));
+        }
+
+        protected override void PreStart() {
+            base.PreStart();
+            _logger.LogInformation("Starting");
+            InitialiseFromHeadCommit();
+        }
+
+        /// <summary>
+        /// Initialises the actor from the head commit in dbo.Commits
+        /// </summary>
+        private void InitialiseFromHeadCommit() {
+            // this actor stops itself after it has processed the msg
+            var eventStorePollerActor = _pollerMaker(Context);
+            eventStorePollerActor.Tell(new EventStorePollerActor.Messages.SendHeadCommit());
         }
 
         /// <summary>
@@ -58,10 +79,8 @@ namespace EventSaucing.EventStream {
             _backlogCommitCount++;
 
             if (!_lastStreamedCheckpoint.HasValue) {
-                // The first commit we receive can't be ordered by this actor because we don't know the Checkpoint number which proceeds it
-                // we simply store it and wait for the next commit.  If the next commit follows it, we can send them both out together. 
-                // if it doesn't we go to the commit store instead
-                _lastStreamedCheckpoint = msg.Commit.CheckpointToken.ToSome(); //this commit is now considered the head
+                // we haven't initialised yet, so we can't order this commit.  We need to go to the db to find the head commit
+                InitialiseFromHeadCommit();
             } else {
                 List<OrderedCommitNotification> cachedCommits = _cache.GetCommitsAfter(_lastStreamedCheckpoint.Get());
                 if (cachedCommits.Count > 0) {
@@ -69,7 +88,19 @@ namespace EventSaucing.EventStream {
                     cachedCommits.ForEach(StreamCommit);
                 } else {
                     //local cache can't ensure we have all the commits in order, go to db
-                    PollEventStoreWithExponentialBackoff(msg, _lastStreamedCheckpoint.Get());
+
+                    //we poll exponentially, on the size of the backlog of unprojected commits
+                    if (!IsPowerOfTwo((ulong)_backlogCommitCount))
+                        return;
+
+                    //log that we are going to db.  Situation is entirely normal and expected in distributed cluster
+                    var currentCheckpoint = _lastStreamedCheckpoint.Map(x => x.ToString()).GetOrElse("no current commit");
+
+                    Context.GetLogger()
+                        .Debug(
+                            $"Received a commit notification (checkpoint {msg.Commit.CheckpointToken}) whilst currentCheckpoint={currentCheckpoint}.  Commit couldn't be ordered via the cache so polling dbo.Commits with @backlog count={_backlogCommitCount}");
+
+                    PollEventStore(_lastStreamedCheckpoint.Get());
                 }
             }
         }
@@ -81,23 +112,16 @@ namespace EventSaucing.EventStream {
         /// <returns></returns>
         /// <remarks>https://stackoverflow.com/questions/600293/how-to-check-if-a-number-is-a-power-of-2</remarks>
         bool IsPowerOfTwo(ulong x) => (x & (x - 1)) == 0;
-    
-        private void PollEventStoreWithExponentialBackoff(CommitNotification msg, long afterCheckpoint) {
-            //we poll exponentially, on the size of the backlog of unprojected commits
-            if (!IsPowerOfTwo((ulong)_backlogCommitCount))
-                return;
 
-            //log that we are going to db.  Situation is entirely normal and expected in distributed cluster
-            var currentCheckpoint = _lastStreamedCheckpoint.Map(x => x.ToString()).GetOrElse("no currentcommit");
-
-            Context.GetLogger()
-                   .Debug($"Received a commit notification (checkpoint {msg.Commit.CheckpointToken}) whilst currentCheckpoint={currentCheckpoint}.  Commit couldn't be ordered via the cache so polling dbo.Commits with @backlog count={_backlogCommitCount}");
-
+        private void PollEventStore(long afterCheckpoint) {
+            _logger.LogDebug($"Polling event store after checkpoint {afterCheckpoint}");
             // this actor stops itself after it has processed the msg
             var eventStorePollerActor = _pollerMaker(Context);
 
             //ask the poller to get the commits directly from the store
-            eventStorePollerActor.Tell(new EventStorePollerActor.Messages.SendCommitAfterCurrentHeadCheckpointMessage(afterCheckpoint,_backlogCommitCount.ToSome()));
+            eventStorePollerActor.Tell(
+                new EventStorePollerActor.Messages.SendCommitAfterCurrentHeadCheckpointMessage(afterCheckpoint,
+                    _backlogCommitCount.ToSome()));
         }
 
         /// <summary>
@@ -105,8 +129,12 @@ namespace EventSaucing.EventStream {
         /// </summary>
         /// <param name="msg"></param>
         private void Received(OrderedCommitNotification msg)  {
-            // only send the commit if it follows the last streamed checkpoint, else just ignore it
-            if(_lastStreamedCheckpoint.Map(x=> x == msg.PreviousCheckpoint).GetOrElse(false)){
+            // if we haven't sent a message yet, send this one, else only send the commit if it follows the last streamed checkpoint, else just ignore it
+            if (_lastStreamedCheckpoint.IsEmpty) {
+                _logger.LogInformation($"Streamed first commit {msg.Commit.CheckpointToken}");
+                _cache.Cache(msg.Commit);
+                StreamCommit(msg);
+            } else if(_lastStreamedCheckpoint.Map(x=> x == msg.PreviousCheckpoint).GetOrElse(false)){
                 StreamCommit(msg);
             }
         }

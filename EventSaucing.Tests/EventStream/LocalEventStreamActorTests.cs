@@ -2,8 +2,8 @@
 using Akka.Actor;
 using Akka.TestKit;
 using Akka.TestKit.NUnit3;
+using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
-using Scalesque;
 
 namespace EventSaucing.EventStream
 {
@@ -31,32 +31,35 @@ namespace EventSaucing.EventStream
             var cache = new InMemoryCommitSerialiserCache(10);
             _pollEventStoreProbe = CreateTestProbe();
             Func<IUntypedActorContext, IActorRef> maker = (ctx) => _pollEventStoreProbe.Ref;
-            sut = Sys.ActorOf(Props.Create<LocalEventStreamActor>(cache, maker));
+            sut = Sys.ActorOf(Props.Create<LocalEventStreamActor>(cache, maker, new NullLogger<LocalEventStreamActor>()));
 
 
-           Because();
+            Because();
         }
+
 
         protected virtual void Because() { }
 
     }
 
-    public class When_receives_first_commit  : LocalEventStreamActorTests
+    public class When_starts : LocalEventStreamActorTests{
+        [Test]
+        public void Should_poll_the_event_store_to_find_head(){
+            _pollEventStoreProbe.ExpectMsg<EventStorePollerActor.Messages.SendHeadCommit>(duration:TimeSpan.FromMilliseconds(100));
+        }
+    }
+
+    public class When_receives_first_ordered_commit_from_poller : LocalEventStreamActorTests
     {
-        private FakeCommit _commit1;
+        private OrderedCommitNotification _commit1;
 
         protected override void Because() {
-            _commit1 = new FakeCommit() { CheckpointToken = 10L };
-            sut.Tell(new CommitNotification(_commit1), this.TestActor);
+            _commit1 = new OrderedCommitNotification(new FakeCommit{CheckpointToken = 10L}, previousCheckpoint:9L);
+            sut.Tell(_commit1, this.TestActor);
         }
 
-        [Test] public void Should_not_stream_the_commit_because_it_cant_be_ordered_as_we_dont_know_the_earlier_commit() {
-            _eventBusStoreProbe.ExpectNoMsg(TimeSpan.FromMilliseconds(100)); 
-        }
-
-        [Test]
-        public void Should_not_poll_the_event_store(){
-            _pollEventStoreProbe.ExpectNoMsg(TimeSpan.FromMilliseconds(100));
+        [Test] public void Should_stream_the_commit() {
+            _eventBusStoreProbe.ExpectMsg(_commit1, TimeSpan.FromMilliseconds(100)); 
         }
     }
     public class When_receives_second_commit_which_follows_first : LocalEventStreamActorTests {
@@ -66,8 +69,15 @@ namespace EventSaucing.EventStream
             _commit1 = new FakeCommit{ CheckpointToken = 10L };
             _commit2 = new FakeCommit{ CheckpointToken = 11L };
 
-            sut.Tell(new CommitNotification(_commit1), this.TestActor);
+            sut.Tell(new OrderedCommitNotification(_commit1, 9L), this.TestActor);
             sut.Tell(new CommitNotification(_commit2), this.TestActor);
+
+            // it will stream this first
+            _eventBusStoreProbe.ExpectMsg<OrderedCommitNotification> (x=>
+                    x.Commit == _commit1 && 
+                    x.PreviousCheckpoint==9L,
+                TimeSpan.FromMilliseconds(100)
+            );
         }
 
         [Test]
@@ -77,11 +87,6 @@ namespace EventSaucing.EventStream
                 x.PreviousCheckpoint==_commit1.CheckpointToken, // and it has a pointer to the first commit
                 TimeSpan.FromMilliseconds(100)
                 );
-        }
-
-        [Test]
-        public void Should_not_poll_the_event_store() {
-            _pollEventStoreProbe.ExpectNoMsg(TimeSpan.FromMilliseconds(100));
         }
     }
 
@@ -93,13 +98,11 @@ namespace EventSaucing.EventStream
             _commit1 = new FakeCommit { CheckpointToken = 10L };
             _commit2 = new FakeCommit { CheckpointToken = 12L }; //note gap
 
-            sut.Tell(new CommitNotification(_commit1), this.TestActor);
+            sut.Tell(new OrderedCommitNotification(_commit1, 9L), this.TestActor);
             sut.Tell(new CommitNotification(_commit2), this.TestActor);
-        }
 
-        [Test]
-        public void Should_not_stream_because_it_cant_order_because_of_the_gap() {
-            _eventBusStoreProbe.ExpectNoMsg(TimeSpan.FromMilliseconds(100));
+            // expect this first, but we aren't actually testing for this, in this particular test
+            _pollEventStoreProbe.ExpectMsg<EventStorePollerActor.Messages.SendHeadCommit>();
         }
 
         [Test]
@@ -120,7 +123,10 @@ namespace EventSaucing.EventStream
             _commit2 = new FakeCommit { CheckpointToken = 11L };
             _commit3 = new FakeCommit { CheckpointToken = 12L };
 
-            sut.Tell(new CommitNotification(_commit1), this.TestActor);
+            // expect this first, but we aren't actually testing for this, in this particular test
+            _pollEventStoreProbe.ExpectMsg<EventStorePollerActor.Messages.SendHeadCommit>();
+
+            sut.Tell(new OrderedCommitNotification(_commit1, 9L), this.TestActor);
             sut.Tell(new CommitNotification(_commit3), this.TestActor); //note sent out of order
             sut.Tell(new CommitNotification(_commit2), this.TestActor);
         }
@@ -133,8 +139,14 @@ namespace EventSaucing.EventStream
         }
 
         [Test]
-        public void Should_stream_two_then_three()  {
+        public void Should_stream_one_two_then_three()  {
             //order of these expectations is important.  it needs to send them in this order
+            _eventBusStoreProbe.ExpectMsg<OrderedCommitNotification>(x =>
+                    x.Commit == _commit1 && // it's the second commit
+                    x.PreviousCheckpoint == 9L // and it has a pointer to the first commit
+                , TimeSpan.FromMilliseconds(100)
+            );
+
             _eventBusStoreProbe.ExpectMsg<OrderedCommitNotification>(x =>
                     x.Commit == _commit2 && // it's the second commit
                     x.PreviousCheckpoint == _commit1.CheckpointToken // and it has a pointer to the first commit
@@ -159,13 +171,19 @@ namespace EventSaucing.EventStream
             _commit2 = new FakeCommit { CheckpointToken = 11L };
             _commit3 = new FakeCommit { CheckpointToken = 12L };
 
+            sut.Tell(new OrderedCommitNotification(_commit1, 9L), this.TestActor);
+
             sut.Tell(new CommitNotification(_commit1), this.TestActor);
             sut.Tell(new OrderedCommitNotification(_commit3, 11L), this.TestActor);
         }
 
         [Test]
-        public void Should_not_stream_anything()  {
-            _eventBusStoreProbe.ExpectNoMsg(TimeSpan.FromMilliseconds(100));
+        public void Should_stream_first_commit()  {
+            _eventBusStoreProbe.ExpectMsg<OrderedCommitNotification>(x =>
+                    x.Commit == _commit1 && // it's the first commit
+                    x.PreviousCheckpoint == 9L // and it has a pointer to earlier commit
+                , TimeSpan.FromMilliseconds(100)
+            );
         }
     }
 

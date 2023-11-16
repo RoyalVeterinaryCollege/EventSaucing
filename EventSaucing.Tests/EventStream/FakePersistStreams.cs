@@ -18,9 +18,7 @@ public class FakePersistStreams : IPersistStreams {
     public void Dispose() {
     }
 
-    public IEnumerable<ICommit> GetFrom(string bucketId, string streamId, int minRevision, int maxRevision) {
-        throw new NotImplementedException();
-    }
+    public IEnumerable<ICommit> GetFrom(string bucketId, string streamId, int minRevision, int maxRevision) => ReturnFromQueue();
 
     public ICommit Commit(CommitAttempt attempt) {
         throw new NotImplementedException();
@@ -42,22 +40,18 @@ public class FakePersistStreams : IPersistStreams {
         throw new NotImplementedException();
     }
 
-    public IEnumerable<ICommit> GetFrom(string bucketId, DateTime start) {
-        throw new NotImplementedException();
-    }
+    public IEnumerable<ICommit> GetFrom(string bucketId, DateTime start) => ReturnFromQueue();
 
-    public IEnumerable<ICommit> GetFromTo(string bucketId, DateTime start, DateTime end) {
-        throw new NotImplementedException();
-    }
+    public IEnumerable<ICommit> GetFromTo(string bucketId, DateTime start, DateTime end) => ReturnFromQueue();
 
-    public IEnumerable<ICommit> GetFrom(long checkpointToken) {
-        throw new NotImplementedException();
-    }
+    public IEnumerable<ICommit> GetFrom(long checkpointToken) => ReturnFromQueue();
 
-    public IEnumerable<ICommit> GetFromTo(long from, long to) {
+    public IEnumerable<ICommit> GetFromTo(long from, long to) => ReturnFromQueue();
+
+    private IEnumerable<ICommit> ReturnFromQueue() {
         if (_queue.Count > 0)
             yield return _queue.Dequeue();
-        else 
+        else
             yield break;
     }
 

@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Cluster.Tools.Singleton;
+using Akka.Pattern;
 using EventSaucing.Storage;
 using EventSaucing.StreamProcessors;
 using EventSaucing.StreamProcessors.Projectors;
@@ -51,7 +52,21 @@ namespace EventSaucing.HostedServices {
         /// <returns></returns>
         private Props CreateSupervisorProps(IEnumerable<ReplicaStreamProcessorInitialisation> streamProcessorTypes) {
             Func<IUntypedActorContext, IEnumerable<IActorRef>> func;
-            func = ctx => streamProcessorTypes.Select(ix => ctx.ActorOf(ix.Props, ix.ActorName));
+            
+            func = ctx => streamProcessorTypes.Select(ix => {
+                // create a back off supervisor which will start the given actor after it has stopped because of a failure,
+                // in increasing intervals of 3, 6, 12, 24, 48 and finally 60 seconds:
+                // this stops the actor from restarting too quickly and causing a large number of errors to be logged
+
+                var backOffProps = BackoffSupervisor.Props(
+                    Backoff.OnStop(
+                        ix.Props,
+                        childName: ix.ActorName,
+                        minBackoff: TimeSpan.FromSeconds(3),
+                        maxBackoff: TimeSpan.FromSeconds(60),
+                        randomFactor: 0.2)); // adds 20% "noise" to vary the intervals slightly
+                return ctx.ActorOf(backOffProps);
+            });
             return Props.Create<StreamProcessorSupervisor>(func);
         }
 

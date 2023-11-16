@@ -1,3 +1,4 @@
+using System.Configuration;
 using System.Reflection;
 using Autofac;
 using Autofac.Extensions.DependencyInjection;
@@ -43,8 +44,8 @@ public class Program {
         builder.Host.UseSerilog();
 
         // upgrade db
-        if (!UpgradeDb(builder.Configuration.GetConnectionString("Replica"), "SqlUpgradeScripts/Replica")) return -1;
-        if (!UpgradeDb(builder.Configuration.GetConnectionString("CommitStore"), "SqlUpgradeScripts/CommitStore")) return -1;
+        if (!UpgradeDb(builder.Configuration.GetConnectionString("Replica") ?? throw new ConfigurationErrorsException("Replica connection string not set"), "SqlUpgradeScripts/Replica")) return -1;
+        if (!UpgradeDb(builder.Configuration.GetConnectionString("CommitStore") ?? throw new ConfigurationErrorsException("CommitStore connection string not set\""), "SqlUpgradeScripts/CommitStore")) return -1;
 
         // Add services to the container.
         builder.Services.AddRazorPages();
