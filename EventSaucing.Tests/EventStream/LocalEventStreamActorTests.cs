@@ -2,6 +2,7 @@
 using Akka.Actor;
 using Akka.TestKit;
 using Akka.TestKit.NUnit3;
+using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
 namespace EventSaucing.EventStream
@@ -30,7 +31,7 @@ namespace EventSaucing.EventStream
             var cache = new InMemoryCommitSerialiserCache(10);
             _pollEventStoreProbe = CreateTestProbe();
             Func<IUntypedActorContext, IActorRef> maker = (ctx) => _pollEventStoreProbe.Ref;
-            sut = Sys.ActorOf(Props.Create<LocalEventStreamActor>(cache, maker));
+            sut = Sys.ActorOf(Props.Create<LocalEventStreamActor>(cache, maker, new NullLogger<LocalEventStreamActor>()));
 
 
             Because();
