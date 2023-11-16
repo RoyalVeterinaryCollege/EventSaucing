@@ -59,12 +59,13 @@ namespace EventSaucing.HostedServices {
                 // this stops the actor from restarting too quickly and causing a large number of errors to be logged
 
                 var backOffProps = BackoffSupervisor.Props(
-                    Backoff.OnStop(
+                    Backoff.OnFailure(
                         ix.Props,
                         childName: ix.ActorName,
                         minBackoff: TimeSpan.FromSeconds(3),
                         maxBackoff: TimeSpan.FromSeconds(60),
-                        randomFactor: 0.2)); // adds 20% "noise" to vary the intervals slightly
+                        randomFactor: 0.2,// adds 20% "noise" to vary the intervals slightly
+                        maxNrOfRetries:-1));  // -1 = forever
                 return ctx.ActorOf(backOffProps);
             });
             return Props.Create<StreamProcessorSupervisor>(func);

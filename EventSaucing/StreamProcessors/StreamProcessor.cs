@@ -299,10 +299,10 @@ namespace EventSaucing.StreamProcessors {
                     // save the checkpoint, if we processed it
                     if (shouldPersistCheckpoint) await PersistCheckpointAsync();
                 } catch (Exception e) {
-                    Context.GetLogger().Error(e,
-                        $"Exception caught when StreamProcessor {GetType().FullName} tried to process checkpoint {msg.Commit.CheckpointToken} for aggregate {msg.Commit.AggregateId()}");
+                    Context.GetLogger().Error(e,$"Exception caught when StreamProcessor {GetType().FullName} tried to process checkpoint {msg.Commit.CheckpointToken} for aggregate {msg.Commit.AggregateId()}");
                     // save checkpoint on error, so status table reflects state of StreamProcessor
                     await PersistCheckpointAsync();
+                    throw;
                 } 
             }
             else if (Checkpoint > msg.PreviousCheckpoint) {
