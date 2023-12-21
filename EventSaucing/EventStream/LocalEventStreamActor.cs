@@ -133,7 +133,6 @@ namespace EventSaucing.EventStream {
         /// </summary>
         /// <param name="msg"></param>
         private void StreamCommit(OrderedCommitNotification msg) {
-            _backlogCommitCount = 0; //reset the backlog counter
             _lastStreamedCheckpoint = msg.Commit.CheckpointToken.ToSome(); //update head pointer
             Context.System.EventStream.Publish(msg);
         }
