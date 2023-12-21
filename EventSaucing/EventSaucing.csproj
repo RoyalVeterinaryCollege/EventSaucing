@@ -28,10 +28,10 @@
     <OutputPath>bin\Debug\netstandard2.0\</OutputPath>
     <DocumentationFile>bin\Debug\netstandard2.0\EventSaucing.xml</DocumentationFile>
     <NoWarn>1701;1702;CS1591;CS0618</NoWarn>
-    <LangVersion>8</LangVersion>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <LangVersion>8</LangVersion>
+    <LangVersion>latest</LangVersion>
     <NoWarn>1701;1702;CS0618</NoWarn>
   </PropertyGroup>
   <ItemGroup>
