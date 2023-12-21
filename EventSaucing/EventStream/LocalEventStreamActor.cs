@@ -35,11 +35,6 @@ namespace EventSaucing.EventStream {
         private Option<long> _lastStreamedCheckpoint = Option.None();
 
         /// <summary>
-        /// This tracks the size of runs of commits which we receive from NEventStore, but couldn't project because the cache couldn't serialise them. 
-        /// </summary>
-        private int _backlogCommitCount = 0;
-
-        /// <summary>
         /// Instantiates
         /// </summary>
         /// <param name="cache">IInMemoryCommitSerialiserCache</param>
@@ -76,7 +71,6 @@ namespace EventSaucing.EventStream {
         /// <param name="msg"></param>
         private void Received(CommitNotification msg)   {
             _cache.Cache(msg.Commit);
-            _backlogCommitCount++;
 
             if (!_lastStreamedCheckpoint.HasValue) {
                 // we haven't initialised yet, so we can't order this commit.  We need to go to the db to find the head commit
@@ -89,16 +83,11 @@ namespace EventSaucing.EventStream {
                 } else {
                     //local cache can't ensure we have all the commits in order, go to db
 
-                    //we poll exponentially, on the size of the backlog of unprojected commits
-                    if (!IsPowerOfTwo((ulong)_backlogCommitCount))
-                        return;
-
                     //log that we are going to db.  Situation is entirely normal and expected in distributed cluster
                     var currentCheckpoint = _lastStreamedCheckpoint.Map(x => x.ToString()).GetOrElse("no current commit");
 
                     Context.GetLogger()
-                        .Debug(
-                            $"Received a commit notification (checkpoint {msg.Commit.CheckpointToken}) whilst currentCheckpoint={currentCheckpoint}.  Commit couldn't be ordered via the cache so polling dbo.Commits with @backlog count={_backlogCommitCount}");
+                        .Debug($"Received a commit notification (checkpoint {msg.Commit.CheckpointToken}) whilst currentCheckpoint={currentCheckpoint}.  Commit couldn't be ordered via the cache so polling dbo.Commits");
 
                     PollEventStore(_lastStreamedCheckpoint.Get());
                 }
@@ -120,8 +109,8 @@ namespace EventSaucing.EventStream {
 
             //ask the poller to get the commits directly from the store
             eventStorePollerActor.Tell(
-                new EventStorePollerActor.Messages.SendCommitAfterCurrentHeadCheckpointMessage(afterCheckpoint,
-                    _backlogCommitCount.ToSome()));
+                new EventStorePollerActor.Messages.SendCommitAfterCurrentHeadCheckpointMessage(afterCheckpoint)
+                );
         }
 
         /// <summary>

@@ -26,15 +26,11 @@ namespace EventSaucing.EventStream {
             /// Message sent to ask for a commit notification to be ordered
             /// </summary>
             public class SendCommitAfterCurrentHeadCheckpointMessage  {
-
                 public long CurrentHeadCheckpoint { get; }
-                public Option<int> NumberOfCommitsToSend { get; }
 
                 [DebuggerStepThrough]
-                public SendCommitAfterCurrentHeadCheckpointMessage(long currentHeadCheckpoint, Option<int> numberOfCommitsToSend)
-                {
+                public SendCommitAfterCurrentHeadCheckpointMessage(long currentHeadCheckpoint){
                     CurrentHeadCheckpoint = currentHeadCheckpoint;
-                    NumberOfCommitsToSend = numberOfCommitsToSend;
                 }
             }
         }
@@ -69,8 +65,7 @@ namespace EventSaucing.EventStream {
             long previousCheckpoint = msg.CurrentHeadCheckpoint;
             var commits = GetCommitsFromPersistentStore(msg);
 
-            foreach (var commit in commits)
-            {
+            foreach (var commit in commits) {
                 Context.Sender.Tell(new OrderedCommitNotification(commit, previousCheckpoint));
                 previousCheckpoint = commit.CheckpointToken;
             }
@@ -79,11 +74,7 @@ namespace EventSaucing.EventStream {
         }
 
         private IEnumerable<ICommit> GetCommitsFromPersistentStore(Messages.SendCommitAfterCurrentHeadCheckpointMessage msg) {
-            IEnumerable<ICommit> commits =_persistStreams.GetFrom(msg.CurrentHeadCheckpoint); //load all commits after checkpoint from db
-            if (!msg.NumberOfCommitsToSend.HasValue)
-                return commits;
-
-            return commits.Take(msg.NumberOfCommitsToSend.Get());
+            return _persistStreams.GetFrom(msg.CurrentHeadCheckpoint); //load all commits after checkpoint from db
         }
     }
 }
