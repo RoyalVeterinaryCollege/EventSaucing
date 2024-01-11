@@ -9,7 +9,7 @@ using Scalesque;
 
 namespace EventSaucing.Akka.Actors {
     /// <summary>
-    ///     An actor which polls the eventstore to create ordered commit notifications
+    /// An actor which polls the eventstore to create ordered commit notifications
     /// </summary>
     public class EventStorePollerActor : ReceiveActor {
         private readonly IPersistStreams _persistStreams;
@@ -20,25 +20,21 @@ namespace EventSaucing.Akka.Actors {
         }
 
         private void Received(SendCommitAfterCurrentHeadCheckpointMessage msg) {
-
-            Option<long> previousCheckpoint = msg.CurrentHeadCheckpoint;
+            var mbPreviousCheckpoint = msg.CurrentHeadCheckpoint.ToSome();
             var commits = GetCommitsFromPersistentStore(msg);
 
             foreach (var commit in commits)
             {
-                Context.Sender.Tell(new OrderedCommitNotification(commit, previousCheckpoint));
-                previousCheckpoint = commit.CheckpointToken.ToSome();
+                Context.Sender.Tell(new OrderedCommitNotification(commit, mbPreviousCheckpoint));
+                mbPreviousCheckpoint = commit.CheckpointToken.ToSome();
             }
 
             Context.Stop(Self);
         }
 
         private IEnumerable<ICommit> GetCommitsFromPersistentStore(SendCommitAfterCurrentHeadCheckpointMessage msg) {
-            IEnumerable<ICommit> commits =_persistStreams.GetFrom(msg.CurrentHeadCheckpoint.GetOrElse(() => 0)); //load all commits after checkpoint from db
-            if (!msg.NumberOfCommitsToSend.HasValue)
-                return commits;
-
-            return commits.Take(msg.NumberOfCommitsToSend.Get());
+            IEnumerable<ICommit> commits =_persistStreams.GetFrom(msg.CurrentHeadCheckpoint); //load all commits after checkpoint from db
+            return commits;
         }
     }
 }

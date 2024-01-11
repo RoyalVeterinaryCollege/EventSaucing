@@ -61,37 +61,18 @@ namespace EventSaucing.Akka.Actors {
                 }
                 else {
                     //local cache can't ensure we have all the commits in order
-                    PollEventStoreWithExponentialBackoff(msg, _currentCheckpoint);
+                    PollEventStore(_currentCheckpoint.Get());
                 }
             }
         }
-
-        /// <summary>
-        /// Is the number a power of 2?
-        /// </summary>
-        /// <param name="x"></param>
-        /// <returns></returns>
-        /// <remarks>https://stackoverflow.com/questions/600293/how-to-check-if-a-number-is-a-power-of-2</remarks>
-        bool IsPowerOfTwo(ulong x) => (x & (x - 1)) == 0;
     
-        private void PollEventStoreWithExponentialBackoff(CommitNotification msg, Option<long> afterCheckpoint) {
-            //we poll exponentially, on the size of the backlog of unprojected commits
-            if (!IsPowerOfTwo((ulong)_backlogCommitCount))
-                return;
-
-            //log @warning.  Detected situation is entirely normal and expected, but should be rare.  
-            var currentCheckpoint = _currentCheckpoint.Map(x => x.ToString()).GetOrElse("no currentcommit");
-
-            Context.GetLogger()
-                   .Warning(
-                       "Received a commit notification (checkpoint {0}) whilst currentcheckpoint={1}.  Commit couldn't be serialised via the cache so polling with @backlog count={2}",
-                       msg.Commit.CheckpointToken, currentCheckpoint, _backlogCommitCount);
-
+        private void PollEventStore(long checkpoint) {
+            Context.GetLogger().Debug("Polling event store after checkpoint {CheckPoint}", checkpoint);
+            // this actor stops itself after it has processed the msg
             var eventStorePollerActor = MakeNewEventStorePollerActor();
 
             //ask the poller to get the commits directly from the store
-            Context.ActorSelection(eventStorePollerActor.Path)
-                   .Tell(new SendCommitAfterCurrentHeadCheckpointMessage(afterCheckpoint,_backlogCommitCount.ToSome()));
+            eventStorePollerActor.Tell(new SendCommitAfterCurrentHeadCheckpointMessage(checkpoint));
         }
 
         /// <summary>
@@ -106,7 +87,7 @@ namespace EventSaucing.Akka.Actors {
         }
 
         /// <summary>
-        /// The first commit we recieve can't be ordered by this actor.  
+        /// The first commit we receive can't be ordered by this actor.  
         /// </summary>
         /// <param name="msg"></param>
         private void HandleFirstCommitAfterStartup(CommitNotification msg) {

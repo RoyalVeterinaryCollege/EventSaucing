@@ -7,13 +7,11 @@ namespace EventSaucing.Akka.Messages {
 	/// </summary>
 	public class SendCommitAfterCurrentHeadCheckpointMessage {
 
-		public Option<long> CurrentHeadCheckpoint { get; }
-		public Option<int> NumberOfCommitsToSend { get; }
+		public long CurrentHeadCheckpoint { get; }
 
 		[DebuggerStepThrough]
-		public SendCommitAfterCurrentHeadCheckpointMessage(Option<long> currentHeadCheckpoint, Option<int> numberOfCommitsToSend) {
+		public SendCommitAfterCurrentHeadCheckpointMessage(long currentHeadCheckpoint) {
 			CurrentHeadCheckpoint = currentHeadCheckpoint;
-			NumberOfCommitsToSend = numberOfCommitsToSend;
 		}
 	}
 }

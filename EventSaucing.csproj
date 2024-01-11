@@ -28,6 +28,23 @@
     <NoWarn>1701;1702;CS1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="EventSaucing.Tests\**" />
+    <Compile Remove="EventSaucing\**" />
+    <Compile Remove="ExampleApp.Domain\**" />
+    <Compile Remove="ExampleApp.Events\**" />
+    <Compile Remove="ExampleApp\**" />
+    <EmbeddedResource Remove="EventSaucing.Tests\**" />
+    <EmbeddedResource Remove="EventSaucing\**" />
+    <EmbeddedResource Remove="ExampleApp.Domain\**" />
+    <EmbeddedResource Remove="ExampleApp.Events\**" />
+    <EmbeddedResource Remove="ExampleApp\**" />
+    <None Remove="EventSaucing.Tests\**" />
+    <None Remove="EventSaucing\**" />
+    <None Remove="ExampleApp.Domain\**" />
+    <None Remove="ExampleApp.Events\**" />
+    <None Remove="ExampleApp\**" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Akka.Cluster.Tools" Version="1.4.21" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="5.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="3.0.3" />
