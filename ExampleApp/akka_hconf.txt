@@ -2,6 +2,8 @@ akka {
     # We need to tell Akka to provide us cluster enabled actors
     actor.provider = cluster
 
+    log-dead-letters-during-shutdown = off
+
     remote {
         dot-netty.tcp {
             port = {AkkaClusterPort}
