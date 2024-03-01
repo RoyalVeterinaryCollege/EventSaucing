@@ -20,5 +20,7 @@ namespace EventSaucing.EventStream {
 		/// Gets the checkpoint immediately previous to the attached commit
 		/// </summary>
 		public long PreviousCheckpoint { get; }
+
+		public override string ToString() => $"OrderedCommitNotification: {Commit.CheckpointToken}/{Commit.StreamId}/{Commit.CommitSequence}";
 	}
 }
