@@ -20,7 +20,6 @@ namespace EventSaucing.StreamProcessors {
         public StreamProcessorSupervisor(Func<IUntypedActorContext, IEnumerable<IActorRef>> streamProcessorFactory) {
             InitialiseStreamProcessors(streamProcessorFactory);
 
-            Receive<OrderedCommitNotification>(msg => _streamProcessorBroadCastRouter.Tell(msg, Self));
             ReceiveAsync<Stop>(async stop => {
                 Context.System.EventStream.Unsubscribe(Self, typeof(OrderedCommitNotification));
 
@@ -28,24 +27,6 @@ namespace EventSaucing.StreamProcessors {
                 var shutdown = await _streamProcessorBroadCastRouter.GracefulStop(TimeSpan.FromSeconds(5), new Stop());
                 return;
             });
-            Receive<StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet>(msg => 
-                _streamProcessorBroadCastRouter.Tell(msg, Self)); //not sure why but we need to subscribe to this, and Tell it from our selves, cant just subscribe the router to it as the backoff superviser doesnt forward the messages
-        }
-
-        protected override void PreStart() {
-            base.PreStart();
-            //subscribe to ordered event stream and checkpoint changes
-            Context.System.EventStream.Subscribe(Self,typeof(OrderedCommitNotification));
-            Context.System.EventStream.Subscribe(Self,typeof(StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet));
-        }
-
-        protected override void PostRestart(Exception reason) {
-            // override to avoid duplicate subscription to OrderedCommitNotification
-        }
-
-        protected override void PostStop() {
-            //unsubscribe to ordered event stream and checkpoint changes
-            Context.System.EventStream.Unsubscribe(Self);
         }
 
         /// <summary>

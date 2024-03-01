@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices.ComTypes;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Dispatch.SysMsg;
 using Akka.Event;
+using EventSaucing.Aggregates;
 using EventSaucing.EventStream;
 using EventSaucing.NEventStore;
 using NEventStore;
@@ -149,7 +152,18 @@ namespace EventSaucing.StreamProcessors {
         protected override void PreStart() {
             SetCheckpoint(_checkpointPersister.GetInitialCheckpointAsync(this).Result);
             PersistCheckpointAsync().Wait(); // this ensures a persisted checkpoint on first instantiation
-            StartTimer();
+            StartPersistedCheckpointTimer();
+
+            // listen to ordered commits coming from domain writes
+            Context.System.EventStream.Subscribe(Self,typeof(OrderedCommitNotification));
+
+            // listen to changes in checkpoint status (for proceeding StreamProcessors)
+            Context.System.EventStream.Subscribe(Self,typeof(Messages.AfterStreamProcessorCheckpointStatusSet));
+        }
+
+        protected override void PostStop() {
+            // unsubscribe from event stream to avoid dead letters during restarts
+            Context.System.EventStream.Unsubscribe(Self);
         }
 
         /// <summary>
@@ -214,7 +228,7 @@ namespace EventSaucing.StreamProcessors {
         /// <summary>
         /// Starts timer to periodically persist checkpoint to db
         /// </summary>
-        protected virtual void StartTimer() {
+        protected virtual void StartPersistedCheckpointTimer() {
             // every 5 seconds, persist our checkpoint to db
             Timers.StartPeriodicTimer(TimerName,
                 Messages.PersistCheckpoint.Message,
@@ -300,15 +314,22 @@ namespace EventSaucing.StreamProcessors {
                     if (shouldPersistCheckpoint) await PersistCheckpointAsync();
                 } catch (Exception e) {
                     Context.GetLogger().Error(e,$"Exception caught when StreamProcessor {GetType().FullName} tried to process checkpoint {msg.Commit.CheckpointToken} for aggregate {msg.Commit.AggregateId()}");
+
+                    // structured logging doesnt work yet, need to configure
+                    // https://getakka.net/articles/utilities/serilog.html
+                    // Context.GetLogger().Error(e,"Exception caught when {StreamProcessor} tried to process {CheckpointToken} for {AggregateId}", GetType().FullName,msg.Commit.CheckpointToken, msg.Commit.AggregateId());
+
                     // save checkpoint on error, so status table reflects state of StreamProcessor
                     await PersistCheckpointAsync();
-                    throw;
-                } 
+                    
+                    // raise exception to Akka
+                    throw; 
+                }
             }
             else if (Checkpoint > msg.PreviousCheckpoint) {
                 // we have already processed this commit
                 Context
-                    .GetLogger()
+                .GetLogger()
                     .Debug($"Received a commit notification for a checkpoint which is in our past (ICommit checkpoint {msg.Commit.CheckpointToken}) behind our checkpoint ({Checkpoint})");
             }
             else {
