@@ -23,13 +23,7 @@ namespace EventSaucing.StreamProcessors {
 
 			if (streamProcessorMethods.Any()) {
 				foreach (var (streamProcessorMethod, evt) in streamProcessorMethods) {
-					try {
-						await streamProcessorMethod(commit, evt);
-					}
-					catch (Exception ex) {
-						logger.Error(ex, $"{GetType().FullName} caught exception in method {streamProcessorMethod.Method.Name} when trying to process event {evt.GetType()} in commit {commit.CommitId}  at checkpoint {commit.CheckpointToken} for aggregate {commit.AggregateId()}");
-						throw;
-					}
+					await streamProcessorMethod(commit, evt);
 				}
 			}
 

@@ -36,13 +36,7 @@ namespace EventSaucing.StreamProcessors.Projectors
                 await con.ExecuteAsync("SET ANSI_WARNINGS OFF");
                 using (var tx = con.BeginTransaction())  {
                     foreach (var (projectionMethod, @evt) in projectionMethods)  {
-                        try   {
-                            await projectionMethod(tx, commit, @evt);
-                        }
-                        catch (Exception error) {
-                            _logger.Error(error, $"{GetType().FullName} caught exception in method {projectionMethod.Method.Name} when trying to project event {@evt.GetType()} in commit {commit.CommitId}  at checkpoint {commit.CheckpointToken} for aggregate {commit.AggregateId()}");
-                            throw; 
-                        }
+                        await projectionMethod(tx, commit, @evt);
                     }
                     tx.Commit();
                     return true; // persist checkpoint

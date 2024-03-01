@@ -21,6 +21,7 @@ namespace ExampleApp.OrderCounting
         /// Holds if we should throw an error when an exception occurs in a projection method.
         /// </summary>
         static bool _throwError = true;
+        static int _count = 0;
 
         public ErrorThrowingStreamProcessor(IDbService dbService, IPersistStreams persistStreams, Serilog.ILogger logger) : base(persistStreams, logger
             , checkpointPersister: new DeclarativeCheckpointPersister(dbService)
@@ -35,9 +36,10 @@ namespace ExampleApp.OrderCounting
         // projection method must start with 'On', have 3 parameters(1st = IDbTransaction, 2nd ICommit, 3rd type of event projected) and return Task.
 
         public async Task OnOrderPlacedForItem(IDbTransaction tx, ICommit commit, OrderPlacedForItem @evt) {
+            _count++;
             if (_throwError) {
                 _throwError = false;
-                throw new Exception("ErrorThrowingStreamProcessor: Error thrown as requested");
+                throw new Exception($"ErrorThrowingStreamProcessor: Error thrown as requested {_count}");
             } else {
                 // throw next time
                 _throwError = true;
