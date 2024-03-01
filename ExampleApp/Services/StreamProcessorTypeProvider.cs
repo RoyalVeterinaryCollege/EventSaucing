@@ -15,7 +15,8 @@ public class StreamProcessorPropsProvider : IStreamProcessorInitialisation {
 
     public IEnumerable<ReplicaStreamProcessorInitialisation> GetReplicaScopedStreamProcessorProps() {
         var replicaScopedProcessors = new List<ReplicaStreamProcessorInitialisation> {
-            GetReplicaStreamProcessor<OrderCountingStreamProcessor>()
+            GetReplicaStreamProcessor<OrderCountingStreamProcessor>(),
+            GetReplicaStreamProcessor<ErrorThrowingStreamProcessor>()
         };
 
         return replicaScopedProcessors;
