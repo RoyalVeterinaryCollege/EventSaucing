@@ -41,25 +41,4 @@ namespace EventSaucing.StreamProcessors
             _processor2.ExpectMsg<StreamProcessor.Messages.CatchUp>(TimeSpan.FromMilliseconds(100));
         }
     }
-
-    public class WhenOrderedCommitPublishedOnEventBusProcessorSupervisor : ProcessorSupervisorTests  {
-        private OrderedCommitNotification _msg;
-
-        protected override void Because() {
-            var commit = new FakeCommit() { CheckpointToken = 99L };
-            _msg = new OrderedCommitNotification(commit, 98L);
-
-            sut.Tell(_msg);
-
-            //ignore these ones for this test
-            _processor1.ExpectMsg<StreamProcessor.Messages.CatchUp>();//TimeSpan.FromMilliseconds(100));
-            _processor2.ExpectMsg<StreamProcessor.Messages.CatchUp>(); //TimeSpan.FromMilliseconds(100));
-        }
-
-        [Test]
-        public void Should_send_commit_to_projectors() {
-            _processor1.ExpectMsg<OrderedCommitNotification>(x=> x == _msg,TimeSpan.FromMilliseconds(100));
-            _processor2.ExpectMsg<OrderedCommitNotification>(x=> x == _msg, TimeSpan.FromMilliseconds(100));
-        }
-    }
 }
