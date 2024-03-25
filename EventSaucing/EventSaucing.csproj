@@ -10,14 +10,14 @@
     <GenerateAssemblyCompanyAttribute>false</GenerateAssemblyCompanyAttribute>
     <GenerateAssemblyProductAttribute>false</GenerateAssemblyProductAttribute>
     <GenerateAssemblyCopyrightAttribute>false</GenerateAssemblyCopyrightAttribute>
-    <Version>2.0.1</Version>
+    <Version>2.0.2</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageProjectUrl>https://github.com/RoyalVeterinaryCollege/EventSaucing</PackageProjectUrl>
     <PackageLicenseUrl></PackageLicenseUrl>
     <RepositoryUrl>https://github.com/RoyalVeterinaryCollege/EventSaucing</RepositoryUrl>
     <PackageReleaseNotes>EventSaucing 2.  Distributed framework built on Akka. Mulitple instances possible. Better conventions for projects.  Projectors can depend on each other.  </PackageReleaseNotes>
-    <AssemblyVersion>2.0.1.0</AssemblyVersion>
-    <FileVersion>2.0.1.0</FileVersion>
+    <AssemblyVersion>2.0.2.0</AssemblyVersion>
+    <FileVersion>2.0.2.0</FileVersion>
     <Description>An event source stack based on NEventStore and Akka</Description>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <Title>EventSaucing 2.0</Title>
