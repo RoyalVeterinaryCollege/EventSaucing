@@ -138,11 +138,20 @@ namespace EventSaucing.StreamProcessors {
                     Sender.Tell(new Failure (e), Self);
                 }
             });
-            Receive<Messages.AfterStreamProcessorCheckpointStatusSet>((msg) => {
-                if (PreceedingStreamProcessors.ContainsKey(msg.MyType))
-                    PreceedingStreamProcessors[msg.MyType] = msg.Checkpoint;
-            });
+            ReceiveAsync<Messages.AfterStreamProcessorCheckpointStatusSet>(ReceivedAsync);
         }
+
+        private async Task ReceivedAsync(Messages.AfterStreamProcessorCheckpointStatusSet msg) {
+            if (PreceedingStreamProcessors.ContainsKey(msg.MyType)) {
+                PreceedingStreamProcessors[msg.MyType] = msg.Checkpoint;
+
+                // if we are in catch up mode, we may be able to process the next commit now
+                if (_isCatchingUp) {
+                    await SendNextCatchUpMessageAsync();
+                }
+            }
+        }
+
         /// <summary>
         /// Set initial state of actor on start up
         /// </summary>
@@ -235,7 +244,7 @@ namespace EventSaucing.StreamProcessors {
         }
 
         /// <summary>
-        /// Starts the catch up process where commits are streamed from the commit store.  
+        /// Starts the catch-up process where commits are streamed from the commit store.  
         /// </summary>
         /// <returns></returns>
         protected virtual async Task CatchUpAsync() {
@@ -264,10 +273,23 @@ namespace EventSaucing.StreamProcessors {
                 await OnCatchupFinishedAsync();
                 Context.GetLogger()
                     .Info($"Catchup finished at {Checkpoint}");
-            }
-            else {
-                // stream next commit to ourselves
-                Context.Self.Tell(_catchupCommitStream.Next());
+            } else {
+                // we are still catching up, so we need to stream the next commit to ourselves
+                // but we only should do this if all proceeding StreamProcessors are ahead of us, else we build up a big queue of messages we can't do anything with
+                if (AllProceedingStreamProcessorsAhead()) {
+                    // guard against sending a commit to self that is ahead of our current checkpoint
+                    if(_catchupCommitStream
+                        .Peek()
+                        .Map(msg => msg.PreviousCheckpoint != Checkpoint)
+                        .GetOrElse(()=> true)) return;
+
+                    var msg = _catchupCommitStream.Next();
+                    Context.Self.Tell(msg);
+                } else  {
+                    Context.GetLogger().Debug("StreamProcessor {StreamProcessor} is in catch-up mode @ {Checkpoint} but is waiting for proceeding StreamProcessors to catch up before processing the next commit", 
+                        GetType().Name, Checkpoint);
+                }
+                   
             }
         }
         /// <summary>
@@ -299,8 +321,6 @@ namespace EventSaucing.StreamProcessors {
             // if commit's previous checkpoint matches our current, process
             if (Checkpoint == msg.PreviousCheckpoint) {
                 // this is the next commit for us to process
-
-               
                 try {
                     bool shouldPersistCheckpoint = await ProcessAsync(msg.Commit);
 
@@ -320,7 +340,7 @@ namespace EventSaucing.StreamProcessors {
                 // we have already processed this commit
                 Context
                     .GetLogger()
-                    .Debug($"Received a commit notification for a checkpoint which is in our past (ICommit checkpoint {msg.Commit.CheckpointToken}) behind our checkpoint ({Checkpoint})");
+                    .Info($"Received a commit notification for a checkpoint which is in our past (ICommit checkpoint {msg.Commit.CheckpointToken}) behind our checkpoint ({Checkpoint})");
             }
             else {
                 // this commit is too far ahead to process it. We have fallen behind, catch up

@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using NEventStore.Persistence;
+using Scalesque;
 
 namespace EventSaucing.EventStream {
 
@@ -28,6 +29,19 @@ namespace EventSaucing.EventStream {
             IsFinished = _queue.Count == 0;
         }
         public bool IsFinished { get; private set; }
+
+        public Option<OrderedCommitNotification> Peek() {
+            // if q is empty, try to fetch next page
+            if (_queue.Count == 0) {
+                FetchNextPage();
+            }
+            if (_queue.Count == 0) {
+                // it's still empty, we're done
+                return Option.None();
+            } else { 
+                return _queue.Peek().ToSome(); 
+            }
+        }
 
         public OrderedCommitNotification Next() {
             var nextCommit = _queue.Dequeue();
