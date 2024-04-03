@@ -86,7 +86,7 @@ namespace EventSaucing.StreamProcessors {
     /// <summary>
     /// Gets the last Checkpoint from the commit store
     /// </summary>
-    public class HeadOfCommitStore : InitialisationOption {
+    public class LastCommit : InitialisationOption {
 
         public override async Task<Option<long>> GetInitialCheckpointAsync(StreamProcessor streamProcessor, IDbService dbService, Func<DbConnection> getCheckpointDb) {
             using (var conn = dbService.GetCommitStore()) {
