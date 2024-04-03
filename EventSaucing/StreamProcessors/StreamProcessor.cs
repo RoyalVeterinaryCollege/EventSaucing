@@ -152,6 +152,12 @@ namespace EventSaucing.StreamProcessors {
             StartTimer();
         }
 
+        protected override void PostStop() {
+            base.PostStop();
+            // unsubscribe from subscriptions
+            Context.System.EventStream.Unsubscribe(Self);
+        }
+
         /// <summary>
         /// Persist checkpoint to db
         /// </summary>
@@ -189,6 +195,11 @@ namespace EventSaucing.StreamProcessors {
         /// </summary>
         /// <typeparam name="T"></typeparam>
         protected void PreceededBy<T>() where T : StreamProcessor {
+            // if this is the first registration, subscribe to the local event stream as well
+            if(!PreceedingStreamProcessors.Any()) {
+                Context.System.EventStream.Subscribe(Self, typeof(Messages.AfterStreamProcessorCheckpointStatusSet));
+            }
+
             var type = typeof(T);
             if (!PreceedingStreamProcessors.ContainsKey(type)) PreceedingStreamProcessors[type] = 0L;
         }
