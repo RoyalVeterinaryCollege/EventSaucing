@@ -66,7 +66,8 @@ namespace EventSaucing.HostedServices {
                         maxBackoff: TimeSpan.FromSeconds(60),
                         randomFactor: 0.2,// adds 20% "noise" to vary the intervals slightly
                         maxNrOfRetries:-1));  // -1 = forever
-                return ctx.ActorOf(backOffProps);
+                var actorRef =  ctx.ActorOf(backOffProps, ix.ActorName);
+                return actorRef;
             });
             return Props.Create<StreamProcessorSupervisor>(func);
         }
