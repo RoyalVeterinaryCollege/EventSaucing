@@ -44,15 +44,21 @@ namespace EventSaucing.StreamProcessors {
 	public class OtherPersistedSqlCheckpoint : InitialisationOption {
 
         private readonly Type streamProcessorType;
-        private readonly bool mustBePersisted;
+        private readonly bool _throwIfNotAvailable;
 
-        public OtherPersistedSqlCheckpoint(Type streamProcessorType, bool mustBePersisted) {
+        /// <summary>
+        /// Ctor
+        /// </summary>
+        /// <param name="streamProcessorType">Type of other streamProcessor to initialise from</param>
+        /// <param name="throwIfNotAvailable">bool if true will throw exception if other stream processor has no persisted checkpoint</param>
+        /// <exception cref="ArgumentException"></exception>
+        public OtherPersistedSqlCheckpoint(Type streamProcessorType, bool throwIfNotAvailable) {
             if (!streamProcessorType.IsSubclassOf(typeof(StreamProcessor))) {
                 throw new ArgumentException($"{streamProcessorType.FullName} must be a subclass of StreamProcessor");
             }
 
             this.streamProcessorType = streamProcessorType;
-            this.mustBePersisted = mustBePersisted;
+            this._throwIfNotAvailable = throwIfNotAvailable;
 		}
 
 		public override async Task<Option<long>> GetInitialCheckpointAsync(StreamProcessor streamProcessor, IDbService dbService, Func<DbConnection> getCheckpointDb) {
@@ -68,7 +74,7 @@ namespace EventSaucing.StreamProcessors {
 				Option<long> persistedCheckpoint =
 					(await conn.QueryAsync<long>("SELECT LastCheckPointToken FROM dbo.StreamProcessorCheckpoints WHERE StreamProcessor = @StreamProcessor", args)).HeadOption();
 
-                if (mustBePersisted && !persistedCheckpoint.HasValue) {
+                if (_throwIfNotAvailable && !persistedCheckpoint.HasValue) {
 					throw new KeyNotFoundException($"StreamProcessor {streamProcessorType.FullName} must have a persisted checkpoint");
 				}
 
