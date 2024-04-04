@@ -242,7 +242,6 @@ namespace EventSaucing.StreamProcessors {
                 .Info($"Catchup started from checkpoint {startingCheckpoint}");
 
             _catchupCommitStream = new OrderedEventStreamer(startingCheckpoint, _persistStreams);
-            _catchupCommitStream.OnPageFetch += _catchupCommitStream_OnPageFetch;
             await CatchUpTryAdvanceAsync();
         }
 
@@ -261,7 +260,6 @@ namespace EventSaucing.StreamProcessors {
         /// <returns></returns>
         private async Task CatchUpFinishAsync() {
             _isCatchingUp = false;
-            _catchupCommitStream.OnPageFetch -= _catchupCommitStream_OnPageFetch;
             _catchupCommitStream = null;
             await PersistCheckpointAsync();
             await OnCatchupFinishedAsync();
