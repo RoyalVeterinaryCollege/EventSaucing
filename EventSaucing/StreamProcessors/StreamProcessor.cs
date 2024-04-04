@@ -92,6 +92,11 @@ namespace EventSaucing.StreamProcessors {
                     Checkpoint = checkpoint;
                 }
             }
+
+            /// <summary>
+            /// When a StreamProcessor receives this, it will publish its current checkpoint to the event stream.  It's used in catch-up to reduce event stream spam.
+            /// </summary>
+            public class PublishCheckpoint{ }
         }
 
         private const string TimerName = "persist_checkpoint";
@@ -118,6 +123,9 @@ namespace EventSaucing.StreamProcessors {
                 }
             });
             ReceiveAsync<Messages.AfterStreamProcessorCheckpointStatusSet>(ReceivedAsync);
+            Receive<Messages.PublishCheckpoint>(msg => {
+                Context.System.EventStream.Publish(new Messages.AfterStreamProcessorCheckpointStatusSet(GetType(), Checkpoint));
+            });
         }
 
         private void AddMessageCount(object msg)=> MessageCounts[msg.GetType()] = MessageCounts.ContainsKey(msg.GetType()) ? MessageCounts[msg.GetType()] + 1 : 1;
@@ -242,16 +250,11 @@ namespace EventSaucing.StreamProcessors {
                 .Info($"Catchup started from checkpoint {startingCheckpoint}");
 
             _catchupCommitStream = new OrderedEventStreamer(startingCheckpoint, _persistStreams);
-            await CatchUpTryAdvanceAsync();
-        }
 
-        /// <summary>
-        /// When a new page of ICommits is fetched from store, we will update any dependant StreamProcessors
-        /// 
-        /// During CatchUp we don't want to spam the channel
-        /// </summary>
-        private void _catchupCommitStream_OnPageFetch() {
-            Context.System.EventStream.Publish(new Messages.AfterStreamProcessorCheckpointStatusSet(GetType(), Checkpoint));
+            // start a timer to periodically publish our checkpoint to the event stream
+            Timers.StartPeriodicTimer("publish_checkpoint",new Messages.PublishCheckpoint(),TimeSpan.FromSeconds(5));
+
+            await CatchUpTryAdvanceAsync();
         }
 
         /// <summary>
@@ -261,6 +264,7 @@ namespace EventSaucing.StreamProcessors {
         private async Task CatchUpFinishAsync() {
             _isCatchingUp = false;
             _catchupCommitStream = null;
+            Timers.Cancel("publish_checkpoint");
             await PersistCheckpointAsync();
             await OnCatchupFinishedAsync();
             Context.GetLogger().Info($"Catchup finished at {Checkpoint}");
