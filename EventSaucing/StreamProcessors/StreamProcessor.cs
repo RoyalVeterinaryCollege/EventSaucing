@@ -15,6 +15,8 @@ namespace EventSaucing.StreamProcessors {
         private readonly IPersistStreams _persistStreams;
         private readonly IStreamProcessorCheckpointPersister _checkpointPersister;
 
+        protected Dictionary<Type, long> MessageCounts { get; } = new();
+
         /// <summary>
         /// Bool. if true, the StreamProcessor is in catch up mode and will stream commits to itself from <see cref="OrderedEventStreamer"/>
         /// </summary>
@@ -120,7 +122,7 @@ namespace EventSaucing.StreamProcessors {
         /// <summary>
         /// Our proceeding StreamProcessors.  StreamProcessor type -> last known checkpoint for that StreamProcessor
         /// </summary>
-        public Dictionary<Type, long> PreceedingStreamProcessors { get; } = new Dictionary<Type, long>();
+        public Dictionary<Type, long> ProceedingStreamProcessors { get; } = new Dictionary<Type, long>();
 
         public StreamProcessor(IPersistStreams persistStreams, IStreamProcessorCheckpointPersister checkpointPersister) {
             _persistStreams = persistStreams;
@@ -128,8 +130,9 @@ namespace EventSaucing.StreamProcessors {
 
             ReceiveAsync<Messages.CatchUp>(ReceivedAsync);
             ReceiveAsync<OrderedCommitNotification>(ReceivedAsync);
-            ReceiveAsync<Messages.PersistCheckpoint>(msg => PersistCheckpointAsync());
+            ReceiveAsync<Messages.PersistCheckpoint>(msg => { AddMessageCount(msg); return PersistCheckpointAsync();  });
             Receive<Messages.SendCurrentCheckpoint>(msg => {
+                AddMessageCount(msg);
                 try {
                     Sender.Tell(new Messages.CurrentCheckpoint(Checkpoint), Self);
                 }
@@ -137,12 +140,14 @@ namespace EventSaucing.StreamProcessors {
                     Sender.Tell(new Failure (e), Self);
                 }
             });
-            ReceiveAsync<Messages.AfterStreamProcessorCheckpointStatusSet>(ReceivedAsync);
         }
 
+
+        private void AddMessageCount(object msg)=> MessageCounts[msg.GetType()] = MessageCounts.ContainsKey(msg.GetType()) ? MessageCounts[msg.GetType()] + 1 : 1;
         private async Task ReceivedAsync(Messages.AfterStreamProcessorCheckpointStatusSet msg) {
-            if (PreceedingStreamProcessors.ContainsKey(msg.MyType)) {
-                PreceedingStreamProcessors[msg.MyType] = msg.Checkpoint;
+            AddMessageCount(msg);
+            if (ProceedingStreamProcessors.ContainsKey(msg.MyType)) {
+                ProceedingStreamProcessors[msg.MyType] = msg.Checkpoint;
 
                 // if we are in catch up mode, we may be able to process the next commit now
                 if (_isCatchingUp) {
@@ -184,9 +189,9 @@ namespace EventSaucing.StreamProcessors {
         /// </summary>
         /// <returns>bool True if we have no proceeding StreamProcessors or all proceeding StreamProcessors have a higher checkpoint than us</returns>
         protected bool AllProceedingStreamProcessorsAhead() {
-            if (!PreceedingStreamProcessors.Any()) return true;
+            if (!ProceedingStreamProcessors.Any()) return true;
 
-            return PreceedingStreamProcessors
+            return ProceedingStreamProcessors
                 .Values
                 .All(proceedingCheckpoint => proceedingCheckpoint > Checkpoint);
         }
@@ -202,14 +207,15 @@ namespace EventSaucing.StreamProcessors {
         /// This means it's safe for this StreamProcessor to access the other's read models
         /// </summary>
         /// <typeparam name="T"></typeparam>
-        protected void PreceededBy<T>() where T : StreamProcessor {
-            // if this is the first registration, subscribe to the local event stream as well
-            if(!PreceedingStreamProcessors.Any()) {
+        protected void ProceededBy<T>() where T : StreamProcessor {
+            if(!ProceedingStreamProcessors.Any()) {
+                // if this is the first registration, subscribe to these messages, we don't do this by default as there can be a lot of them
+                ReceiveAsync<Messages.AfterStreamProcessorCheckpointStatusSet>(ReceivedAsync);
                 Context.System.EventStream.Subscribe(Self, typeof(Messages.AfterStreamProcessorCheckpointStatusSet));
             }
 
             var type = typeof(T);
-            if (!PreceedingStreamProcessors.ContainsKey(type)) PreceedingStreamProcessors[type] = 0L;
+            if (!ProceedingStreamProcessors.ContainsKey(type)) ProceedingStreamProcessors[type] = 0L;
         }
 
         /// <summary>
@@ -227,6 +233,7 @@ namespace EventSaucing.StreamProcessors {
         public ITimerScheduler Timers { get; set; }
 
         private async Task ReceivedAsync(Messages.CatchUp arg) {
+            AddMessageCount(arg);
             if (!_isCatchingUp) await CatchUpStartAsync();
         }
 
@@ -286,7 +293,7 @@ namespace EventSaucing.StreamProcessors {
                     .GetLogger()
                     .Debug("StreamProcessor is in catch-up mode @ {Checkpoint} but is waiting for proceeding StreamProcessors {ProceedingStreamProcessors} to advance before processing the next commit"
                     , Checkpoint
-                    , string.Join(",",PreceedingStreamProcessors.Select(kv=> $"{kv.Key}:{kv.Value}"))
+                    , string.Join(",",ProceedingStreamProcessors.Select(kv=> $"{kv.Key}:{kv.Value}"))
                     );
                 return;
             }
@@ -318,6 +325,7 @@ namespace EventSaucing.StreamProcessors {
         }
 
         protected virtual async Task ReceivedAsync(OrderedCommitNotification msg) {
+            AddMessageCount(msg);
             // guard going ahead of a proceeding StreamProcessor
             if (!AllProceedingStreamProcessorsAhead()) {
                 if (Checkpoint == msg.PreviousCheckpoint) {
@@ -326,7 +334,7 @@ namespace EventSaucing.StreamProcessors {
                     // schedule this commit to be resent to us in the future
                     Timers.StartSingleTimer(key: $"commitid:{msg.Commit.CommitId}",
                         msg,
-                        TimeSpan.FromMilliseconds(100));
+                        TimeSpan.FromMilliseconds(10));
                 }
 
                 return;
