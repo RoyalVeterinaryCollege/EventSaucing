@@ -278,13 +278,21 @@ namespace EventSaucing.StreamProcessors {
                 // but we only should do this if all proceeding StreamProcessors are ahead of us, else we build up a big queue of messages we can't do anything with
                 if (AllProceedingStreamProcessorsAhead()) {
                     // guard against sending a commit to self that is ahead of our current checkpoint
-                    if(_catchupCommitStream
-                        .Peek()
-                        .Map(msg => msg.PreviousCheckpoint != Checkpoint)
-                        .GetOrElse(()=> true)) return;
+                    var mbNext = _catchupCommitStream.Peek();
 
-                    var msg = _catchupCommitStream.Next();
-                    Context.Self.Tell(msg);
+                    if(mbNext
+                        .Map(msg => msg.PreviousCheckpoint == Checkpoint)
+                        .GetOrElse(()=> false))
+                    {
+                        var msg = _catchupCommitStream.Next();
+                        //await ReceivedAsync(msg);
+                        Context.Self.Tell(msg);
+                    } else {
+                        //Context.GetLogger().Info("whats happening SP={Checkpoint} msg={PreviousCheckpoint}", Checkpoint, mbNext.Get().PreviousCheckpoint);
+                        return;
+                    } 
+
+                  
                 } else  {
                     Context.GetLogger().Debug("StreamProcessor {StreamProcessor} is in catch-up mode @ {Checkpoint} but is waiting for proceeding StreamProcessors to catch up before processing the next commit", 
                         GetType().Name, Checkpoint);
@@ -303,7 +311,7 @@ namespace EventSaucing.StreamProcessors {
         protected virtual async Task ReceivedAsync(OrderedCommitNotification msg) {
             // never go ahead of a proceeding StreamProcessor
             if (!AllProceedingStreamProcessorsAhead()) {
-                if (Checkpoint <= msg.PreviousCheckpoint) {
+                if (Checkpoint == msg.PreviousCheckpoint) {
                     // this is a commit we want but we can't process it yet as we need proceeding StreamProcessor(s) to process it first
                     // schedule this commit to be resent to us in the future, hopefully in the meantime all proceeding StreamProcessors will have 
                     // processed it
