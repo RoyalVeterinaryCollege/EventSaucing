@@ -146,7 +146,7 @@ namespace EventSaucing.StreamProcessors {
 
                 // if we are in catch up mode, we may be able to process the next commit now
                 if (_isCatchingUp) {
-                    await SendNextCatchUpMessageAsync();
+                    await CatchUpTryAdvanceAsync();
                 }
             }
         }
@@ -255,7 +255,7 @@ namespace EventSaucing.StreamProcessors {
                 .Info($"Catchup started from checkpoint {startingCheckpoint}");
 
             _catchupCommitStream = new OrderedEventStreamer(startingCheckpoint, _persistStreams);
-            await SendNextCatchUpMessageAsync();
+            await CatchUpTryAdvanceAsync();
         }
         /// <summary>
         /// Finishes the catch-up process.  
@@ -270,11 +270,10 @@ namespace EventSaucing.StreamProcessors {
         }
 
         /// <summary>
-        /// If it can, it will send the next catch-up commit to ourselvesso we can advance.
-        /// 
+        /// If it can, it will try to advance Checkpoint by sending the next catch-up commit in the stream to Self.
         /// </summary>
         /// <returns></returns>
-        private async Task SendNextCatchUpMessageAsync() {
+        private async Task CatchUpTryAdvanceAsync() {
             // guard finished
             if (_catchupCommitStream.IsFinished) {
                 await CatchUpFinishAsync();
@@ -285,8 +284,10 @@ namespace EventSaucing.StreamProcessors {
             if (!AllProceedingStreamProcessorsAhead()) {
                 Context
                     .GetLogger()
-                    .Debug("StreamProcessor  is in catch-up mode @ {Checkpoint} but is waiting for proceeding StreamProcessors to advance before processing the next commit"
-                    , Checkpoint);
+                    .Debug("StreamProcessor is in catch-up mode @ {Checkpoint} but is waiting for proceeding StreamProcessors {ProceedingStreamProcessors} to advance before processing the next commit"
+                    , Checkpoint
+                    , string.Join(",",PreceedingStreamProcessors.Select(kv=> $"{kv.Key}:{kv.Value}"))
+                    );
                 return;
             }
 
@@ -296,7 +297,7 @@ namespace EventSaucing.StreamProcessors {
             if (nextCommit.PreviousCheckpoint != Checkpoint) {
                 Context
                     .GetLogger()
-                    .Debug("StreamProcessor is in catch-up mode @ {Checkpoint} but cant advance because its current Checkpoint {Checkpoint} is not the previous checkpoint {PreviousCheckpoint} of the next commit in the catch-up stream" 
+                    .Debug("StreamProcessor is in catch-up mode @ {Checkpoint} but cant advance because its current Checkpoint is not the previous checkpoint {PreviousCheckpoint} of the next commit in the catch-up stream" 
                     , Checkpoint, nextCommit.PreviousCheckpoint);
                 return;
             }
@@ -305,6 +306,7 @@ namespace EventSaucing.StreamProcessors {
             // commit is sent, so we can interleave commits, and <see cref="Messages.AfterStreamProcessorCheckpointStatusSet"/> messages from any proceeding StreamProcessors.
             var msg = _catchupCommitStream.Next();
             Context.Self.Tell(msg);
+            //await ReceivedAsync(msg);
         }
 
         /// <summary>
@@ -316,66 +318,75 @@ namespace EventSaucing.StreamProcessors {
         }
 
         protected virtual async Task ReceivedAsync(OrderedCommitNotification msg) {
-            // never go ahead of a proceeding StreamProcessor
+            // guard going ahead of a proceeding StreamProcessor
             if (!AllProceedingStreamProcessorsAhead()) {
                 if (Checkpoint == msg.PreviousCheckpoint) {
-                    //todo, what about going to sleep instead
+                    // we want to project this commit, but we can't because proceeding StreamProcessors haven't processed it yet
 
-                    // this is a commit we want but we can't process it yet as we need proceeding StreamProcessor(s) to process it first
-                    // schedule this commit to be resent to us in the future, hopefully in the meantime all proceeding StreamProcessors will have 
-                    // processed it
-                    Timers.StartSingleTimer(key: $"commitid:{msg.Commit.CommitId}", msg,
+                    // schedule this commit to be resent to us in the future
+                    Timers.StartSingleTimer(key: $"commitid:{msg.Commit.CommitId}",
+                        msg,
                         TimeSpan.FromMilliseconds(100));
                 }
 
                 return;
             }
 
-            // at this point:
-            // 1. We are behind our proceeding StreamProcessor, or we aren't a sequenced StreamProcessor.
-            // 2. Therefore We are allowed to try to process this commit, if we need to
-
-            // if commit's previous checkpoint matches our current, process
-            if (Checkpoint == msg.PreviousCheckpoint) {
-                // this is the next commit for us to process
-                try {
-                    bool shouldPersistCheckpoint = await ProcessAsync(msg.Commit);
-
-                    // advance to next checkpoint
-                    SetCheckpoint(msg.Commit.CheckpointToken);
-
-                    // save the checkpoint, if we processed it
-                    if (shouldPersistCheckpoint) await PersistCheckpointAsync();
-                } catch (Exception e) {
-                    Context.GetLogger().Error(e,$"Exception caught when StreamProcessor {GetType().FullName} tried to process checkpoint {msg.Commit.CheckpointToken} for aggregate {msg.Commit.AggregateId()}");
-                    // save checkpoint on error, so status table reflects state of StreamProcessor
-                    await PersistCheckpointAsync();
-                    throw;
-                } 
-            }
-            else if (Checkpoint > msg.PreviousCheckpoint) {
+            // guard against receiving a commit we have already processed
+            if (Checkpoint > msg.PreviousCheckpoint) {
                 // we have already processed this commit
                 Context
                     .GetLogger()
-                    .Info($"Received a commit notification for a checkpoint which is in our past (ICommit checkpoint {msg.Commit.CheckpointToken}) behind our checkpoint ({Checkpoint})");
+                    .Debug("Received a commit notification for a checkpoint {Checkpoint} which is behind our checkpoint {Checkpoint}",
+                    msg.Commit.CheckpointToken, Checkpoint);
+                    return;
             }
-            else {
+
+            // if commit's previous checkpoint matches our current, process it
+            if (Checkpoint == msg.PreviousCheckpoint) {
+                await Advance(msg);
+            } else {
                 // this commit is too far ahead to process it. We have fallen behind, catch up
+
+                // if we are in catch-up mode, safe to drop this message
                 if (_isCatchingUp) {
                     // we are already in catch up mode and this msg was likely sent by LocalEventStreamActor
                     // we will eventually see this commit at the right time via Catchup mode, so safe to ignore this message
                     Context
                         .GetLogger()
                         .Debug($"Received a commit notification for a checkpoint which is in our future, but dropped it as we were in catch-up mode (ICommit checkpoint {msg.Commit.CheckpointToken}) ahead of our checkpoint ({Checkpoint}). This ICommit was likely sent by LocalEventStreamActor and doesn't represent a failure.");
-                } else {
-                    // go into catch up mode
-                    await CatchUpStartAsync();
+                    return;
                 }
+
+                // go into catch up mode
+                await CatchUpStartAsync();
             }
 
             // If we are in catch up mode, stream the next commit to Self
             if (_isCatchingUp) {
-                await SendNextCatchUpMessageAsync();
+                await CatchUpTryAdvanceAsync();
+            }
+        }
+
+        /// <summary>
+        /// Advances the StreamProcessor to the next commit by processing it
+        /// </summary>
+        /// <param name="msg"></param>
+        /// <returns></returns>
+        private async Task Advance(OrderedCommitNotification msg) {
+            try {
+                bool shouldPersistCheckpoint = await ProcessAsync(msg.Commit);
+
+                // advance to next checkpoint
+                SetCheckpoint(msg.Commit.CheckpointToken);
+
+                // save the checkpoint, if we processed it
+                if (shouldPersistCheckpoint) await PersistCheckpointAsync();
+            } catch (Exception e) {
+                Context.GetLogger().Error(e,$"Exception caught when StreamProcessor {GetType().FullName} tried to process checkpoint {msg.Commit.CheckpointToken} for aggregate {msg.Commit.AggregateId()}");
+                // save checkpoint on error, so status table reflects state of StreamProcessor
+                await PersistCheckpointAsync();
+                throw;
             }
         }
 
@@ -384,7 +395,6 @@ namespace EventSaucing.StreamProcessors {
         ///
         /// Sharing the Random means that there is no chance that each SP happens to get the same seed as they all initialise at the same point during startup
         /// </summary>
-        static readonly Lazy<Random> Rnd = new Lazy<Random>(() => new Random());
-
+        protected static readonly Lazy<Random> Rnd = new Lazy<Random>(() => new Random());
     }
 }
