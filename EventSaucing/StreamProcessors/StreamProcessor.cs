@@ -80,29 +80,6 @@ namespace EventSaucing.StreamProcessors {
                 }
             }
 
-            public class DependUponStreamProcessors {
-                /// <summary>
-                /// The Type of the SP that depends on the SP listed
-                /// </summary>
-                public Type MyType { get; }
-
-                /// <summary>
-                /// Reference to the StreamProcessor
-                /// </summary>
-                public IActorRef MyRef { get; }
-
-                /// <summary>
-                /// A list of Types of StreamProcessors upon which this StreamProcessor depends. If list is empty, this StreamProcessor depends on no other StreamProcessors.
-                /// </summary>
-                public IReadOnlyList<Type> StreamProcessors { get; }
-
-                public DependUponStreamProcessors(Type myType, IActorRef myRef, IReadOnlyList<Type> streamProcessors) {
-                    MyType = myType;
-                    MyRef = myRef;
-                    StreamProcessors = streamProcessors;
-                }
-            }
-
             /// <summary>
             /// Message published on EventStream after the StreamProcessor's checkpoint changes
             /// </summary>
