@@ -18,7 +18,14 @@ namespace EventSaucing.EventStream {
             _previousCheckpoint = startingCheckpoint;
             FetchNextPage();
         }
+        /// <summary>
+        /// Raised when a new page of ICommits is fetched from store
+        /// </summary>
+        public event System.Action OnPageFetch;
         private void FetchNextPage() {
+            // raise the event
+            OnPageFetch?.Invoke();
+
             // fill queue with next page. 'from' is excluded from this
             // we can't simply stream the whole commit store here as a performance issue in NEventstore makes it run extremely slowly
             foreach (var commit in _persistStreams.GetFrom(_previousCheckpoint).Take(512)) {

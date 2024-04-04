@@ -140,8 +140,8 @@ namespace EventSaucing.StreamProcessors {
                     Sender.Tell(new Failure (e), Self);
                 }
             });
+            ReceiveAsync<Messages.AfterStreamProcessorCheckpointStatusSet>(ReceivedAsync);
         }
-
 
         private void AddMessageCount(object msg)=> MessageCounts[msg.GetType()] = MessageCounts.ContainsKey(msg.GetType()) ? MessageCounts[msg.GetType()] + 1 : 1;
         private async Task ReceivedAsync(Messages.AfterStreamProcessorCheckpointStatusSet msg) {
@@ -210,7 +210,6 @@ namespace EventSaucing.StreamProcessors {
         protected void ProceededBy<T>() where T : StreamProcessor {
             if(!ProceedingStreamProcessors.Any()) {
                 // if this is the first registration, subscribe to these messages, we don't do this by default as there can be a lot of them
-                ReceiveAsync<Messages.AfterStreamProcessorCheckpointStatusSet>(ReceivedAsync);
                 Context.System.EventStream.Subscribe(Self, typeof(Messages.AfterStreamProcessorCheckpointStatusSet));
             }
 
@@ -224,7 +223,11 @@ namespace EventSaucing.StreamProcessors {
         /// <param name="checkpoint"></param>
         protected void SetCheckpoint(long checkpoint) {
             Checkpoint = checkpoint;
-            Context.System.EventStream.Publish(new Messages.AfterStreamProcessorCheckpointStatusSet(GetType(), checkpoint));
+
+            // only publish if we are not catching up. We don't want to spam the event stream with checkpoint updates during catch-up
+            if (!_isCatchingUp) {
+                Context.System.EventStream.Publish(new Messages.AfterStreamProcessorCheckpointStatusSet(GetType(), Checkpoint));
+            }
         }
 
         /// <summary>
@@ -262,14 +265,26 @@ namespace EventSaucing.StreamProcessors {
                 .Info($"Catchup started from checkpoint {startingCheckpoint}");
 
             _catchupCommitStream = new OrderedEventStreamer(startingCheckpoint, _persistStreams);
+            _catchupCommitStream.OnPageFetch += _catchupCommitStream_OnPageFetch;
             await CatchUpTryAdvanceAsync();
         }
+
+        /// <summary>
+        /// When a new page of ICommits is fetched from store, we will update any dependant StreamProcessors
+        /// 
+        /// During CatchUp we don't want to spam the channel
+        /// </summary>
+        private void _catchupCommitStream_OnPageFetch() {
+            Context.System.EventStream.Publish(new Messages.AfterStreamProcessorCheckpointStatusSet(GetType(), Checkpoint));
+        }
+
         /// <summary>
         /// Finishes the catch-up process.  
         /// </summary>
         /// <returns></returns>
         private async Task CatchUpFinishAsync() {
             _isCatchingUp = false;
+            _catchupCommitStream.OnPageFetch -= _catchupCommitStream_OnPageFetch;
             _catchupCommitStream = null;
             await PersistCheckpointAsync();
             await OnCatchupFinishedAsync();

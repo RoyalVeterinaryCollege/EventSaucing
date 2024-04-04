@@ -56,7 +56,7 @@ namespace EventSaucing.StreamProcessors {
             _streamProcessorBroadCastRouter =
                 Context.ActorOf(Props.Empty.WithRouter(new BroadcastGroup(streamProcessors.Map(_ => _.Path.ToString()))),
                     "StreamProcessorBroadcastRouter");
-
+            
             //tell them to catchup, else they will sit and wait for user activity 
             _streamProcessorBroadCastRouter.Tell(StreamProcessor.Messages.CatchUp.Message, Self);
         }
