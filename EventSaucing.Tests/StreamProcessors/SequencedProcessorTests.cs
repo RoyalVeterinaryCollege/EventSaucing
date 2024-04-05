@@ -21,7 +21,7 @@ namespace EventSaucing.StreamProcessors {
            //Don't start timer
         }
 
-        protected override Task CatchUpAsync() {
+        protected override Task CatchUpStartAsync() {
             return Task.CompletedTask;
         }
 
@@ -39,7 +39,7 @@ namespace EventSaucing.StreamProcessors {
     public class FollowingStreamProcessor : ProbingStreamProcessor {
         protected override void PreStart() {
             base.PreStart();
-            base.PreceededBy<ProceedingStreamProcessor>();
+            base.ProceededBy<ProceedingStreamProcessor>();
         }
     }
 

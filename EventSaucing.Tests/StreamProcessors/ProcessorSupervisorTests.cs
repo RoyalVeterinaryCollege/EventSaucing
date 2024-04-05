@@ -34,14 +34,6 @@ namespace EventSaucing.StreamProcessors
         protected virtual void Because() { }
     }
 
-    public class WhenProcessorSupervisorStarts : ProcessorSupervisorTests {
-        [Test]
-        public void Should_send_catchup() {
-            _processor1.ExpectMsg<StreamProcessor.Messages.CatchUp>(TimeSpan.FromMilliseconds(100));
-            _processor2.ExpectMsg<StreamProcessor.Messages.CatchUp>(TimeSpan.FromMilliseconds(100));
-        }
-    }
-
     public class WhenOrderedCommitPublishedOnEventBusProcessorSupervisor : ProcessorSupervisorTests  {
         private OrderedCommitNotification _msg;
 
@@ -52,8 +44,8 @@ namespace EventSaucing.StreamProcessors
             sut.Tell(_msg);
 
             //ignore these ones for this test
-            _processor1.ExpectMsg<StreamProcessor.Messages.CatchUp>();//TimeSpan.FromMilliseconds(100));
-            _processor2.ExpectMsg<StreamProcessor.Messages.CatchUp>(); //TimeSpan.FromMilliseconds(100));
+            //_processor1.ExpectMsg<StreamProcessor.Messages.CatchUp>();//TimeSpan.FromMilliseconds(100));
+            //_processor2.ExpectMsg<StreamProcessor.Messages.CatchUp>(); //TimeSpan.FromMilliseconds(100));
         }
 
         [Test]
