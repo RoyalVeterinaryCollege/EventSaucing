@@ -148,6 +148,9 @@ namespace EventSaucing.StreamProcessors {
             SetCheckpoint(_checkpointPersister.GetInitialCheckpointAsync(this).Result);
             PersistCheckpointAsync().Wait(); // this ensures a persisted checkpoint on first instantiation
             StartTimer();
+
+            // tell self to catch-up, else it will sit and wait for user activity
+            Self.Tell(Messages.CatchUp.Message);
         }
 
         protected override void PostStop() {

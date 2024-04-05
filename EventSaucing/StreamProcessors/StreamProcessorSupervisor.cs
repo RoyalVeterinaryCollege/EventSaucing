@@ -58,7 +58,8 @@ namespace EventSaucing.StreamProcessors {
                     "StreamProcessorBroadcastRouter");
             
             //tell them to catchup, else they will sit and wait for user activity 
-            _streamProcessorBroadCastRouter.Tell(StreamProcessor.Messages.CatchUp.Message, Self);
+            //_streamProcessorBroadCastRouter.Tell(StreamProcessor.Messages.CatchUp.Message, Self);
+            // this has moved to PreStart of the StreamProcessor.  This means SP will catch up after crashing as well.
         }
     }
 }
