@@ -32,6 +32,26 @@ namespace EventSaucing.StreamProcessors {
         /// </summary>
         public static class Messages {
             /// <summary>
+            /// Message sent by StreamProcessor to indicate its status
+            /// </summary>
+            /// <param name="Checkpoint"></param>
+            /// <param name="Name"></param>
+            /// <param name="AkkaAddress"></param>
+            /// <param name="MessageCounts"></param>
+            /// <param name="ProceedingStreamProcessors"></param>
+            /// <param name="IsCatchingUp"></param>
+            /// <param name="Message"></param>
+            public class Status(
+                long Checkpoint,
+                string AkkaAddress,
+                string Name,
+                Dictionary<string, long> MessageCounts,
+                Dictionary<string, long> ProceedingStreamProcessors,
+                bool IsCatchingUp,
+                string Message);
+            
+
+            /// <summary>
             ///     Tell StreamProcessor to catch up by going to commit store to stream commits
             /// </summary>
             public class CatchUp {
@@ -96,7 +116,12 @@ namespace EventSaucing.StreamProcessors {
             /// <summary>
             /// When a StreamProcessor receives this, it will publish its current checkpoint to the event stream.  It's used in catch-up to reduce event stream spam.
             /// </summary>
-            public class PublishCheckpoint{ }
+            public class PublishCheckpoint;
+
+            /// <summary>
+            /// When a StreamProcessor receives this, it will publish its status to the event stream
+            /// </summary>
+            public class PublishStatus;
         }
 
         private const string TimerName = "persist_checkpoint";
@@ -112,7 +137,14 @@ namespace EventSaucing.StreamProcessors {
 
             ReceiveAsync<Messages.CatchUp>(ReceivedAsync);
             ReceiveAsync<OrderedCommitNotification>(ReceivedAsync);
-            ReceiveAsync<Messages.PersistCheckpoint>(msg => { AddMessageCount(msg); return PersistCheckpointAsync();  });
+            ReceiveAsync<Messages.PersistCheckpoint>(msg => {
+                AddMessageCount(msg); 
+                return PersistCheckpointAsync();  
+            });
+            Receive<Messages.PublishStatus>(msg => {
+                AddMessageCount(msg);
+                Context.System.EventStream.Publish(GetStatusMessage());
+            });
             Receive<Messages.SendCurrentCheckpoint>(msg => {
                 AddMessageCount(msg);
                 try {
@@ -124,11 +156,40 @@ namespace EventSaucing.StreamProcessors {
             });
             ReceiveAsync<Messages.AfterStreamProcessorCheckpointStatusSet>(ReceivedAsync);
             Receive<Messages.PublishCheckpoint>(msg => {
+                AddMessageCount(msg); 
                 Context.System.EventStream.Publish(new Messages.AfterStreamProcessorCheckpointStatusSet(GetType(), Checkpoint));
             });
         }
 
-        private void AddMessageCount(object msg)=> MessageCounts[msg.GetType()] = MessageCounts.ContainsKey(msg.GetType()) ? MessageCounts[msg.GetType()] + 1 : 1;
+        /// <summary>
+        /// Gets a message indicating the internal state of the StreamProcessor
+        /// </summary>
+        /// <returns></returns>
+        protected virtual Messages.Status GetStatusMessage() => new (
+            Name:GetType().Name, 
+            AkkaAddress:Self.Path.ToString(),
+            Checkpoint:Checkpoint, 
+            // make a copy of the dictionaries so state not shared 
+            MessageCounts:MessageCounts.Select(kv=>(kv.Key.Name,kv.Value)).ToDictionary(kv=>kv.Name,kv=>kv.Value),
+            ProceedingStreamProcessors:ProceedingStreamProcessors.Select(kv=>(kv.Key.Name,kv.Value)).ToDictionary(kv=>kv.Name,kv=>kv.Value),
+            IsCatchingUp:_isCatchingUp,
+            Message:""
+            );
+
+        /// <summary>
+        /// Keeps a count of messages received by type
+        /// </summary>
+        /// <param name="msg"></param>
+        private void AddMessageCount(object msg) {
+            // increment message count
+            var count = MessageCounts.ContainsKey(msg.GetType()) ? MessageCounts[msg.GetType()] + 1 : 1;
+
+            // handle overflow by resetting to 1
+            if (count == long.MaxValue) count = 1;
+
+            MessageCounts[msg.GetType()] = count;
+        }
+
         private async Task ReceivedAsync(Messages.AfterStreamProcessorCheckpointStatusSet msg) {
             AddMessageCount(msg);
             if (ProceedingStreamProcessors.ContainsKey(msg.MyType)) {
@@ -147,7 +208,7 @@ namespace EventSaucing.StreamProcessors {
         protected override void PreStart() {
             SetCheckpoint(_checkpointPersister.GetInitialCheckpointAsync(this).Result);
             PersistCheckpointAsync().Wait(); // this ensures a persisted checkpoint on first instantiation
-            StartTimer();
+            StartTimers();
 
             // tell self to catch-up, else it will sit and wait for user activity
             Self.Tell(Messages.CatchUp.Message);
@@ -231,13 +292,19 @@ namespace EventSaucing.StreamProcessors {
         /// <summary>
         /// Starts timer to periodically persist checkpoint to db
         /// </summary>
-        protected virtual void StartTimer() {
+        protected virtual void StartTimers() {
             // every 5 seconds, persist our checkpoint to db
             Timers.StartPeriodicTimer(TimerName,
                 Messages.PersistCheckpoint.Message,
                 // random start up delay so SPs don't all hit DB at once
                 TimeSpan.FromMilliseconds(Rnd.Value.Next(2000, 10000)), 
                 TimeSpan.FromSeconds(5));
+
+            // every 10 seconds, publish our status to the event stream
+            Timers.StartPeriodicTimer("publish_status",
+                new Messages.PublishStatus(),
+                TimeSpan.FromSeconds(10)
+            );
         }
 
         /// <summary>
