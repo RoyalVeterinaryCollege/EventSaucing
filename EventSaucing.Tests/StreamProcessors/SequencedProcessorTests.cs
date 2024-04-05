@@ -17,7 +17,7 @@ namespace EventSaucing.StreamProcessors {
             
         }
 
-        protected override void StartTimer() {
+        protected override void StartTimers() {
            //Don't start timer
         }
 

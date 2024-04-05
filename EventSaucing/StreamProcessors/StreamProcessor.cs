@@ -48,8 +48,16 @@ namespace EventSaucing.StreamProcessors {
                 Dictionary<string, long> MessageCounts,
                 Dictionary<string, long> ProceedingStreamProcessors,
                 bool IsCatchingUp,
-                string Message);
-            
+                string Message) {
+                public long Checkpoint { get; } = Checkpoint;
+                public string AkkaAddress { get; } = AkkaAddress;
+                public string Name { get; } = Name;
+                public Dictionary<string, long> MessageCounts { get; } = MessageCounts;
+                public Dictionary<string, long> ProceedingStreamProcessors { get; } = ProceedingStreamProcessors;
+                public bool IsCatchingUp { get; } = IsCatchingUp;
+                public string Message { get; } = Message;
+            }
+
 
             /// <summary>
             ///     Tell StreamProcessor to catch up by going to commit store to stream commits

@@ -23,7 +23,7 @@ namespace EventSaucing.StreamProcessors {
             Receive<Func<ICommit, Task<bool>>>(msg => _processMethod = msg);
         }
 
-        protected override void StartTimer() {
+        protected override void StartTimers() {
             //Don't start timer
         }
 
