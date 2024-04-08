@@ -11,15 +11,15 @@
         /// The last status index we inserted into the statuses array
         /// </summary>
         int _lastStatusIndex = -1;
-        public StreamProcessor.Messages.Status[] Statuses { get; } = new StreamProcessor.Messages.Status[NumberOfStatusToKeep];
+        public StreamProcessor.Messages.InternalState[] Statuses { get; } = new StreamProcessor.Messages.InternalState[NumberOfStatusToKeep];
 
         /// <summary>
         /// Adds a status message to the cache.  If the cache is full, the oldest message is overwritten
         /// </summary>
-        /// <param name="status"></param>
-        public void AddStatus(StreamProcessor.Messages.Status status)  {
+        /// <param name="internalState"></param>
+        public void AddStatus(StreamProcessor.Messages.InternalState internalState)  {
             _lastStatusIndex = (_lastStatusIndex + 1) % NumberOfStatusToKeep;
-            Statuses[_lastStatusIndex] = status;
+            Statuses[_lastStatusIndex] = internalState;
         }
     }
 }

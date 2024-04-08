@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Dispatch.SysMsg;
 using Akka.Routing;
@@ -8,10 +10,33 @@ using Scalesque;
 
 namespace EventSaucing.StreamProcessors {
     public class StreamProcessorSupervisor : ReceiveActor {
+        public class Messages {
+            /// <summary>
+            /// When this message is received on the event stream, the supervisor will publish <cref name="SendStatusesResponse"/> to all stream processors
+            /// </summary>
+            public class SendStatuses;
+            public class SendStatusesResponse {
+                public Dictionary<string, StreamProcessor.Messages.InternalState[]> Statuses { get; }
+
+                public SendStatusesResponse(Dictionary<string, StreamProcessor.Messages.InternalState[]> statuses) {
+                    Statuses = statuses;
+                }
+            }
+        }
         /// <summary>
         /// Broadcast router which forwards any messages it receives to all Stream Processors it manages
         /// </summary>
         private IActorRef _streamProcessorBroadCastRouter;
+
+        /// <summary>
+        /// Number of status messages to keep per stream processor
+        /// </summary>
+        public const int NumberOfStatusMessagesToKeep = 30;
+
+        /// <summary>
+        /// A cache of status messages for stream processors
+        /// </summary>
+        Dictionary<string, StatusMessageCache> _statusMessageCache = new ();
 
         /// <summary>
         /// Instantiates
@@ -28,12 +53,30 @@ namespace EventSaucing.StreamProcessors {
                 var shutdown = await _streamProcessorBroadCastRouter.GracefulStop(TimeSpan.FromSeconds(5), new Stop());
                 return;
             });
+            Receive<StreamProcessor.Messages.InternalState>(Received);
+            Receive<Messages.SendStatuses>(Received);
+        }
+
+        private void Received(Messages.SendStatuses msg) {
+             Sender.Tell(new Messages.SendStatusesResponse(_statusMessageCache.ToDictionary(_ => _.Key, _ => _.Value.Statuses)));
+        }
+
+        /// <summary>
+        /// stash the last n status messages per stream processor, in case we are asked for them
+        /// </summary>
+        /// <param name="msg"></param>
+        private void Received(StreamProcessor.Messages.InternalState msg) {
+            if (!_statusMessageCache.ContainsKey(msg.Name)){
+                _statusMessageCache[msg.Name] = new StatusMessageCache(NumberOfStatusMessagesToKeep);
+            }
+
+            _statusMessageCache[msg.Name].AddStatus(msg);
         }
 
         protected override void PreStart() {
             base.PreStart();
-            //subscribe to ordered event stream and checkpoint changes
             Context.System.EventStream.Subscribe(Self, typeof(OrderedCommitNotification));
+            Context.System.EventStream.Subscribe(Self, typeof(StreamProcessor.Messages.InternalState));
         }
 
         protected override void PostRestart(Exception reason) {
