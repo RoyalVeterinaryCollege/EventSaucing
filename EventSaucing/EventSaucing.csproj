@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Copyright>� The Royal Veterinary College. All Rights Reserved 2023</Copyright>
+    <Copyright>� The Royal Veterinary College. All Rights Reserved 2024</Copyright>
     <AssemblyTitle>Event Saucing</AssemblyTitle>
     <VersionPrefix>1.0.2</VersionPrefix>
     <TargetFramework>netstandard2.0</TargetFramework>
@@ -10,18 +10,31 @@
     <GenerateAssemblyCompanyAttribute>false</GenerateAssemblyCompanyAttribute>
     <GenerateAssemblyProductAttribute>false</GenerateAssemblyProductAttribute>
     <GenerateAssemblyCopyrightAttribute>false</GenerateAssemblyCopyrightAttribute>
-    <Version>2.0.2</Version>
+    <Version>2.0.3</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageProjectUrl>https://github.com/RoyalVeterinaryCollege/EventSaucing</PackageProjectUrl>
     <PackageLicenseUrl></PackageLicenseUrl>
     <RepositoryUrl>https://github.com/RoyalVeterinaryCollege/EventSaucing</RepositoryUrl>
-    <PackageReleaseNotes>EventSaucing 2.  Distributed framework built on Akka. Mulitple instances possible. Better conventions for projects.  Projectors can depend on each other.  </PackageReleaseNotes>
-    <AssemblyVersion>2.0.2.0</AssemblyVersion>
-    <FileVersion>2.0.2.0</FileVersion>
+    <PackageReleaseNotes>Bug fix release:
+
+if an exception occurred in a SP, it would restart but stop catching up until user activity occurred, but since in re-hydration there is no user activity until rehydration completes, they just sat there.  SP now catch up on re-start after a crash automatically.
+
+fixed bug where SPs were registered with Akka with random numbers instead of their names which made debugging harder
+
+fixed bug where during catch up, SPs would spam themselves with commit messages that they couldnt project because they were too far ahead of their checkpoint which meant pointless CPU activity and memory leak
+
+fixed bug where if lots of SPs caught up at the same time (eg rehydration) it generated so many Akka messages that dependent SPs effectively came under a denial of service attack! (think 100,000s messages per second)
+
+fixed bug where dependent SPs stopped catching up with proceeding SPs until user acitivity occurred
+
+fixed bug where a lot of Akka dead letter messages were produced on app start up </PackageReleaseNotes>
+    <AssemblyVersion>2.0.3.0</AssemblyVersion>
+    <FileVersion>2.0.3.0</FileVersion>
     <Description>An event source stack based on NEventStore and Akka</Description>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <Title>EventSaucing 2.0</Title>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>event sourcing;</PackageTags>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DefineConstants>DEBUG;TRACE</DefineConstants>
