@@ -42,16 +42,18 @@ namespace EventSaucing.StreamProcessors {
             /// <param name="isCatchingUp"></param>
             /// <param name="message"></param>
             public class InternalState(
+                string name,
+                DateTime messageCreated,
                 long checkpoint,
                 string akkaAddress,
-                string name,
                 Dictionary<string, long> messageCounts,
                 Dictionary<string, long> proceedingStreamProcessors,
                 bool isCatchingUp,
                 string message) {
+                public string Name { get; } = name;
+                public DateTime MessageCreated { get;  } = messageCreated;
                 public long Checkpoint { get; } = checkpoint;
                 public string AkkaAddress { get; } = akkaAddress;
-                public string Name { get; } = name;
                 public Dictionary<string, long> MessageCounts { get; } = messageCounts;
                 public Dictionary<string, long> ProceedingStreamProcessors { get; } = proceedingStreamProcessors;
                 public bool IsCatchingUp { get; } = isCatchingUp;
@@ -140,8 +142,9 @@ namespace EventSaucing.StreamProcessors {
         /// <returns></returns>
         protected virtual Messages.InternalState GetInternalStateMessage() => new (
             name:GetType().Name, 
-            akkaAddress:Self.Path.ToString(),
+            messageCreated: DateTime.Now,
             checkpoint:Checkpoint, 
+            akkaAddress:Self.Path.ToString(),
             // make a copy of the dictionaries so state not shared 
             messageCounts:MessageCounts.Select(kv=>(kv.Key.Name,kv.Value)).ToDictionary(kv=>kv.Name,kv=>kv.Value),
             proceedingStreamProcessors:ProceedingStreamProcessors.Select(kv=>(kv.Key.Name,kv.Value)).ToDictionary(kv=>kv.Name,kv=>kv.Value),
