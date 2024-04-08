@@ -26,11 +26,11 @@ namespace EventSaucing.StreamProcessors
     }
 
     public class WhenSingleStatusAdded : StatusMessageCacheTests  {
-        private StreamProcessor.Messages.Status _msg;
+        private StreamProcessor.Messages.InternalState _msg;
 
 
         protected override void Because() {
-            _msg = new StreamProcessor.Messages.Status(1, "test", "Parp", new Dictionary<string, long>(), new Dictionary<string, long>(), true, "a message" );
+            _msg = new StreamProcessor.Messages.InternalState( "test", DateTime.Now, 1,"Parp", new Dictionary<string, long>(), new Dictionary<string, long>(), true, "a message" );
             sut.AddStatus(_msg);
         }
 
@@ -49,7 +49,7 @@ namespace EventSaucing.StreamProcessors
         protected override void Because() {
             // add 6 statuses with capacity of 5
             for (int i = 1; i < 7; i++) {
-                sut.AddStatus(new StreamProcessor.Messages.Status(i, "test", "Parp", new Dictionary<string, long>(), new Dictionary<string, long>(), true, "a message" ));
+                sut.AddStatus(new StreamProcessor.Messages.InternalState ( "test", DateTime.Now, i, "Parp", new Dictionary<string, long>(), new Dictionary<string, long>(), true, "a message" ));
             }
         }
 

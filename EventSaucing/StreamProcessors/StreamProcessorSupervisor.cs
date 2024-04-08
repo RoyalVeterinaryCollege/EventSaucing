@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Dispatch.SysMsg;
 using Akka.Routing;
+using DotNetty.Transport.Channels;
 using EventSaucing.EventStream;
 using Scalesque;
 
@@ -15,12 +16,9 @@ namespace EventSaucing.StreamProcessors {
             /// When this message is received on the event stream, the supervisor will publish <cref name="SendStatusesResponse"/> to all stream processors
             /// </summary>
             public class SendStatuses;
-            public class SendStatusesResponse {
-                public Dictionary<string, StreamProcessor.Messages.InternalState[]> Statuses { get; }
-
-                public SendStatusesResponse(Dictionary<string, StreamProcessor.Messages.InternalState[]> statuses) {
-                    Statuses = statuses;
-                }
+            public class SendStatusesResponse(
+                Dictionary<string, List<StreamProcessor.Messages.InternalState>> statuses) {
+                public Dictionary<string, List<StreamProcessor.Messages.InternalState>> Statuses { get; } = statuses;
             }
         }
         /// <summary>
@@ -58,7 +56,7 @@ namespace EventSaucing.StreamProcessors {
         }
 
         private void Received(Messages.SendStatuses msg) {
-             Sender.Tell(new Messages.SendStatusesResponse(_statusMessageCache.ToDictionary(_ => _.Key, _ => _.Value.Statuses)));
+             Sender.Tell(new Messages.SendStatusesResponse(_statusMessageCache.ToDictionary(_ => _.Key, _ => _.Value.Statuses.Where(x=>x is not null).ToList())));
         }
 
         /// <summary>

@@ -183,9 +183,9 @@ namespace EventSaucing.StreamProcessors {
             _followingProcessor.Tell(newCommit);
 
             var followerCheckpoint = _followingProcessor
-                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(StreamProcessor.Messages.SendCurrentCheckpoint.Message);
+                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(new StreamProcessor.Messages.SendCurrentCheckpoint());
             var proceedingCheckPoint = _proceedingProcessor
-                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(StreamProcessor.Messages.SendCurrentCheckpoint.Message);
+                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(new StreamProcessor.Messages.SendCurrentCheckpoint());
 
             Task.WaitAll(proceedingCheckPoint, followerCheckpoint);
             _followingCurrentCheckpoint = followerCheckpoint.Result;
@@ -229,9 +229,9 @@ namespace EventSaucing.StreamProcessors {
             Task.Delay(1000).Wait();
 
             var checkpointDep = _followingProcessor
-                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(StreamProcessor.Messages.SendCurrentCheckpoint.Message);
+                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(new StreamProcessor.Messages.SendCurrentCheckpoint());
             var checkpointInd = _proceedingProcessor
-                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(StreamProcessor.Messages.SendCurrentCheckpoint.Message);
+                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(new StreamProcessor.Messages.SendCurrentCheckpoint());
 
             Task.WaitAll(checkpointInd, checkpointDep);
             _followingCurrentCheckpoint = checkpointDep.Result;
