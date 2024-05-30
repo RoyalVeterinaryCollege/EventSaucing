@@ -48,11 +48,12 @@ fixed bug where a lot of Akka dead letter messages were produced on app start up
     <NoWarn>1701;1702;CS0618</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Akka.Cluster.Sharding" Version="1.5.14" />
-    <PackageReference Include="Akka.Cluster.Tools" Version="1.5.14" />
-    <PackageReference Include="Akka.DependencyInjection" Version="1.5.14" />
-    <PackageReference Include="Akka.Persistence" Version="1.5.14" />
-    <PackageReference Include="Akka.Persistence.SqlServer" Version="1.5.13" />
+    <PackageReference Include="Akka" Version="1.5.21" />
+    <PackageReference Include="Akka.Cluster.Sharding" Version="1.5.21" />
+    <PackageReference Include="Akka.Cluster.Tools" Version="1.5.21" />
+    <PackageReference Include="Akka.DependencyInjection" Version="1.5.21" />
+    <PackageReference Include="Akka.Persistence" Version="1.5.21" />
+    <PackageReference Include="Akka.Persistence.SqlServer" Version="1.5.15" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
     <PackageReference Include="Dapper" Version="2.1.21" />
