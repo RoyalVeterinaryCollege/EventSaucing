@@ -76,6 +76,7 @@ namespace EventSaucing.StreamProcessors {
             public class CurrentCheckpoint(Type myType, long checkpoint) {
                 public Type MyType { get; } = myType;
                 public long Checkpoint { get; } = checkpoint;
+                public override string ToString() => $"{MyType.Name} @ {Checkpoint}";
             }
 
             /// <summary>

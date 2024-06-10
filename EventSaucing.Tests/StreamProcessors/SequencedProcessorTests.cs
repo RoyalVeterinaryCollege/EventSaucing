@@ -127,6 +127,7 @@ namespace EventSaucing.StreamProcessors {
             var orderedCommitNotification = new OrderedCommitNotification(
                 new FakeCommit { CheckpointToken = 11L }, 10L);
             _proceedingProcessor.Tell(orderedCommitNotification);
+            Task.Delay(500).Wait(); // need to force a delay, else proceeding doesnt have time to send its status, and following goes into catch up mode which requires an integration test with db to test.
             _followingProcessor.Tell(orderedCommitNotification);
 
             _publishedMessages = _probe.ReceiveN(4)
@@ -225,8 +226,13 @@ namespace EventSaucing.StreamProcessors {
             _followingProcessor.Tell(newCommit);
             _proceedingProcessor.Tell(newCommit);
 
+            // allow time for messages to be processed
+            Task.Delay(200).Wait();
+
+            // following will have gone into catch up mode but that requires an integration test with db to test. We will simulate this by sending commit again.
+            _followingProcessor.Tell(newCommit);
+
             // give follower time to process all the messages
-            Task.Delay(1000).Wait();
 
             var checkpointDep = _followingProcessor
                 .Ask<StreamProcessor.Messages.CurrentCheckpoint>(new StreamProcessor.Messages.PublishCheckpoint());
