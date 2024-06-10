@@ -55,11 +55,11 @@ namespace EventSaucing.StreamProcessors {
 
     public class When_processor_doesnt_throw_error_during_processing : ProcessorErrorHandlingTests {
         private TestProbe _probe;
-        private List<StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet> _publishedMessages;
+        private List<StreamProcessor.Messages.CurrentCheckpoint> _publishedMessages;
 
         protected override void Because() {
             _probe = CreateTestProbe();
-            Sys.EventStream.Subscribe(_probe, typeof(StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet));
+            Sys.EventStream.Subscribe(_probe, typeof(StreamProcessor.Messages.CurrentCheckpoint));
 
             base.Because();
 
@@ -73,7 +73,7 @@ namespace EventSaucing.StreamProcessors {
                 new FakeCommit { CheckpointToken = 11L }, 10L));
 
             _publishedMessages = _probe.ReceiveN(2)
-                .Select(x => (StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet)x)
+                .Select(x => (StreamProcessor.Messages.CurrentCheckpoint)x)
                 .ToList();
         }
 
@@ -95,11 +95,11 @@ namespace EventSaucing.StreamProcessors {
     // This is because the only difference between a processor which throws, and one which doesnt is the logging of the error
     public class WhenProcessorDoesThrowErrorDuringProcessing : ProcessorErrorHandlingTests {
         private TestProbe _probe;
-        private List<StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet> _publishedMessages;
+        private List<StreamProcessor.Messages.CurrentCheckpoint> _publishedMessages;
 
         protected override void Because() {
             _probe = CreateTestProbe();
-            Sys.EventStream.Subscribe(_probe, typeof(StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet));
+            Sys.EventStream.Subscribe(_probe, typeof(StreamProcessor.Messages.CurrentCheckpoint));
 
             base.Because();
 
@@ -113,7 +113,7 @@ namespace EventSaucing.StreamProcessors {
                 new FakeCommit { CheckpointToken = 11L }, 10L));
 
             _publishedMessages = _probe.ReceiveN(2, TimeSpan.FromDays(1))
-                .Select(x => (StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet)x)
+                .Select(x => (StreamProcessor.Messages.CurrentCheckpoint)x)
                 .ToList();
         }
 
@@ -122,7 +122,7 @@ namespace EventSaucing.StreamProcessors {
             _publishedMessages
                 .First()
                 .Should()
-                .BeOfType<StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet>()
+                .BeOfType<StreamProcessor.Messages.CurrentCheckpoint>()
                 .Which.Checkpoint.Should().Be(10L);
         }
 
@@ -131,7 +131,7 @@ namespace EventSaucing.StreamProcessors {
             _publishedMessages
                 .Last()
                 .Should()
-                .BeOfType<StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet>()
+                .BeOfType<StreamProcessor.Messages.CurrentCheckpoint>()
                 .Which.Checkpoint.Should().Be(10L);
         }
     }

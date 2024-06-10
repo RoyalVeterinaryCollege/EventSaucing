@@ -110,8 +110,10 @@ namespace EventSaucing.StreamProcessors {
             });
             ReceiveAsync<Messages.CurrentCheckpoint>(ReceivedAsync);
             Receive<Messages.PublishCheckpoint>(msg => {
-                AddMessageCount(msg); 
-                Context.System.EventStream.Publish(new Messages.CurrentCheckpoint(GetType(), Checkpoint));
+                AddMessageCount(msg);
+                var currentCheckpoint = new Messages.CurrentCheckpoint(GetType(), Checkpoint);
+                Context.System.EventStream.Publish(currentCheckpoint);
+                Sender.Tell(currentCheckpoint); // also tell sender the current checkpoint (makes testing easier)
             });
         }
 
@@ -157,7 +159,7 @@ namespace EventSaucing.StreamProcessors {
                 if (_isCatchingUp) {
                     await CatchUpTryAdvanceAsync();
                 } else if (AllProceedingStreamProcessorsAhead()) {
-                    // we are not in catch up mode, but we may have fallen behind, catch up
+                    // we are not in catch up mode, but we have fallen behind, catch up
                     await CatchUpStartAsync();
                 }
             }

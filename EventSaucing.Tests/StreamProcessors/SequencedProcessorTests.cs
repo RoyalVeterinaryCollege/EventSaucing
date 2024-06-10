@@ -51,7 +51,7 @@ namespace EventSaucing.StreamProcessors {
 
         protected IActorRef InitialiseProcessor<T>() where T : ProbingStreamProcessor, new() {
             var processor = Sys.ActorOf<T>(typeof(T).FullName);
-            Sys.EventStream.Subscribe(processor, typeof(StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet));
+            Sys.EventStream.Subscribe(processor, typeof(StreamProcessor.Messages.CurrentCheckpoint));
             return processor;
         }
 
@@ -65,11 +65,11 @@ namespace EventSaucing.StreamProcessors {
         private IActorRef _proceedingProcessor;
         private IActorRef _followingProcessor;
         private TestProbe _probe;
-        private IEnumerable<StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet> _publishedMessages;
+        private IEnumerable<StreamProcessor.Messages.CurrentCheckpoint> _publishedMessages;
 
         protected override void Because() {
             _probe = CreateTestProbe();
-            Sys.EventStream.Subscribe(_probe, typeof(StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet));
+            Sys.EventStream.Subscribe(_probe, typeof(StreamProcessor.Messages.CurrentCheckpoint));
 
             //both initialised at checkpoint 10
             //the order of creation matters here. We need to create follower first because otherwise it wont receive proceeder's Processor.Messages.AfterProcessorCheckpointStatusSet
@@ -80,7 +80,7 @@ namespace EventSaucing.StreamProcessors {
             _proceedingProcessor.Tell(new OrderedCommitNotification(new FakeCommit { CheckpointToken = 11L },10L));
 
             _publishedMessages = _probe.ReceiveN(3)
-                .Select(x => (StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet)x)
+                .Select(x => (StreamProcessor.Messages.CurrentCheckpoint)x)
                 .ToList();
         }
 
@@ -110,11 +110,11 @@ namespace EventSaucing.StreamProcessors {
         private IActorRef _proceedingProcessor;
         private IActorRef _followingProcessor;
         private TestProbe _probe;
-        private IEnumerable<StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet> _publishedMessages;
+        private IEnumerable<StreamProcessor.Messages.CurrentCheckpoint> _publishedMessages;
 
         protected override void Because() {
             _probe = CreateTestProbe();
-            Sys.EventStream.Subscribe(_probe, typeof(StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet));
+            Sys.EventStream.Subscribe(_probe, typeof(StreamProcessor.Messages.CurrentCheckpoint));
 
 
             //both initialised at checkpoint 10
@@ -130,7 +130,7 @@ namespace EventSaucing.StreamProcessors {
             _followingProcessor.Tell(orderedCommitNotification);
 
             _publishedMessages = _probe.ReceiveN(4)
-                .Select(x => (StreamProcessor.Messages.AfterStreamProcessorCheckpointStatusSet)x)
+                .Select(x => (StreamProcessor.Messages.CurrentCheckpoint)x)
                 .ToList();
         }
 
@@ -183,9 +183,9 @@ namespace EventSaucing.StreamProcessors {
             _followingProcessor.Tell(newCommit);
 
             var followerCheckpoint = _followingProcessor
-                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(new StreamProcessor.Messages.SendCurrentCheckpoint());
+                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(new StreamProcessor.Messages.PublishCheckpoint());
             var proceedingCheckPoint = _proceedingProcessor
-                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(new StreamProcessor.Messages.SendCurrentCheckpoint());
+                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(new StreamProcessor.Messages.PublishCheckpoint());
 
             Task.WaitAll(proceedingCheckPoint, followerCheckpoint);
             _followingCurrentCheckpoint = followerCheckpoint.Result;
@@ -229,9 +229,9 @@ namespace EventSaucing.StreamProcessors {
             Task.Delay(1000).Wait();
 
             var checkpointDep = _followingProcessor
-                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(new StreamProcessor.Messages.SendCurrentCheckpoint());
+                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(new StreamProcessor.Messages.PublishCheckpoint());
             var checkpointInd = _proceedingProcessor
-                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(new StreamProcessor.Messages.SendCurrentCheckpoint());
+                .Ask<StreamProcessor.Messages.CurrentCheckpoint>(new StreamProcessor.Messages.PublishCheckpoint());
 
             Task.WaitAll(checkpointInd, checkpointDep);
             _followingCurrentCheckpoint = checkpointDep.Result;
