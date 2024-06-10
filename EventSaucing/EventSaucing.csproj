@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Copyright>� The Royal Veterinary College. All Rights Reserved 2024</Copyright>
+    <Copyright>The Royal Veterinary College. All Rights Reserved 2024</Copyright>
     <AssemblyTitle>Event Saucing</AssemblyTitle>
     <VersionPrefix>1.0.2</VersionPrefix>
     <TargetFramework>netstandard2.0</TargetFramework>
@@ -10,7 +10,7 @@
     <GenerateAssemblyCompanyAttribute>false</GenerateAssemblyCompanyAttribute>
     <GenerateAssemblyProductAttribute>false</GenerateAssemblyProductAttribute>
     <GenerateAssemblyCopyrightAttribute>false</GenerateAssemblyCopyrightAttribute>
-    <Version>2.0.4</Version>
+    <Version>2.0.5</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageProjectUrl>https://github.com/RoyalVeterinaryCollege/EventSaucing</PackageProjectUrl>
     <PackageLicenseUrl></PackageLicenseUrl>
@@ -18,8 +18,8 @@
     <PackageReleaseNotes>Upgraded Akka version to fix critical bug
 
 </PackageReleaseNotes>
-    <AssemblyVersion>2.0.4.0</AssemblyVersion>
-    <FileVersion>2.0.4.0</FileVersion>
+    <AssemblyVersion>2.0.5.0</AssemblyVersion>
+    <FileVersion>2.0.5.0</FileVersion>
     <Description>An event source stack based on NEventStore and Akka</Description>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <Title>EventSaucing 2.0</Title>
