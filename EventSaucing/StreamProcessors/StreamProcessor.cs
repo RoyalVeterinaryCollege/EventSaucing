@@ -270,7 +270,7 @@ namespace EventSaucing.StreamProcessors {
             // every 5 seconds publish our checkpoint to the event stream (required by any dependent StreamProcessors)
             Timers.StartPeriodicTimer("publish_checkpoint",
                 new Messages.PublishCheckpoint(),
-                TimeSpan.FromSeconds(5)
+                TimeSpan.FromMilliseconds(200)
             );
         }
 
