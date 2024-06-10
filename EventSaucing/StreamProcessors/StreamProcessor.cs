@@ -71,34 +71,22 @@ namespace EventSaucing.StreamProcessors {
             public class PersistCheckpoint;
 
             /// <summary>
-            /// Asks StreamProcessor to send its current checkpoint. Replies with <see cref="CurrentCheckpoint"/>
-            /// </summary>
-            public class SendCurrentCheckpoint;
-
-            /// <summary>
-            /// A reply to the <see cref="CurrentCheckpoint"/> message
-            /// </summary>
-            public class CurrentCheckpoint(long checkpoint) {
-                public long Checkpoint { get; } = checkpoint;
-            }
-
-            /// <summary>
             /// Message published on EventStream after the StreamProcessor's checkpoint changes
             /// </summary>
-            public class AfterStreamProcessorCheckpointStatusSet(Type myType, long checkpoint) {
+            public class CurrentCheckpoint(Type myType, long checkpoint) {
                 public Type MyType { get; } = myType;
                 public long Checkpoint { get; } = checkpoint;
             }
 
             /// <summary>
-            /// When a StreamProcessor receives this, it will publish its current checkpoint to the event stream.  It's used in catch-up to reduce event stream spam.
+            /// When a StreamProcessor receives this, it will publish its <see cref="CurrentCheckpoint"/> to the event stream.  It's used in catch-up to reduce event stream spam.
             /// </summary>
             public class PublishCheckpoint;
 
             /// <summary>
-            /// When a StreamProcessor receives this, it will publish its status to the event stream
+            /// When a StreamProcessor receives this, it will publish <see cref="InternalState"/> message to the event stream
             /// </summary>
-            public class PublishStatus;
+            public class PublishInternalState;
         }
 
         /// <summary>
@@ -116,23 +104,14 @@ namespace EventSaucing.StreamProcessors {
                 AddMessageCount(msg); 
                 return PersistCheckpointAsync();  
             });
-            Receive<Messages.PublishStatus>(msg => {
+            Receive<Messages.PublishInternalState>(msg => {
                 AddMessageCount(msg);
                 Context.System.EventStream.Publish(GetInternalStateMessage());
             });
-            Receive<Messages.SendCurrentCheckpoint>(msg => {
-                AddMessageCount(msg);
-                try {
-                    Sender.Tell(new Messages.CurrentCheckpoint(Checkpoint), Self);
-                }
-                catch (Exception e) {
-                    Sender.Tell(new Failure (e), Self);
-                }
-            });
-            ReceiveAsync<Messages.AfterStreamProcessorCheckpointStatusSet>(ReceivedAsync);
+            ReceiveAsync<Messages.CurrentCheckpoint>(ReceivedAsync);
             Receive<Messages.PublishCheckpoint>(msg => {
                 AddMessageCount(msg); 
-                Context.System.EventStream.Publish(new Messages.AfterStreamProcessorCheckpointStatusSet(GetType(), Checkpoint));
+                Context.System.EventStream.Publish(new Messages.CurrentCheckpoint(GetType(), Checkpoint));
             });
         }
 
@@ -166,14 +145,20 @@ namespace EventSaucing.StreamProcessors {
             MessageCounts[msg.GetType()] = count;
         }
 
-        private async Task ReceivedAsync(Messages.AfterStreamProcessorCheckpointStatusSet msg) {
+        private async Task ReceivedAsync(Messages.CurrentCheckpoint msg) {
             AddMessageCount(msg);
             if (ProceedingStreamProcessors.ContainsKey(msg.MyType)) {
+                // guard against receiving same checkpoint multiple times (SP send out their status every 5 seconds, not just when it changes)
+                if (ProceedingStreamProcessors[msg.MyType] == msg.Checkpoint) return;
+
                 ProceedingStreamProcessors[msg.MyType] = msg.Checkpoint;
 
                 // if we are in catch up mode, we may be able to process the next commit now
                 if (_isCatchingUp) {
                     await CatchUpTryAdvanceAsync();
+                } else if (AllProceedingStreamProcessorsAhead()) {
+                    // we are not in catch up mode, but we may have fallen behind, catch up
+                    await CatchUpStartAsync();
                 }
             }
         }
@@ -235,7 +220,7 @@ namespace EventSaucing.StreamProcessors {
         protected void ProceededBy<T>() where T : StreamProcessor {
             if(!ProceedingStreamProcessors.Any()) {
                 // if this is the first registration, subscribe to these messages, we don't do this by default as there can be a lot of them
-                Context.System.EventStream.Subscribe(Self, typeof(Messages.AfterStreamProcessorCheckpointStatusSet));
+                Context.System.EventStream.Subscribe(Self, typeof(Messages.CurrentCheckpoint));
             }
 
             var type = typeof(T);
@@ -251,7 +236,7 @@ namespace EventSaucing.StreamProcessors {
 
             // only publish if we are not catching up. We don't want to spam the event stream with checkpoint updates during catch-up
             if (!_isCatchingUp) {
-                Context.System.EventStream.Publish(new Messages.AfterStreamProcessorCheckpointStatusSet(GetType(), Checkpoint));
+                Context.System.EventStream.Publish(new Messages.CurrentCheckpoint(GetType(), Checkpoint));
             }
         }
 
@@ -278,7 +263,7 @@ namespace EventSaucing.StreamProcessors {
 
             // every 10 seconds, publish our internal status to the event stream
             Timers.StartPeriodicTimer("publish_status",
-                new Messages.PublishStatus(),
+                new Messages.PublishInternalState(),
                 TimeSpan.FromSeconds(10)
             );
 
@@ -359,7 +344,6 @@ namespace EventSaucing.StreamProcessors {
             // commit is sent, so we can interleave commits, and <see cref="Messages.AfterStreamProcessorCheckpointStatusSet"/> messages from any proceeding StreamProcessors.
             var msg = _catchupCommitStream.Next();
             Context.Self.Tell(msg);
-            //await ReceivedAsync(msg);
         }
 
         /// <summary>
@@ -372,17 +356,9 @@ namespace EventSaucing.StreamProcessors {
 
         protected virtual async Task ReceivedAsync(OrderedCommitNotification msg) {
             AddMessageCount(msg);
+
             // guard going ahead of a proceeding StreamProcessor
             if (!AllProceedingStreamProcessorsAhead()) {
-                if (Checkpoint == msg.PreviousCheckpoint) {
-                    // we want to project this commit, but we can't because proceeding StreamProcessors haven't processed it yet
-
-                    // schedule this commit to be resent to us in the future
-                    Timers.StartSingleTimer(key: $"commitid:{msg.Commit.CommitId}",
-                        msg,
-                        TimeSpan.FromMilliseconds(10));
-                }
-
                 return;
             }
 
