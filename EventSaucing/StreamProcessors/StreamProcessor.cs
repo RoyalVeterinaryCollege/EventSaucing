@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Akka.Actor;
+using Akka.DistributedData;
 using Akka.Event;
 using EventSaucing.EventStream;
 using EventSaucing.NEventStore;
@@ -82,7 +83,12 @@ namespace EventSaucing.StreamProcessors {
             /// <summary>
             /// When a StreamProcessor receives this, it will publish its <see cref="CurrentCheckpoint"/> to the event stream.  It's used in catch-up to reduce event stream spam.
             /// </summary>
-            public class PublishCheckpoint;
+            public class PublishCheckpoint(bool reply = false) {
+                /// <summary>
+                /// If true, the StreamProcessor will reply to the sender with the current checkpoint as well as publishing it to the event stream
+                /// </summary>
+                public bool Reply { get; } = reply;
+            }
 
             /// <summary>
             /// When a StreamProcessor receives this, it will publish <see cref="InternalState"/> message to the event stream
@@ -114,7 +120,7 @@ namespace EventSaucing.StreamProcessors {
                 AddMessageCount(msg);
                 var currentCheckpoint = new Messages.CurrentCheckpoint(GetType(), Checkpoint);
                 Context.System.EventStream.Publish(currentCheckpoint);
-                Sender.Tell(currentCheckpoint); // also tell sender the current checkpoint (makes testing easier)
+                if(msg.Reply) Sender.Tell(currentCheckpoint); // also tell sender the current checkpoint (makes testing easier)
             });
         }
 
@@ -272,7 +278,7 @@ namespace EventSaucing.StreamProcessors {
 
             // every 5 seconds publish our checkpoint to the event stream (required by any dependent StreamProcessors)
             Timers.StartPeriodicTimer("publish_checkpoint",
-                new Messages.PublishCheckpoint(),
+                new Messages.PublishCheckpoint(reply:false),
                 TimeSpan.FromMilliseconds(200)
             );
         }
@@ -306,7 +312,7 @@ namespace EventSaucing.StreamProcessors {
             await OnCatchupFinishedAsync();
 
             // publish our checkpoint to the event stream
-            Self.Tell(new Messages.PublishCheckpoint());
+            Self.Tell(new Messages.PublishCheckpoint(reply:false));;
             Context.GetLogger().Info($"Catchup finished at {Checkpoint}");
         }
 
