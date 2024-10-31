@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using Akka.Actor;
 using Akka.TestKit;
-using Akka.TestKit.NUnit3;
+using Akka.TestKit.NUnit;
 using EventSaucing.EventStream;
 using NUnit.Framework;
 

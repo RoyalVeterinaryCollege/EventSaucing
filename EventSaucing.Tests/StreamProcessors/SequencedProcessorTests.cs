@@ -3,7 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.TestKit;
-using Akka.TestKit.NUnit3;
+using Akka.TestKit.NUnit;
 using EventSaucing.EventStream;
 using FluentAssertions;
 using NEventStore;

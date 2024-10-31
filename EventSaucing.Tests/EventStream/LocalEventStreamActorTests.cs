@@ -1,7 +1,7 @@
 ﻿using System;
 using Akka.Actor;
 using Akka.TestKit;
-using Akka.TestKit.NUnit3;
+using Akka.TestKit.NUnit;
 using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
