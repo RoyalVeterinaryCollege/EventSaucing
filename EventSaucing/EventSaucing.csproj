@@ -44,9 +44,9 @@
     <PackageReference Include="Akka.DependencyInjection" Version="1.5.30" />
     <PackageReference Include="Akka.Persistence" Version="1.5.30" />
     <PackageReference Include="Akka.Persistence.SqlServer" Version="1.5.30" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
-    <PackageReference Include="Dapper" Version="2.1.21" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
+    <PackageReference Include="Dapper" Version="2.1.35" />
     <PackageReference Include="NEventStore.Domain" Version="9.1.1" />
     <PackageReference Include="NEventStore.Persistence.Sql" Version="9.1.2" />
     <PackageReference Include="NEventStore.Serialization.Json" Version="9.1.1" />
