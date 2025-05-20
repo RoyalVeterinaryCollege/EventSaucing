@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.DistributedData;
@@ -167,7 +168,9 @@ namespace EventSaucing.StreamProcessors {
                     await CatchUpTryAdvanceAsync();
                 } else if (AllProceedingStreamProcessorsAhead()) {
                     // we are not in catch up mode, but we have fallen behind, catch up
-                    await CatchUpStartAsync();
+                    string proceedingStreamProcessorNames = string.Join(",", ProceedingStreamProcessors.Select(kv => $"{kv.Key.Name}:{kv.Value}"));
+                    string catchupReason =$"StreamProcessor going into catchup mode @ {Checkpoint} as ProceedingStreamProcessors have advanced beyond our checkpoint: {proceedingStreamProcessorNames}";
+					await CatchUpStartAsync(catchupReason);
                 }
             }
         }
@@ -256,7 +259,8 @@ namespace EventSaucing.StreamProcessors {
 
         private async Task ReceivedAsync(Messages.CatchUp arg) {
             AddMessageCount(arg);
-            if (!_isCatchingUp) await CatchUpStartAsync();
+            
+            if (!_isCatchingUp) await CatchUpStartAsync($"Received CatchUp message from {Context.Sender.Path}");
         }
 
         /// <summary>
@@ -283,17 +287,18 @@ namespace EventSaucing.StreamProcessors {
             );
         }
 
+     
         /// <summary>
         /// Starts the catch-up process where commits are streamed from the commit store.  
         /// </summary>
         /// <returns></returns>
-        protected virtual async Task CatchUpStartAsync() {
+        protected virtual async Task CatchUpStartAsync(string catchUpReason) {
             _isCatchingUp = true;
 
             //load all commits after our current checkpoint from db
             var startingCheckpoint = Checkpoint;
             Context.GetLogger()
-                .Info($"Catchup started from checkpoint {startingCheckpoint}");
+                .Info($"Catchup started from checkpoint {Checkpoint} because {catchUpReason}");
 
             _catchupCommitStream = new OrderedEventStreamer(startingCheckpoint, _persistStreams);
            
@@ -398,7 +403,7 @@ namespace EventSaucing.StreamProcessors {
                 }
 
                 // go into catch up mode
-                await CatchUpStartAsync();
+                await CatchUpStartAsync($"Our {Checkpoint} checkpoint has fallen behind OrderedCommitNotification stream {msg.Commit.CheckpointToken} checkpoint");
             }
 
             // If we are in catch up mode, stream the next commit to Self
