@@ -5,7 +5,6 @@ using Autofac.Extensions.DependencyInjection;
 using Dapper;
 using DbUp;
 using DbUp.Engine;
-using Microsoft.Data.SqlClient;
 using Serilog;
 using Serilog.Events;
 
