@@ -108,10 +108,7 @@ namespace EventSaucing.StreamProcessors {
 
             ReceiveAsync<Messages.CatchUp>(ReceivedAsync);
             ReceiveAsync<OrderedCommitNotification>(ReceivedAsync);
-            ReceiveAsync<Messages.PersistCheckpoint>(msg => {
-                AddMessageCount(msg); 
-                return PersistCheckpointAsync();  
-            });
+            ReceiveAsync<Messages.PersistCheckpoint>(ReceivedAsync);
             Receive<Messages.PublishInternalState>(msg => {
                 AddMessageCount(msg);
                 Context.System.EventStream.Publish(GetInternalStateMessage());
@@ -123,6 +120,11 @@ namespace EventSaucing.StreamProcessors {
                 Context.System.EventStream.Publish(currentCheckpoint);
                 if(msg.Reply) Sender.Tell(currentCheckpoint); // also tell sender the current checkpoint (makes testing easier)
             });
+        }
+
+        private async Task ReceivedAsync(Messages.PersistCheckpoint msg) {
+	        AddMessageCount(msg);
+	        await PersistCheckpointAsync();
         }
 
         /// <summary>
