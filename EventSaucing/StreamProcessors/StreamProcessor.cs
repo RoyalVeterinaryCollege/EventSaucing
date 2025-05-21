@@ -199,7 +199,7 @@ namespace EventSaucing.StreamProcessors {
         /// Persist checkpoint to db
         /// </summary>
         /// <returns></returns>
-        protected virtual Task PersistCheckpointAsync() => _checkpointPersister.PersistCheckpointAsync(this, Checkpoint);
+        protected virtual async Task PersistCheckpointAsync() => await _checkpointPersister.PersistCheckpointAsync(this, Checkpoint);
 
         /// <summary>
         /// Processes the commit.  
